@@ -12,7 +12,7 @@ This tutorial has been tested and confirmed to work seamlessly on the specificat
 
 |      OS       |          CPU          | Memory |    LLM     |      Status      |
 |:-------------:|:---------------------:|:------:|:----------:|:----------------:|
-|  Tahoe 26.2   |        M3 Pro         |  36GB  | gemma4:26b | Verified Working |
+|  Tahoe 26.2   |        M3 Pro         |  36GB  | gemma4:e4b | Verified Working |
 | Ubuntu 24 LTS | Intel Core i7-11700KF |  32GB  | gemma4:e4b | Verified Working |
 
 ## Install Packages
