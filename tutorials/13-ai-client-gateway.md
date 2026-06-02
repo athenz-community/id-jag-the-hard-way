@@ -9,7 +9,24 @@ In this tutorial, we will deploy the `AI Client Gateway`, which acts as an inter
 - Open WebUI (The AI Client Agent)
 - MCP Server (Authorization Proxy)
 
-## What's ID-JAG?
+with the following steps:
+
+<!-- TOC depthFrom:2 depthTo:2 -->
+
+- [Learn about ID-JAG?](#learn-about-id-jag)
+- [Understand How the ID-JAG Specification Helps Us](#understand-how-the-id-jag-specification-helps-us)
+- [Run the AI Client Proxy](#run-the-ai-client-proxy)
+- [Generate the Required Certificates](#generate-the-required-certificates)
+- [Run the Server Again](#run-the-server-again)
+- [What's done?](#whats-done)
+- [Modify the Tool Target](#modify-the-tool-target)
+- [Verify](#verify)
+- [What's happened?](#whats-happened)
+- [What's next?](#whats-next)
+
+<!-- /TOC -->
+
+## Learn about ID-JAG?
 
 ID-JAG (Identity Assertion JWT Authorization Grant) is a proposed authorization standard, primarily championed by companies like Okta. It extends the trust model of Single Sign-On (SSO) into the realm of API access. In short, it applies the trust established with an Identity Provider (IdP) during SSO to secure API access between applications, or between an AI agent and a backend service.
 

@@ -6,6 +6,15 @@
 
 In this tutorial, we will finally resolve the authorization issues encountered in the previous step. We will configure the proper token exchange policies in Athenz, allowing the AI Client Gateway to successfully exchange your Keycloak ID Token for an ID-JAG token. Once these permissions are in place, we will execute the end-to-end prompt to confirm the integration works seamlessly.
 
+<!-- TOC depthFrom:2 depthTo:2 -->
+
+- [Grant Permissions to `ai.open-webui`](#grant-permissions-to-aiopen-webui)
+- [Verify](#verify)
+- [What's happened?](#whats-happened)
+- [What's next?](#whats-next)
+
+<!-- /TOC -->
+
 ## Grant Permissions to `ai.open-webui`
 
 Because `ai.open-webui` acts on behalf of our user (`human.idjag-learner`), we need to explicitly authorize it to exchange the login ID Token for an ID-JAG token. We must also grant it the necessary access within the `api` domain.

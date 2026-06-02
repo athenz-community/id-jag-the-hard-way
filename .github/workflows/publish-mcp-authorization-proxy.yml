@@ -1,23 +1,23 @@
-name: Build and Push ZPU Image
+name: Build and Push Authorization Proxy for MCP Server
 
 on:
   push:
     branches: [ "main" ]
     paths:
-      - "zpu/**"
-      - ".github/workflows/publish-zpu.yml"
-  # pull_request:
-  pull_request_target:
+      - "api_server/authorization_proxy/**"
+      - ".github/workflows/publish-mcp-authorization-proxy.yml"
+  pull_request:
+  # pull_request_target:
     branches: [ "main" ]
     paths:
-      - "zpu/**"
-      - ".github/workflows/publish-zpu.yml"
+      - "api_server/authorization_proxy/**"
+      - ".github/workflows/publish-mcp-authorization-proxy.yml"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: zpu
-  BUILD_DIR: ./zpu
+  IMAGE_NAME: mcp-authorization-proxy
+  BUILD_DIR: ./api_server/authorization_proxy
 
 jobs:
   build-and-push:

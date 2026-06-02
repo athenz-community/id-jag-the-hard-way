@@ -6,6 +6,14 @@
 
 In this tutorial, we will install the AI Client Agent for the first time and talk to the API server through it.
 
+<!-- TOC depthFrom:2 depthTo:2 -->
+
+- [Install Ollama](#install-ollama)
+- [Install Gemma 4 with Ollama](#install-gemma-4-with-ollama)
+- [Install Open WebUI](#install-open-webui)
+
+<!-- /TOC -->
+
 ## Install Ollama
 
 Ollama is one of the easiest ways to install an open LLM locally and interact with it.

@@ -1,23 +1,23 @@
-name: Build and Push ZPU Image
+name: Build and Push MCP Server
 
 on:
   push:
     branches: [ "main" ]
     paths:
-      - "zpu/**"
-      - ".github/workflows/publish-zpu.yml"
+      - "api_server/mcp/**"
+      - ".github/workflows/publish-mcp.yml"
   # pull_request:
   pull_request_target:
     branches: [ "main" ]
     paths:
-      - "zpu/**"
-      - ".github/workflows/publish-zpu.yml"
+      - "api_server/mcp/**"
+      - ".github/workflows/publish-mcp.yml"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: zpu
-  BUILD_DIR: ./zpu
+  IMAGE_NAME: mcp
+  BUILD_DIR: ./api_server/mcp
 
 jobs:
   build-and-push:

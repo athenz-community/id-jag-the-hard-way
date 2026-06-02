@@ -4,7 +4,16 @@
 
 # Prerequisites
 
-In this tutorial, we will review the machine requirements for following it.
+In this tutorial, we will review the machine requirements for this tutorial with the following steps:
+
+<!-- TOC depthFrom:2 depthTo:2 -->
+
+- [Review Virtual or Physical Machines](#review-virtual-or-physical-machines)
+- [Install Packages](#install-packages)
+- [Review Port Usage](#review-port-usage)
+- [Reminder](#reminder)
+
+<!-- /TOC -->
 
 ## Review Virtual or Physical Machines
 
@@ -59,13 +68,12 @@ If you are interested in knowing what kind of ports used by default for this tut
 
   Resource Server (API Server):
 
-  - `8102`: Athenz Authorization Proxy for API MCP Server
-  - `8101`: API MCP Server for API
-  - `14443`: Dummy API (Original API, not proxied by Athenz proxy)
-  - `14442`: Dummy API without Athenz AT required
+  - `8102`: Athenz Authorization Proxy for API MCP Server (🟡 TODO: Will be removed, replaced by `24443`)
+  - `14443`: API Server
+  - `24443`: MCP Server
 </details>
 
-## Read Note
+## Reminder
 
 The results of this tutorial should not be considered production ready. The goal is to learn the architecture, not to ship a hardened production platform
 

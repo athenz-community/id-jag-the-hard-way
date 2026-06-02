@@ -6,60 +6,17 @@
 
 In this tutorial, you will get Access Token that the API server requests.
 
-## Create Athenz Top-Level Domain (TLD) for API Service
+<!-- TOC depthFrom:2 depthTo:2 -->
 
-Now that the Athenz server is running and accessible, let's create a Top-Level Domain (TLD). We can achieve this by making a `POST` request to the Athenz ZMS API, authenticating with the admin certificates generated during the deployment.
+- [Create Athenz Role under the API domain](#create-athenz-role-under-the-api-domain)
+- [Create Policies](#create-policies)
+- [Add Root User as a member](#add-root-user-as-a-member)
+- [Get Access Token as Root User](#get-access-token-as-root-user)
+- [Send request to the protected server](#send-request-to-the-protected-server)
+- [What's done?](#whats-done)
+- [What's next?](#whats-next)
 
-Let's create a reusable script named `create-tld.sh` that takes the domain name as an argument:
-
-```sh
-cat > ./my_tools/create-tld.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-if [ -z "${1:-}" ]; then
-  echo "Usage: $0 <tld_name>"
-  exit 1
-fi
-
-tld_name=$1
-echo "Creating TLD: ${tld_name}..."
-
-curl -s -k -X POST "https://localhost:4443/zms/v1/domain" \
-  --cert ./athenz_dist/certs/athenz_admin.cert.pem \
-  --key ./athenz_dist/keys/athenz_admin.private.pem \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "'"${tld_name}"'",
-    "description": "TLD for '"${tld_name}"'",
-    "org": "ajkimkim",
-    "enabled": true,
-    "adminUsers": ["user.athenz_admin"]
-  }'
-
-EOF
-
-chmod +x ./my_tools/create-tld.sh
-
-```
-
-Create a domain `api` that represents the API server domain:
-
-```sh
-./my_tools/create-tld.sh "api"
-```
-
-```sh
-# {"description":"TLD for api","org":"ajkimkim","auditEnabled":false,"ypmId":0,"autoDeleteTenantAssumeRoleAssertions":false,"name":"api","modified":"2026-05-10T07:56:23.059Z","id":"bce22e30-4c45-11f1-8af4-88f84977247b"}
-```
-
-You can verify that this domain is created successfully by refreshing the **Athenz UI** (`http://localhost:3000`):
-
-![05_create_api_tld](./assets/05_create_api_tld.png)
-
-The new domain (or Top Level Domain, or TLD) `api` you just created represents the following blue dotted line:
-
-![05_create_api_domain](./assets/05_create_api_domain.png)
+<!-- /TOC -->
 
 ## Create Athenz Role under the API domain
 
@@ -198,97 +155,6 @@ open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/policy"
 ```
 
 ![05_add_policy_to_role](./assets/05_add_policy_to_role.png)
-
-## Sync Policies Locally
-
-To allow every service integrated with Athenz to perform localized authentication and authorization, Athenz offers a distributed feature where each service can run policy checks locally. In the Athenz ecosystem, this component is known as the ZTS Policy Updater (ZPU).
-
-Let's create our own simplified `zpu` script:
-
-```sh
-cat > ./my_tools/zpu.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-DOMAIN="$1"
-CERT="$2"
-KEY="$3"
-POLICY_DIR="$4"
-
-ZTS_URL="${ZTS_URL:-https://localhost:8443/zts/v1}"
-INTERVAL=5
-
-FILE_DOMAIN="${DOMAIN//./_}"
-OUT_FILE="${POLICY_DIR}/${FILE_DOMAIN}.pol"
-TMP_FILE="${POLICY_DIR}/${FILE_DOMAIN}.pol.tmp.$$"
-
-log() {
-  local LEVEL="$1"
-  shift
-  local MSG="$@"
-  local NOW=$(TZ="Asia/Tokyo" date '+%Y-%m-%d %H:%M:%S JST')
-  echo "[${NOW}] [${LEVEL}] ${MSG}"
-}
-
-log "INFO" "Starting ZPU Service for domain [${DOMAIN}] (Interval: ${INTERVAL}s)..."
-
-while true; do
-  log "INFO" "Getting policy for domain [${DOMAIN}] ..."
-  mkdir -p "${POLICY_DIR}"
-
-  set +e
-  CURL_OUT=$(curl -fsS -k -X GET "${ZTS_URL%/}/domain/${DOMAIN}/signed_policy_data" \
-    -H "Accept: application/json" \
-    --cert "${CERT}" \
-    --key "${KEY}" 2>&1)
-  CURL_STATUS=$?
-  set -e
-
-  if [ $CURL_STATUS -eq 0 ]; then
-    echo "${CURL_OUT}" > "${TMP_FILE}"
-    mv "${TMP_FILE}" "${OUT_FILE}"
-    log "INFO" "Successfully synced the domain into \"${OUT_FILE}\""
-  else
-    rm -f "${TMP_FILE}"
-    ERR_MSG=$(echo "${CURL_OUT}" | head -n 1)
-    log "ERROR" "Failed to get policy for domain [${DOMAIN}] ... Error: ${ERR_MSG}"
-  fi
-
-  log "INFO" "Next sync starts after ${INTERVAL} seconds..."
-  sleep ${INTERVAL}
-done
-EOF
-
-chmod +x ./my_tools/zpu.sh
-```
-
-Now, run the ZPU service to start syncing policies for the `api` domain:
-
-```sh
-./my_tools/zpu.sh \
-  "api" \
-  "./athenz_dist/certs/athenz_admin.cert.pem" \
-  "./athenz_dist/keys/athenz_admin.private.pem" \
-  "./api_server/policies"
-```
-
-Let's see the `api.pol` file.
-
-```sh
-cat ./api_server/policies/api.pol | jq .
-```
-
-```sh
-# {
-#   "signedPolicyData": {
-#     "policyData": {
-#       "domain": "api",
-#       "policies": [
-#         {
-#           "name": "api:policy.docs-token-exchanger_zts_token_target_exchange_api_role_docs-getter",
-#           "modified": "2026-05-17T21:41:12.752Z",
-# ...
-```
 
 ## Add Root User as a member
 

@@ -6,6 +6,16 @@
 
 In this tutorial, we will configure the authorization server (Athenz) to trust Keycloak as an Identity Provider (IdP).
 
+<!-- TOC depthFrom:2 depthTo:2 -->
+
+- [Learn what to do](#learn-what-to-do)
+- [Install Plugin into the ZTS Server](#install-plugin-into-the-zts-server)
+- [Connect Keycloak with the Plugin](#connect-keycloak-with-the-plugin)
+- [Review Summary of Changes](#review-summary-of-changes)
+- [What's next?](#whats-next)
+
+<!-- /TOC -->
+
 ## Learn what to do
 
 So far, we have been running Athenz and Keycloak locally. However, Athenz does not trust any IdP by default unless explicitly configured. To exchange a Keycloak-generated ID token for an ID-JAG token, the Athenz server must be able to trust the Keycloak server with proper setting.

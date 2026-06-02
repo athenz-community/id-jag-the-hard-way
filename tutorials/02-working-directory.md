@@ -4,7 +4,15 @@
 
 # Working Directory
 
-In this tutorial, we will set up a working directory for the tutorial.
+In this tutorial, we will set up a working directory for the tutorial with the following steps:
+
+<!-- TOC depthFrom:2 depthTo:2 -->
+
+- [Create directory](#create-directory)
+- [Change directory](#change-directory)
+- [Stay on the directory `~/id_jag_the_hard_way_workspace`](#stay-on-the-directory-id_jag_the_hard_way_workspace)
+
+<!-- /TOC -->
 
 ## Create directory
 
@@ -28,7 +36,7 @@ If you are using HTTPS for git:
 git clone https://github.com/mlajkim/id-jag-the-hard-way.git ~/id_jag_the_hard_way_workspace
 ```
 
-Then change the directory:
+## Change directory
 
 ```sh
 cd ~/id_jag_the_hard_way_workspace

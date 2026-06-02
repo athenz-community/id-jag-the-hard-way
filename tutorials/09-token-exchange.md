@@ -8,6 +8,15 @@ In this section, we will resolve the "Not Authorized for Token Impersonation" er
 
 By implementing the OAuth 2.0 Token Exchange ([RFC 8693](https://www.rfc-editor.org/rfc/rfc8693.html)) mechanism, we will authorize the MCP server to exchange the user's Access Token and act on their behalf to access the API server.
 
+<!-- TOC depthFrom:2 depthTo:2 -->
+
+- [Allow MCP Server to Exchange the Given Access Token](#allow-mcp-server-to-exchange-the-given-access-token)
+- [Verify](#verify)
+- [What's happened?](#whats-happened)
+- [What's next?](#whats-next)
+
+<!-- /TOC -->
+
 ## Allow MCP Server to Exchange the Given Access Token
 
 Even if the original requester has `get` access to the `api:docs` resource, it doesn't mean just anyone can exchange the Access Token on their behalf. We must create a dedicated role specifically to allow token impersonation (exchange).

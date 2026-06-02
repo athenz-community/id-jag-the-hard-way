@@ -6,6 +6,20 @@
 
 In this tutorial, we will configure [Keycloak](https://www.keycloak.org/) as an Identity Provider (IdP) for our AI Client Agent, enabling users to sign in with non-admin (standard) accounts.
 
+<!-- TOC depthFrom:2 depthTo:2 -->
+
+- [Run Keycloak locally](#run-keycloak-locally)
+- [Setup Client](#setup-client)
+- [Setup User](#setup-user)
+- [Create Open WebUI Runner Script with Keycloak Settings](#create-open-webui-runner-script-with-keycloak-settings)
+- [Sign in as `idjag-learner`](#sign-in-as-idjag-learner)
+- [Accept the account](#accept-the-account)
+- [Return to the `idjag-learner` Browser](#return-to-the-idjag-learner-browser)
+- [What's done?](#whats-done)
+- [What's next?](#whats-next)
+
+<!-- /TOC -->
+
 ## Run Keycloak locally
 
 We will run the Keycloak server using a local directory as its data store:

@@ -7,6 +7,18 @@
 In this tutorial, we will set up a simple API server that exposes a small HTTP API for storing and managing documents.
 We will first run the API server without authorization so that we can understand its basic behavior. Then, we will enable Access Token enforcement and confirm that unauthorized requests are rejected.
 
+<!-- TOC depthFrom:2 depthTo:2 -->
+
+- [Create a namespace `api` in kubernetes](#create-a-namespace-api-in-kubernetes)
+- [Deploy a simple API server to the kubernetes](#deploy-a-simple-api-server-to-the-kubernetes)
+- [Send a Request to the API Server](#send-a-request-to-the-api-server)
+- [Learn About the API](#learn-about-the-api)
+- [Protect the API Server](#protect-the-api-server)
+- [Learn what's happened](#learn-whats-happened)
+- [Learn what's next](#learn-whats-next)
+
+<!-- /TOC -->
+
 ![03_arc_get_docs_from_api_server](./assets/03_arc_get_docs_from_api_server.png)
 
 ## Create a namespace `api` in kubernetes
@@ -107,13 +119,13 @@ kubectl exec deploy/api-server -n api \
 
 The API server is now protected, so requests without a valid Bearer Access Token are rejected.
 
-## What's happened?
+## Learn what's happened
 
 Unauthorized error is returned when you tried to fetch the data from the API Server, with `AT_REQUIRED=true` API Server:
 
 ![03_arc_get_docs_from_api_server_unauthorized](./assets/03_arc_get_docs_from_api_server_unauthorized.png)
 
-## What's next?
+## Learn what's next
 
 So, how do we get past this Unauthorized error? We need a trusted authorization server.
 

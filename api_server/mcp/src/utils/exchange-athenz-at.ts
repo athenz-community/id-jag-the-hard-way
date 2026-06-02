@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Request } from "express";
 import { getAtFromReq } from "./readAtFromReq";
+import { AUTHORIZATION_SERVER_URL } from "../config/env";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,11 +12,6 @@ const __dirname = path.dirname(__filename);
 const CERT_PATH = path.join(__dirname, "../../certs/api-mcp.crt");
 const KEY_PATH = path.join(__dirname, "../../certs/api-mcp.key");
 const CA_PATH = path.join(__dirname, "../../certs/ca.crt");
-
-const ZTS_CONFIG = {
-  hostname: "localhost",
-  port: 8443,
-};
 
 const cert = fs.readFileSync(CERT_PATH);
 const key = fs.readFileSync(KEY_PATH);
@@ -41,11 +37,9 @@ export async function exchangeAthenzAT(req: Request, scope: string): Promise<str
     });
 
     const body = params.toString();
+    const endpoint = AUTHORIZATION_SERVER_URL + "/oauth2/token";
 
     const options: https.RequestOptions = {
-      hostname: ZTS_CONFIG.hostname,
-      port: ZTS_CONFIG.port,
-      path: "/zts/v1/oauth2/token",
       method: "POST",
       cert: cert,
       key: key,
@@ -58,7 +52,7 @@ export async function exchangeAthenzAT(req: Request, scope: string): Promise<str
       timeout: 10000,
     };
 
-    const httpsReq = https.request(options, (res) => {
+    const httpsReq = https.request(endpoint, options, (res) => {
       let responseData = "";
       res.on("data", (chunk) => (responseData += chunk));
       res.on("end", () => {

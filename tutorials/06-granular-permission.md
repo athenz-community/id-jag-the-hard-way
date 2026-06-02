@@ -6,6 +6,19 @@
 
 In this tutorial, you will implement granular permissions by establishing a dedicated service identity to access the protected API server.
 
+<!-- TOC depthFrom:2 depthTo:2 -->
+
+- [Create Service Identity that represents you](#create-service-identity-that-represents-you)
+- [Create TLD for your future Service Identity](#create-tld-for-your-future-service-identity)
+- [Create Service Identity](#create-service-identity)
+- [Fetch X.509 Cert for idjag-learner](#fetch-x509-cert-for-idjag-learner)
+- [Fetch the Service Certificate](#fetch-the-service-certificate)
+- [Fetch Access Token (JWT)](#fetch-access-token-jwt)
+- [Troubleshoot Missing Role Membership](#troubleshoot-missing-role-membership)
+- [Review Architecture](#review-architecture)
+
+<!-- /TOC -->
+
 ## Create Service Identity that represents you
 
 Generate a private key that represents `idjag-learner`:
