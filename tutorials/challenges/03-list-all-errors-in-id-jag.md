@@ -111,7 +111,10 @@ total 48
 Quickly openssl to see the CN `human.idjag-learner`:
 
 ```sh
-openssl x509 -in keys/idjag-learner.crt -noout -subject
+local _cert_path="./keys/idjag-learner.crt"
+local _key_path="./keys/idjag-learner.key"
+
+openssl x509 -in $_cert_path -noout -subject
 ```
 
 ```sh
@@ -121,9 +124,6 @@ openssl x509 -in keys/idjag-learner.crt -noout -subject
 Use the X.509 Certificate under `keys` that does NOT represent the client_id `ai.open-webui`:
 
 ```sh
-local _cert_path="./keys/idjag-learner.crt"
-local _key_path="./keys/idjag-learner.key"
-
 local _ca_cert="./athenz_dist/certs/ca.cert.pem"
 local _zts_url="https://localhost:8443/zts/v1/oauth2/token"
 local _role_scope="api:role.mcp-accessor api:role.docs-getter"

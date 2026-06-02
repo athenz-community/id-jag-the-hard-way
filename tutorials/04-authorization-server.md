@@ -1,29 +1,17 @@
-|             Previous             |         Current          |                        Next                        |
-|:--------------------------------:|:------------------------:|:--------------------------------------------------:|
-| [API Server](./03-api-server.md) | **Authorization Server** | [Athenz Access Token](./05-athenz-access-token.md) |
+|             Previous             |         Current          |                Next                |
+|:--------------------------------:|:------------------------:|:----------------------------------:|
+| [API Server](./03-api-server.md) | **Authorization Server** | [ZPU Server](./04.1-zpu-server.md) |
 
 # Authorization Server
 
-In this tutorial, we will deploy Athenz as the local authorization server and verify that it is running properly.
-
-## Create Local Kubernetes Cluster
-
-You can use almost any Kubernetes cluster, but to simplify the process, we will use Kind (Kubernetes in Docker).
-
-```sh
-go install sigs.k8s.io/kind@latest
-kind create cluster
-```
-
-> [!NOTE]
-> The Single Source of Truth (SSOT) guide for downloading and installing Kind can be found [here](https://kind.sigs.k8s.io/)
-
+In this tutorial, we will deploy Athenz as the local authorization server and verify that it is running properly in Kubernetes cluster.
 
 ## Deploy Athenz Server
 
 Run the following command (this will take about 5 minutes):
 
 ```sh
+git submodule update --init --recursive
 make -C athenz_dist clean-kubernetes-athenz deploy-kubernetes-athenz
 ```
 
@@ -94,10 +82,10 @@ The `kubectl port-forward` command may stop if a pod restarts. Therefore, we nee
 mkdir -p my_tools
 ```
 
-Now, let's create a simple shell script `keep-athenz-port-forward.sh` inside `my_tools`:
+Now, let's create a simple shell script `keep-k8s-port-forward.sh` inside `my_tools`:
 
 ```sh
-cat > my_tools/keep-athenz-port-forward.sh <<'EOF'
+cat > my_tools/keep-k8s-port-forward.sh <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -107,28 +95,31 @@ trap 'kill $(jobs -p) 2>/dev/null || true' EXIT
 _zms_port="${1:-4443}"
 _zts_port="${2:-8443}"
 _athenz_ui_port="${3:-3000}"
+_api_port="${4:-14443}"
 
 _pf() {
-  local name=$1
-  local local_port=$2
-  local remote_port=$3
+  local ns=$1
+  local name=$2
+  local local_port=$3
+  local remote_port=$4
 
   while true; do
-    echo "Port-forwarding ${name}: ${local_port}:${remote_port}"
-    kubectl -n athenz port-forward "deployment/${name}" "${local_port}:${remote_port}" || true
-    echo "Restarting ${name} port-forward..."
+    echo "Port-forwarding ${ns}/${name}: ${local_port}:${remote_port}"
+    kubectl -n ${ns} port-forward "deployment/${name}" "${local_port}:${remote_port}" || true
+    echo "Restarting ${ns}/${name} port-forward..."
     sleep 3
   done
 }
 
-_pf athenz-zms-server "${_zms_port}" 4443 &
-_pf athenz-zts-server "${_zts_port}" 4443 &
-_pf athenz-ui "${_athenz_ui_port}" 3000 &
+_pf athenz athenz-zms-server "${_zms_port}" 4443 &
+_pf athenz athenz-zts-server "${_zts_port}" 4443 &
+_pf athenz athenz-ui "${_athenz_ui_port}" 3000 &
+_pf api api-server "${_api_port}" 8080 &
 
 wait
 EOF
 
-chmod +x my_tools/keep-athenz-port-forward.sh
+chmod +x my_tools/keep-k8s-port-forward.sh
 ```
 
 You may customize the ports, but we recommend sticking with the defaults below:
@@ -137,8 +128,9 @@ You may customize the ports, but we recommend sticking with the defaults below:
 _zms_port=4443
 _zts_port=8443
 _athenz_ui_port=3000
+_api_port=14443
 
-./my_tools/keep-athenz-port-forward.sh "$_zms_port" "$_zts_port" "$_athenz_ui_port"
+./my_tools/keep-k8s-port-forward.sh "$_zms_port" "$_zts_port" "$_athenz_ui_port" "$_api_port"
 ```
 
 ## Open Athenz UI
@@ -150,6 +142,6 @@ open "http://localhost:${_athenz_ui_port}"
 
 ![athenz_ui](assets/04_athenz_ui.png)
 
-In the next tutorial, we will create an Athenz domain and roles, and then fetch an access token.
+In the next tutorial, we will create a ZPU (details later explained):
 
-Next: [Athenz Access Token](./05-athenz-access-token.md)
+Next: [ZPU Server](./04.1-zpu-server.md)

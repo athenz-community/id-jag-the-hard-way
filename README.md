@@ -41,7 +41,9 @@ The following graph shows the required least permissions for each component:
 
 ## Philosophy
 
-The philosophy behind this repository is explained in detail here: [ID-JAG The Hard Way: Learning AI agent authorization through failure - LY Tech Blog](https://techblog.lycorp.co.jp/en/20260526a)
+The philosophy behind this repository is explained in detail:
+
+[ID-JAG The Hard Way: Learning AI agent authorization through failure - LY Tech Blog](https://techblog.lycorp.co.jp/en/20260526a)
 
 ## Special Thanks
 

@@ -1,0 +1,70 @@
+# This workflow creates a docker image that pushes the jar file
+# For more details, check out the markdown file under the same directory of this yml.
+
+name: Build and Push KeycloakTokenExchangeProvider JAR file
+
+on:
+  push:
+    branches: [ "main" ]
+  # pull_request:
+  pull_request_target:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: keycloak-token-exchange-provider
+  BUILD_DIR: ./keycloak_token_exchange_provider
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 1. Set up JDK 17 and Maven
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      # 2. Maven Build
+      - name: Build with Maven
+        working-directory: ${{ env.BUILD_DIR }}
+        run: mvn clean package -DskipTests
+
+      # 3. Docker Registry Login
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.DEPLOY_GHCR_SECRET || secrets.GITHUB_TOKEN }}
+
+      # 4. Determine tags based on event type (PR number or latest)
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # If PR, add prXXX tag
+            type=ref,event=pr,prefix=pr
+            # If main branch, add latest tag
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+      # 5. Docker image build and push to GHCR
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.BUILD_DIR }}
+          push: true  # Pushes for both PR and main
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

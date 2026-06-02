@@ -61,6 +61,7 @@
   - [How does the AI Client Agent know what kind of scope it should ask for? Any standards to get the scope from the registered tools? like maybe the tools with openai.json has this scope returned?](#how-does-the-ai-client-agent-know-what-kind-of-scope-it-should-ask-for-any-standards-to-get-the-scope-from-the-registered-tools-like-maybe-the-tools-with-openaijson-has-this-scope-returned)
   - [Are we supposed to enforce ID-JAG enforced Access Token, if IdP's policy is "important"?](#are-we-supposed-to-enforce-id-jag-enforced-access-token-if-idps-policy-is-important)
   - [Token Introspection vs JWT validation using JWKS](#token-introspection-vs-jwt-validation-using-jwks)
+  - [CLI?](#cli)
 
 <!-- /TOC -->
 
@@ -283,3 +284,8 @@ In contrast, JWT validation using JWKS involves fetching the issuer's public key
 - claims
 
 While both methods rely on a trusted issuer, introspection provides an authoritative, server-side check of the token's current state, whereas JWKS allows the Resource Server to perform offline, decentralized validation.
+
+
+## CLI?
+
+How to create without proxy? How does it work?

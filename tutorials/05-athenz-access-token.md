@@ -1,6 +1,6 @@
-|                       Previous                       |         Current         |                        Next                        |
-|:----------------------------------------------------:|:-----------------------:|:--------------------------------------------------:|
-| [Authorization Server](./04-authorization-server.md) | **Athenz Access Token** | [Granular Permission](./06-granular-permission.md) |
+|              Previous              |         Current         |                        Next                        |
+|:----------------------------------:|:-----------------------:|:--------------------------------------------------:|
+| [ZPU Server](./04.1-zpu-server.md) | **Athenz Access Token** | [Granular Permission](./06-granular-permission.md) |
 
 # Athenz Access Token
 

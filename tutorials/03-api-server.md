@@ -1,6 +1,6 @@
-|                    Previous                    |    Current     |                         Next                         |
-|:----------------------------------------------:|:--------------:|:----------------------------------------------------:|
-| [Working Directory](./02-working-directory.md) | **API Server** | [Authorization Server](./04-authorization-server.md) |
+|                      Previous                      |    Current     |                         Next                         |
+|:--------------------------------------------------:|:--------------:|:----------------------------------------------------:|
+| [Kubernetes Cluster](./02.2-kubernetes-cluster.md) | **API Server** | [Authorization Server](./04-authorization-server.md) |
 
 # API Server
 
@@ -9,21 +9,32 @@ We will first run the API server without authorization so that we can understand
 
 ![03_arc_get_docs_from_api_server](./assets/03_arc_get_docs_from_api_server.png)
 
-## Run the API Server Locally
-
-> [!NOTE]
-> You may use a different API server port by changing the `_api_server_port` variable. However, we recommend using the same port as this tutorial to avoid confusion in later steps.
-
-Start the API server without Access Token enforcement:
+## Create a namespace `api` in kubernetes
 
 ```sh
-_api_server_port=14442
-make -C api_server local PORT=$_api_server_port AT_REQUIRED=false
+kubectl create ns api
 ```
 
 ```sh
-# ...
-# 🚀 Server started on port 14442 (Athenz Required: false)
+# namespace/api created
+```
+
+## Deploy a simple API server to the kubernetes
+
+```sh
+kubectl create deploy api-server -n api \
+  --image=ghcr.io/mlajkim/api-server:latest
+```
+
+
+Create a simple service for the deploy above:
+
+```sh
+kubectl expose deploy api-server -n api --port 8080 --name api-server
+```
+
+```sh
+# service/api-server exposed
 ```
 
 ## Send a Request to the API Server
@@ -31,8 +42,8 @@ make -C api_server local PORT=$_api_server_port AT_REQUIRED=false
 Send a request to list the documents.
 
 ```sh
-_api_server_port=14442
-curl localhost:$_api_server_port/api/docs | jq .
+kubectl exec deploy/api-server -n api \
+  -- curl -s http://localhost:8080/api/docs | jq
 ```
 
 ```sh
@@ -67,25 +78,21 @@ This makes the server easy to run, easy to reset, and useful for learning how au
 
 In an enterprise environment, you usually do not want to expose an API server without authentication or authorization, even if the server is only reachable internally.
 
-The API server you cloned already supports Access Token enforcement. You can enable it by setting `AT_REQUIRED=true`.
-
-Start another API server with Access Token enforcement enabled:
+The API server you cloned already supports Access Token enforcement. You can enable it by setting `AT_REQUIRED=true` as the following:
 
 ```sh
-_new_api_server_port=14443
-make -C api_server local PORT=$_new_api_server_port AT_REQUIRED=true
+kubectl set env deploy/api-server AT_REQUIRED=true -n api
 ```
 
 ```sh
-# ...
-# 🚀 Server started on port 14443 (Athenz Required: true)
+# deployment.apps/api-server env updated
 ```
 
 Now send the same request to the protected API server:
 
 ```sh
-_new_api_server_port=14443
-curl "localhost:${_new_api_server_port}/api/docs" | jq .
+kubectl exec deploy/api-server -n api \
+  -- curl -s http://localhost:8080/api/docs | jq
 ```
 
 ```sh
