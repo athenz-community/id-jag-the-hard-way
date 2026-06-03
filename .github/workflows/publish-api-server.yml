@@ -5,13 +5,13 @@ on:
     branches: [ "main" ]
     paths:
       - "api_server/**"
-      - ".github/workflows/build-api-server.yml"
+      - ".github/workflows/publish-api-server.yml"
   # pull_request:
   pull_request_target:
     branches: [ "main" ]
     paths:
       - "api_server/**"
-      - ".github/workflows/build-api-server.yml"
+      - ".github/workflows/publish-api-server.yml"
   workflow_dispatch:
 
 env:

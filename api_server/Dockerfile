@@ -1,29 +1,27 @@
-FROM node:22-bookworm AS builder
+FROM maven:3.9.9-eclipse-temurin-17 AS build
 
-WORKDIR /app
+WORKDIR /src
 
-COPY package*.json ./
+COPY pom.xml .
 
-RUN npm ci --no-audit --no-fund
+RUN mvn -B -DskipTests dependency:go-offline
 
 COPY src ./src
 
-FROM node:22-bookworm-slim
+RUN mvn -B -DskipTests clean compile dependency:copy-dependencies
+
+FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/src ./src
-COPY package*.json ./
+COPY --from=build /src/target/classes ./classes
+COPY --from=build /src/target/dependency ./dependency
 
-RUN mkdir -p /app/certs
+ENV PORT=8080
+ENV AT_REQUIRED=false
+ENV JAVA_TOOL_OPTIONS="-Dathenz.zpe.policy_dir=/app/policies \
+-Dathenz.zpe.jwk_uri=https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true"
 
-ENV PORT=8081
-ENV UPSTREAM_BASE_URL=http://api-server.api.svc.cluster.local
-ENV PUBLIC_BASE_URL=http://mcp.api.svc.cluster.local
-ENV AUTHORIZATION_SERVER_URL="https://athenz-zts-server.athenz:4443/zts/v1"
-ENV MCP_CERT_DIR=/app/certs
+EXPOSE 8080
 
-EXPOSE 8081
-
-CMD ["./node_modules/.bin/tsx", "./src/index.ts"]
+CMD ["java", "-cp", "classes:dependency/*", "Api"]

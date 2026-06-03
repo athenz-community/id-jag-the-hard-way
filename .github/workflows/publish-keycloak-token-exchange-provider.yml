@@ -6,9 +6,16 @@ name: Build and Push KeycloakTokenExchangeProvider JAR file
 on:
   push:
     branches: [ "main" ]
-  # pull_request:
+    paths:
+      - "keycloak_token_exchange_provider/**"
+      - ".github/workflows/publish-keycloak-token-exchange-provider.yml"
+
   pull_request_target:
     branches: [ "main" ]
+    paths:
+      - "keycloak_token_exchange_provider/**"
+      - ".github/workflows/publish-keycloak-token-exchange-provider.yml"
+
   workflow_dispatch:
 
 env:
