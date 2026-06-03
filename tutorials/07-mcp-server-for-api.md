@@ -111,18 +111,6 @@ kubectl logs deploy/mcp -n api
 # 📄 OpenAPI Spec available at: http://mcp-server.api.svc.cluster.local/openapi.json
 ```
 
-Run the server:
-
-```sh
-make -C api_server mcp-local PORT=8101
-```
-
-```sh
-# 🚀 OpenAPI MCP Server for API listening on: http://localhost:8101
-# 🔗 Upstream API: http://localhost:14443
-# 📄 OpenAPI Spec available at: http://localhost:8101/openapi.json
-```
-
 ## What's done?
 
 We have created a running MCP Server for API with service identity `api.mcp-api` highlighted in red below.

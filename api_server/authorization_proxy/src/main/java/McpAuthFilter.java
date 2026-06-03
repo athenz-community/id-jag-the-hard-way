@@ -22,7 +22,7 @@ public class McpAuthFilter implements Filter {
     @Value("${api:mcp}")
     private String mcpResource;
 
-    @Value("${athenz.at.required:false}")
+    @Value("${athenz.at.required:true}")
     private boolean isRequired;
 
     private static final String DEFAULT_JWK_URI = "https://localhost:8443/zts/v1/oauth2/keys?rfc=true";
@@ -45,7 +45,7 @@ public class McpAuthFilter implements Filter {
             System.setProperty("athenz.zpe.jwk_uri", DEFAULT_JWK_URI);
         }
         if (System.getProperty("athenz.zpe.policy_dir") == null) {
-            System.setProperty("athenz.zpe.policy_dir", "../policies");
+            System.setProperty("athenz.zpe.policy_dir", "/app/policies");
         }
         if (System.getProperty("athenz.zpe.monitor_timeout_secs") == null) {
             System.setProperty("athenz.zpe.monitor_timeout_secs", "5");
@@ -96,6 +96,8 @@ public class McpAuthFilter implements Filter {
             return;
         }
         if ("GET".equalsIgnoreCase(request.getMethod()) && "/openapi.json".equals(request.getRequestURI())) {
+            // simple logger only:
+            System.out.println(String.format("[%s] [INFO] [MCP-Auth-Proxy] Authorization check skipped for GET /openapi.json", getTimestamp()));
             chain.doFilter(req, res);
             return;
         }

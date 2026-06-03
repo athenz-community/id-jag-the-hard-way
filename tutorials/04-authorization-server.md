@@ -109,23 +109,23 @@ _mcp_port="${5:-24443}"
 
 _pf() {
   local ns=$1
-  local name=$2
+  local resource=$2
   local local_port=$3
   local remote_port=$4
 
   while true; do
-    echo "Port-forwarding ${ns}/${name}: ${local_port}:${remote_port}"
-    kubectl -n ${ns} port-forward "deployment/${name}" "${local_port}:${remote_port}" || true
-    echo "Restarting ${ns}/${name} port-forward..."
+    echo "Port-forwarding ${ns}/${resource}: ${local_port}:${remote_port}"
+    kubectl -n "${ns}" port-forward "${resource}" "${local_port}:${remote_port}" || true
+    echo "Restarting ${ns}/${resource} port-forward..."
     sleep 3
   done
 }
 
-_pf athenz athenz-zms-server "${_zms_port}" 4443 &
-_pf athenz athenz-zts-server "${_zts_port}" 4443 &
-_pf athenz athenz-ui "${_athenz_ui_port}" 3000 &
-_pf api api-server "${_api_port}" 8080 &
-_pf api mcp "${_mcp_port}" 8081 &
+_pf athenz deployment/athenz-zms-server "${_zms_port}" 4443 &
+_pf athenz deployment/athenz-zts-server "${_zts_port}" 4443 &
+_pf athenz deployment/athenz-ui "${_athenz_ui_port}" 3000 &
+_pf api deployment/api-server "${_api_port}" 8080 &
+_pf api service/mcp "${_mcp_port}" 8081 &
 
 wait
 EOF

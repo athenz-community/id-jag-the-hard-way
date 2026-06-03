@@ -150,7 +150,7 @@ Go to `User Icon` > `Admin Panel` > `Settings` > `Integrations` > `Manage Tool S
 
 - Name: `API MCP Server`
 - Description: `MCP server for API that holds documentation`
-- URL: `http://localhost:8101`
+- URL: `http://localhost:24443`
 - Auth type: `Bearer`
 - API Key: `<YOUR_ACCESS_TOKEN_THAT_YOU'VE_FETCHED`
 - Access: Change to `Public`

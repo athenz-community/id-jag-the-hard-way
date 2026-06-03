@@ -6,12 +6,16 @@ on:
     paths:
       - "api_server/**"
       - ".github/workflows/publish-api-server.yml"
+      - "!api_server/authorization_proxy/**"
+      - "!api_server/mcp/**"
   # pull_request:
   pull_request_target:
     branches: [ "main" ]
     paths:
       - "api_server/**"
       - ".github/workflows/publish-api-server.yml"
+      - "!api_server/authorization_proxy/**"
+      - "!api_server/mcp/**"
   workflow_dispatch:
 
 env:

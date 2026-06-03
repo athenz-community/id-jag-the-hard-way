@@ -22,25 +22,88 @@ In this tutorial, we will secure the MCP server using an Authorization Server (A
 
 ## Run Authorization Proxy for API MCP
 
-The cloned API project includes an authorization proxy server for the API MCP. To start the server, execute the following command:
+We will deploy an authorization proxy for the API MCP server, that will check the access token to access to MCP:
 
-```bash
-export _authorization_proxy_port=8102
-export _authorization_proxy_target_port=24443
+```yaml
+kubectl patch deploy mcp -n api --patch "$(cat <<'EOF'
+spec:
+  template:
+    spec:
+      containers:
+        # 1. Add a new container auth-proxy
+        - name: auth-proxy
+          image: ghcr.io/mlajkim/mcp-authorization-proxy:latest
+          imagePullPolicy: Always
+          env:
+            - name: SERVER_PORT
+              value: "8082"
+            - name: MCP_TARGET_URL
+              value: "http://localhost:8081"
+          ports:
+            - containerPort: 8082
+EOF
+)"
+```
 
-make -C api_server mcp-proxy-local \
-  PROXY_PORT=$_authorization_proxy_port \
-  TARGET_PORT=$_authorization_proxy_target_port \
-  PROXY_AT_REQUIRED=true
+We are then going to attach the ZPU, that we have done:
+
+```yaml
+kubectl patch deploy mcp -n api --patch "$(cat <<'EOF'
+spec:
+  template:
+    spec:
+      containers:
+        # 1. Update existing api-server container to read policies
+        - name: auth-proxy
+          volumeMounts:
+            - name: api-server-policies
+              mountPath: /app/policies
+              readOnly: true
+
+        # 2. Add ZPU sidecar container
+        - name: zpu
+          image: ghcr.io/mlajkim/zpu:latest
+          imagePullPolicy: Always
+          env:
+            - name: ZPU_DOMAIN
+              value: "api"
+            - name: ZTS_URL
+              value: "https://athenz-zts-server.athenz:4443/zts/v1"
+            - name: ZPU_INTERVAL_SECONDS
+              value: "5"
+          volumeMounts:
+            - name: api-server-policies
+              mountPath: /policies
+            - name: api-zpu-cert
+              mountPath: /var/run/athenz/zpu
+              readOnly: true
+
+      # 3. Define the volumes
+      volumes:
+        - name: api-server-policies
+          emptyDir: {}
+        - name: api-zpu-cert
+          secret:
+            secretName: api-zpu-cert
+            defaultMode: 0400
+EOF
+)"
 ```
 
 ## Update the MCP Target Port to Proxy
 
-Navigate to `User Icon` > `Admin Panel` > `Settings` > `Integrations`, and click the configuration icon for the API MCP Server.
+We have a service `mcp` that watches the `mcp` server right now, with selector: `Selector: app=mcp`:
 
-Change the MCP Server's target URL to `http://localhost:8102` so that traffic routes through the new Authorization Proxy.
+```sh
+kubectl describe svc mcp -n api
+```
 
-![10_change_mcp_target_port_to_authorzation_proxy](./assets/10_change_mcp_target_port_to_authorzation_proxy.png)
+We are going to change the service `mcp` to watch `mcp-authorization-proxy` instead, but with the same port and name:
+
+```sh
+kubectl delete svc mcp -n api
+kubectl expose deploy mcp -n api --port 8081 --target-port 8082
+```
 
 ## Verify
 
@@ -122,10 +185,7 @@ Check your access token with `scp` including both scopes:
 
 Navigate to `User Icon` > `Admin Panel` > `Settings` > `Integrations`, and click the configure icon for the API MCP Server.
 
-Make the following change:
-
-1. Attach the access token exactly as we did previously.
-2. Set the MCP Authorization Server URL to `http://localhost:8102`.
+Then, attach the access token exactly as we did previously.
 
 ![10_attach_access_token_with_new_scope](./assets/10_attach_access_token_with_new_scope.png)
 

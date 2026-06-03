@@ -8,19 +8,21 @@ RUN mvn -B -DskipTests dependency:go-offline
 
 COPY src ./src
 
-RUN mvn -B -DskipTests clean package && \
-    JAR_FILE="$(find target -maxdepth 1 -type f -name '*.jar' ! -name '*.original' | head -n 1)" && \
-    cp "${JAR_FILE}" /tmp/app.jar
+RUN mvn -B -DskipTests clean compile dependency:copy-dependencies
 
 FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
-COPY --from=build /tmp/app.jar /app/app.jar
+COPY --from=build /src/target/classes ./classes
+COPY --from=build /src/target/dependency ./dependency
 
-ENV SERVER_PORT=4180
-ENV MCP_TARGET_URL=http://mcp-server.api.svc.cluster.local
+ENV SERVER_PORT=8082
+ENV MCP_TARGET_URL=http://localhost:8081
 
-EXPOSE 4180
+ENV JAVA_TOOL_OPTIONS="-Dathenz.zpe.policy_dir=/app/policies \
+  -Dathenz.zpe.jwk_uri=https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true"
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+EXPOSE 8082
+
+CMD ["java", "-cp", "classes:dependency/*", "com.example.mcpproxy.McpProxyApplication"]
