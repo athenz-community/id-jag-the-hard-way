@@ -1,23 +1,20 @@
-|                                       Previous                                        |                Current                 | Next |
-|:-------------------------------------------------------------------------------------:|:--------------------------------------:|:----:|
-| [List all errors in Access Token Exchange](./05-list-all-errors-in-token-exchange.md) | **List all errors in ID_JAG Exchange** | n/a  |
+|                              Previous                              |             Current              | Next |
+|:------------------------------------------------------------------:|:--------------------------------:|:----:|
+| [New Keycloak Client with curl](./06-keycloak-client-with-curl.md) | **Keycloak Client ID with curl** | n/a  |
 
-# Challenge: ID_JAG with Human User Certificate
+# Challenge: ID_JAG with client_id
 
-Create a new client in Keycloak with:
+We just created a new client  `ai.open-webui-another-name`. 
 
-- name `ai.open-webui-another-name`
-- password: `password`
-  - Client authencation: `On`
-  - Direct access grants: `On`
-
-Save the following function `_get_id_jag_for_open_webui_another_name`:
+Now, try to get `ID_JAG` using this new client, BUT keep using the certificate `open-webui.crt`.
 
 ```sh
 _get_id_jag_for_open_webui_another_name() {
+  _secret=$1
+
   _id_token=$(curl -s -X POST "http://localhost:9090/realms/master/protocol/openid-connect/token" \
     -d "client_id=ai.open-webui-another-name" \
-    -d "client_secret=hWUdyeKAtX3hmhyG8nOB72jdTfB8pfyu" \
+    -d "client_secret=$_secret" \
     -d "username=idjag-learner" \
     -d "password=password" \
     -d "scope=openid email profile" \
@@ -49,7 +46,8 @@ _get_id_jag_for_open_webui_another_name() {
 You will get the following error:
 
 ```sh
-_get_id_jag_for_open_webui_another_name
+_client_secret="hWUdyeKAtX3hmhyG8nOB72jdTfB8pfyu"
+_get_id_jag_for_open_webui_another_name $_client_secret
 ```
 
 ```sh
@@ -172,7 +170,8 @@ New field `"clientId": "ai.open-webui-another-name"`
 Then try to get the `ID_JAG` once again:
 
 ```sh
-_get_id_jag_for_open_webui_another_name
+_client_secret="hWUdyeKAtX3hmhyG8nOB72jdTfB8pfyu"
+_get_id_jag_for_open_webui_another_name $_client_secret
 ```
 
 **✅ We have confirmed that we can set an alias for Athenz Service.**
