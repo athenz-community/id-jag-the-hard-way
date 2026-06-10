@@ -1,6 +1,6 @@
-|                   Previous                   |                Current                 | Next |
-|:--------------------------------------------:|:--------------------------------------:|:----:|
-| [ID-JAG with Curl](./02-id-jag-with-curl.md) | **List all errors in ID_JAG Exchange** | n/a  |
+|                   Previous                   |                Current                 |                                    Next                                    |
+|:--------------------------------------------:|:--------------------------------------:|:--------------------------------------------------------------------------:|
+| [ID-JAG with Curl](./02-id-jag-with-curl.md) | **List all errors in ID_JAG Exchange** | [Access Token Exchange with Curl](./04-access-token-exchange-with-curl.md) |
 
 # Challenge: Get all errors in ID_JAG exchange
 
@@ -288,4 +288,4 @@ curl -sS -X POST "$_zts_url" \
 
 # Next Challenge
 
-More coming soon!
+[Access Token Exchange with Curl](./04-access-token-exchange-with-curl.md) 

@@ -10,6 +10,7 @@ on:
       - "keycloak_token_exchange_provider/**"
       - ".github/workflows/publish-keycloak-token-exchange-provider.yml"
 
+  # pull_request:
   pull_request_target:
     branches: [ "main" ]
     paths:
@@ -45,7 +46,9 @@ jobs:
       # 2. Maven Build
       - name: Build with Maven
         working-directory: ${{ env.BUILD_DIR }}
-        run: mvn clean package -DskipTests
+        run: |
+          mvn clean package -DskipTests
+          mv target/original-keycloak-token-provider-*.jar target/plugin-latest.jar
 
       # 3. Docker Registry Login
       - name: Log in to the Container registry

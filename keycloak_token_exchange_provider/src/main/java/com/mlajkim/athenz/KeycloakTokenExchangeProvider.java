@@ -20,24 +20,18 @@ public class KeycloakTokenExchangeProvider implements TokenExchangeIdentityProvi
         return sub != null ? "human." + sub.toString() : null;
     }
 
+    // getTokenAudience returns audience of given id_token, but in Athenz Native Way!
     @Override
     public String getTokenAudience(OAuth2Token token) {
-        Object sub = token.getClaim("sub");
-        if (sub == null) {
-            return "";
+        System.out.println(">>> [KeycloakTokenExchangeProvider] Getting audience from token...");
+        Object aud = token.getClaim("aud");
+        if (aud instanceof List && !((List<?>) aud).isEmpty()) {
+            return ((List<?>) aud).get(0).toString();
+        } else if (aud != null) {
+            return aud.toString();
         }
 
-        return "ai.client-gateway";
-
-        // return "user." + sub.toString() + "ai-agent";
-        // System.out.println(">>> [Keycloak-Plugin] Extracting audience...");
-        // Object aud = token.getClaim("aud");Object sub = token.getClaim("sub");
-        // if (aud instanceof List && !((List<?>) aud).isEmpty()) {
-        //     return ((List<?>) aud).get(0).toString();
-        // } else if (aud != null) {
-        //     return aud.toString();
-        // }
-        // return "local-open-webui";
+        return "";
     }
 
     @Override
