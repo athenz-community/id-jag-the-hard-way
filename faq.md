@@ -62,6 +62,7 @@
   - [Are we supposed to enforce ID-JAG enforced Access Token, if IdP's policy is "important"?](#are-we-supposed-to-enforce-id-jag-enforced-access-token-if-idps-policy-is-important)
   - [Token Introspection vs JWT validation using JWKS](#token-introspection-vs-jwt-validation-using-jwks)
   - [CLI?](#cli)
+  - [Revocation](#revocation)
 
 <!-- /TOC -->
 
@@ -289,3 +290,10 @@ While both methods rely on a trusted issuer, introspection provides an authorita
 ## CLI?
 
 How to create without proxy? How does it work?
+
+
+## Revocation
+
+Any way to revoke Access Token, ID-JAG?
+
+So far the authorzation server (Athenz) does not support revocation for any types of token, including X.509 Certificate, id_token, ID_JAG, but we are in the middle of planning to implement a feature where we can revoke specific ID_JAG or Token Exchange Phase with time, so if human for exmaples detects the fraud they can actually set any idjags fetched before this specific time is prohibitted, this way Access token is actually not fecthable.
