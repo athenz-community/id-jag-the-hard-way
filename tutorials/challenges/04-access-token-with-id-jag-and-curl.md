@@ -8,8 +8,8 @@ This section covers hands-on challenges related to acquiring Access Tokens (RFC 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
 - [Challenge: Get Access Token with ID_JAG](#challenge-get-access-token-with-id_jag)
+- [Challenge: Impersonation Token Exchange](#challenge-impersonation-token-exchange)
 - [Challenge: Delegation Token Exchange](#challenge-delegation-token-exchange)
-- [Challenge: Delegation Token Exchange](#challenge-delegation-token-exchange-1)
 
 <!-- /TOC -->
 
@@ -108,7 +108,7 @@ echo $_at | jq -R 'split(".") | .[1] | @base64d | fromjson'
 
 </details>
 
-## Challenge: Delegation Token Exchange
+## Challenge: Impersonation Token Exchange
 
 Perform a token exchange with narrowed scope: `_exchange_scope="api:role.docs-getter"`, acting as an MCP server:
 
@@ -169,130 +169,9 @@ echo $_exchanged_at | jq -R 'split(".") | .[1] | @base64d | fromjson'
 ## Challenge: Delegation Token Exchange
 
 > [!NOTE]
-> Currently, the Athenz server does not support delegation token exchange. We will update this section once the feature becomes available.
-
-
-<details>
-<summary>Click to expand the solution</summary>
-<br>
-
-```sh
-_role_scope="api:role.docs-getter api:role.mcp-accessor"
-_may_act_actor="api.api-mcp"
-
-_at_with_actor=$(curl -sS -X POST "$_zts_url" \
-  --cert "./ai_client_gateway/certs/open-webui.crt" \
-  --key "./ai_client_gateway/certs/open-webui.key" \
-  --cacert "$_ca_cert" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" \
-  --data-urlencode "assertion=$_id_jag" \
-  --data-urlencode "scope=$_role_scope" \
-  --data-urlencode "actor=$_may_act_actor" \
-  --data-urlencode "expires_in=3600" | jq -r .access_token)
-
-echo $_at_with_actor | jq -R 'split(".") | .[0] | @base64d | fromjson'
-echo $_at_with_actor | jq -R 'split(".") | .[1] | @base64d | fromjson'
-```
-
-```sh
-./my_tools/add-policy.sh "api" "docs-getter" "get" "docs"
-```
-
-Delegation requires the client to be a recognized member. You must add them by running:
-
-```sh
-./my_tools/add-role-member.sh "api" "docs-getter" "api.api-mcp"
-```
-
-Otherwise, you will encounter the following error:
-
-`{"code":403,"message":"postaccesstokenrequest: principal api.api-mcp is not included in the requested role(s) in domain api"}`.
-
-Next, generate the actor token:
-
-```sh
-_role_scope="api:role.docs-getter"
-
-_actor_at=$(curl -sS -X POST "$_zts_url" \
-  --cert "./keys/api-mcp.crt" \
-  --key "./keys/api-mcp.key" \
-  --cacert "$_ca_cert" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  --data-urlencode "grant_type=client_credentials" \
-  --data-urlencode "scope=$_role_scope" \
-  --data-urlencode "expires_in=3600" | jq -r .access_token)
-
-echo $_actor_at | jq -R 'split(".") | .[1] | @base64d | fromjson'
-```
-
-```sh
-# {
-#   "sub": "api.api-mcp",
-#   "scp": [
-#     "docs-getter"
-#   ],
-#   "ver": 1,
-#   "iss": "athenz-zts-server-b485bd456-lxjkl",
-#   "client_id": "api.api-mcp",
-#   "aud": "api",
-#   "uid": "api.api-mcp",
-#   "auth_time": 1781133886,
-#   "scope": "docs-getter",
-#   "cnf": {
-#     "x5t#S256": "e4PIzPg2AO2yk_FqWczzGvt2p3fVvYdMm0oW8GsiBiY"
-#   },
-#   "exp": 1781137486,
-#   "iat": 1781133886,
-#   "jti": "d3428c7a-2482-4d0c-ad51-583b64e41a41"
-# }
-```
-
-Finally, execute the delegation exchange:
-
-```sh
-_exchange_scope="api:role.docs-getter"
-_exchange_aud="api"
-
-_delegated_at=$(curl -sS -X POST "$_zts_url" \
-  --cert "./keys/api-mcp.crt" \
-  --key "./keys/api-mcp.key" \
-  --cacert "$_ca_cert" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
-  --data-urlencode "requested_token_type=urn:ietf:params:oauth:token-type:access_token" \
-  --data-urlencode "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
-  --data-urlencode "subject_token=$_at" \
-  --data-urlencode "actor_token_type=urn:ietf:params:oauth:token-type:access_token" \
-  --data-urlencode "actor_token=$_actor_at" \
-  --data-urlencode "audience=$_exchange_aud" \
-  --data-urlencode "scope=$_exchange_scope" | jq -r .access_token)
-
-echo $_delegated_at | jq -R 'split(".") | .[1] | @base64d | fromjson'
-```
-
-```sh
-_exchange_scope="api:role.docs-getter"
-_exchange_aud="api"
-
-_delegated_at=$(curl -sS -X POST "$_zts_url" \
-  --cert "./keys/api-mcp.crt" \
-  --key "./keys/api-mcp.key" \
-  --cacert "$_ca_cert" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
-  --data-urlencode "requested_token_type=urn:ietf:params:oauth:token-type:access_token" \
-  --data-urlencode "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
-  --data-urlencode "subject_token=$_at" \
-  --data-urlencode "actor_token_type=urn:ietf:params:oauth:token-type:access_token" \
-  --data-urlencode "actor_token=$_actor_at" \
-  --data-urlencode "audience=$_exchange_aud" \
-  --data-urlencode "scope=$_exchange_scope" | jq -r .access_token)
-
-echo $_delegated_at | jq -R 'split(".") | .[1] | @base64d | fromjson'
-```
-
-</details>
+> Currently, the Athenz server does not support delegation token exchange. We will update this section once the feature becomes available!
+> Working PRs:
+> - https://github.com/AthenZ/athenz/pull/3388
 
 # Next Challenge
 
