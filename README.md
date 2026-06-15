@@ -16,6 +16,14 @@ By the end of this tutorial, you will have a fully functional local flow (like t
 
 ![ID-JAG The Hard Way Demo](./assets/id-jag-demo.gif)
 
+> [!NOTE]
+> Claude CLI partially supported without IdP
+
+Or Claude CLI:
+
+![ID-JAG The Hard Way Demo - Claude](./assets/id-jag-demo-claude.gif)
+
+
 ## Architecture
 
 The following diagram shows the full local architecture:

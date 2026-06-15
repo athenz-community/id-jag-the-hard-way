@@ -6,8 +6,8 @@ on:
     paths:
       - "api_server/mcp/**"
       - ".github/workflows/publish-mcp.yml"
-  # pull_request:
-  pull_request_target:
+  pull_request:
+  # pull_request_target:
     branches: [ "main" ]
     paths:
       - "api_server/mcp/**"

@@ -95,6 +95,7 @@ public class McpAuthFilter implements Filter {
             chain.doFilter(req, res);
             return;
         }
+        
         if ("GET".equalsIgnoreCase(request.getMethod()) && "/openapi.json".equals(request.getRequestURI())) {
             // simple logger only:
             System.out.println(String.format("[%s] [INFO] [MCP-Auth-Proxy] Authorization check skipped for GET /openapi.json", getTimestamp()));

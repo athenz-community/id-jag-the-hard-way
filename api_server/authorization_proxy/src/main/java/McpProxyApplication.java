@@ -41,6 +41,7 @@ public class McpProxyApplication {
             System.out.println(String.format("🚀 OpenAPI MCP Auth Proxy Server listening on: %s", publicBaseUrl));
             System.out.println(String.format("🔗 Upstream API: %s", targetUrl));
             System.out.println(String.format("📄 OpenAPI Spec available at: %s/openapi.json", publicBaseUrl));
+            System.out.println(String.format("📄 MCP endpoint available at: %s/mcp", publicBaseUrl));
             System.out.println("=========================================================\n");
         };
     }

@@ -10,11 +10,15 @@ local:
 
 MCP_PORT ?= 8101
 
+# MCP_AUTHORIZATION_SERVER_URL ?= "https://athenz-zts-server.athenz:4443/zts/v1"
+MCP_AUTHORIZATION_SERVER_URL ?= "https://localhost:8443/zts/v1"
+
 mcp-local:
 	@echo "🚀 Starting new OpenAPI server on port $(MCP_PORT)..."
 	@cd mcp && \
 	npm install && \
 	PORT=$(MCP_PORT) \
+	AUTHORIZATION_SERVER_URL=$(MCP_AUTHORIZATION_SERVER_URL) \
 	PUBLIC_BASE_URL=http://localhost:$(MCP_PORT) \
 	npx tsx ./src/index.ts
 

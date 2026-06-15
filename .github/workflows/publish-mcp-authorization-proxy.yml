@@ -6,8 +6,8 @@ on:
     paths:
       - "api_server/authorization_proxy/**"
       - ".github/workflows/publish-mcp-authorization-proxy.yml"
-  # pull_request:
-  pull_request_target:
+  pull_request:
+  # pull_request_target:
     branches: [ "main" ]
     paths:
       - "api_server/authorization_proxy/**"
