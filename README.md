@@ -19,10 +19,14 @@ By the end of this tutorial, you will have a fully functional local flow (like t
 > [!NOTE]
 > Claude CLI partially supported without IdP
 
-Or Claude CLI:
+Or the Claude CLI flow, where:
+
+1. **The user** requests to delete a document without specifying an ID.
+2. **The user** is prompted to select which document to delete using the arrow keys.
+3. **The user** selects and deletes the document (with its ID explicitly specified).
+4. **Result**: The document is successfully deleted!
 
 ![ID-JAG The Hard Way Demo - Claude](./assets/id-jag-demo-claude.gif)
-
 
 ## Architecture
 
