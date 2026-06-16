@@ -11,6 +11,7 @@ In this tutorial, we will configure [Keycloak](https://www.keycloak.org/) as an 
 - [Run Keycloak locally](#run-keycloak-locally)
 - [Setup Client](#setup-client)
 - [Setup User](#setup-user)
+- [Setup id_token expiration date](#setup-id_token-expiration-date)
 - [Create Open WebUI Runner Script with Keycloak Settings](#create-open-webui-runner-script-with-keycloak-settings)
 - [Sign in as `idjag-learner`](#sign-in-as-idjag-learner)
 - [Accept the account](#accept-the-account)
@@ -90,6 +91,15 @@ Next, navigate to the **Credentials** tab and click **Set password**, then confi
 - Temporary: `off`
 
 Click **Save**.
+
+## Setup id_token expiration date
+
+> [!TIP]
+> For this tutorial, it is okay to set the `id_token` lifespan to `4 hours`. In production, you must consider the appropriate lifespan based on your security requirements.
+
+Go to `Keycloak` > `Realm settings` > `Tokens` > `Access Token Lifespan` and set it to `4 hours`.
+
+![11_idp_id_token_expiration](./assets/11_idp_id_token_expiration.png)
 
 ## Create Open WebUI Runner Script with Keycloak Settings
 
