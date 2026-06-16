@@ -2,6 +2,7 @@ import morgan from "morgan";
 import express from "express";
 import util from "util";
 import chalk from "chalk";
+import { LOGGER_ENABLE_HEADERS, LOGGER_ENABLE_BODY } from "../config/env";
 
 morgan.token("date-jst", () => {
   const date = new Date();
@@ -53,8 +54,8 @@ export const mcpLogger = morgan((tokens, req, res) => {
 
   return (
     `${date} ${chalk.cyanBright("[INFO]")} IP: ${ip} | ${method} ${url} HTTP/${httpVer} | Status: ${status} | Time: ${time}\n` +
-    `${chalk.cyanBright.bold("Headers:")} ${headers}\n` +
-    `${chalk.cyanBright.bold("Body:")} ${body}\n` +
+    `${chalk.cyanBright.bold("Headers:")} ${LOGGER_ENABLE_HEADERS ? headers : chalk.gray("-")}\n` +
+    `${chalk.cyanBright.bold("Body:")} ${LOGGER_ENABLE_BODY ? body : chalk.gray("-")}\n` +
     chalk.gray("---")
   );
 });
