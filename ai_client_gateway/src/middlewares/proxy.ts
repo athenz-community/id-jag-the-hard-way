@@ -1,4 +1,4 @@
-import { UPSTREAM_BASE_URL } from "../config/env.js";
+import { UPSTREAM_BASE_URL, DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN } from "../config/env.js";
 import { collectForwardHeaders } from "../utils/httpHelpers.js";
 import { logIncomingRequest } from "./logger.js";
 import { getAccessToken } from "../utils/athenzAt.ts";
@@ -58,7 +58,7 @@ export async function proxyMiddleware(req: Request, res: Response) {
     console.error(`[Method]                    : ${fetchOptions.method}`);
     console.error(`[URL]                       : ${upstreamUrl.toString()}`);
     console.error(`[Athenz Required Scope]     : ${requiredScope}`);
-    console.error(`[Athenz AT (Authorization)] : Bearer <redacted>`);
+    console.error(`[Athenz AT (Authorization)] : Bearer ${DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN ? accessToken : `<redacted>`}`);
     console.error("==================================================================\n");
 
     const upstreamResponse = await fetch(upstreamUrl, fetchOptions);

@@ -1,0 +1,61 @@
+name: Build and Push AI Client Gateway
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "ai_client_gateway/**"
+      - ".github/workflows/publish-ai-client-gateway.yml"
+  pull_request:
+  # pull_request_target:
+    branches: [ "main" ]
+    paths:
+      - "ai_client_gateway/**"
+      - ".github/workflows/publish-ai-client-gateway.yml"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ai-client-gateway
+  BUILD_DIR: ./ai_client_gateway
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 1. Docker Registry Login
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.DEPLOY_GHCR_SECRET || secrets.GITHUB_TOKEN }}
+
+      # 2. Extract metadata
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # If PR, add prXXX tag
+            type=ref,event=pr,prefix=pr
+            # If main branch, add latest tag
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+      # 3. Docker image build and push
+      - name: Build and push the image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.BUILD_DIR }}
+          file: ${{ env.BUILD_DIR }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

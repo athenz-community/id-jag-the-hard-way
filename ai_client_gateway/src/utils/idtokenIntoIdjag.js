@@ -4,8 +4,8 @@ import { URLSearchParams } from "url";
 import { extractCookieValue } from "../utils/httpHelpers.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import { ZTS_URL } from "../config/env.js";
 
-const ZTS_URL = "https://localhost:8443/zts/v1/oauth2/token";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CERT_PATH = path.join(__dirname, "../../certs/open-webui.crt");
@@ -42,8 +42,9 @@ async function exchangeIdTokenToIdJag(idToken, scope) {
       audience: ID_JAG_AUD,
     }).toString();
 
-    const url = new URL(ZTS_URL);
-    
+    const targetUrl = ZTS_URL.replace(/\/$/, "") + "/oauth2/token";
+    const url = new URL(targetUrl);
+    console.error(`[Athenz ID-JAG] 🎯 Target ZTS for ID-JAG: ${targetUrl}`);
     const options = {
       hostname: url.hostname,
       port: url.port,

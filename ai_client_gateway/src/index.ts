@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { PORT, UPSTREAM_BASE_URL, PUBLIC_BASE_URL, corsOptions } from "./config/env.js";
+import { PORT, UPSTREAM_BASE_URL, PUBLIC_BASE_URL, corsOptions, ZTS_URL } from "./config/env.js";
 import healthRouter from "./routes/health.js";
 import openapiRouter from "./routes/openapi.js";
 import { proxyMiddleware } from "./middlewares/proxy.js";
@@ -25,4 +25,5 @@ app.listen(Number(PORT), "0.0.0.0", () => {
   console.log(`🚀 OpenWebUI OpenAPI Gateway listening on 0.0.0.0:${PORT}`);
   console.log(`🔗 Upstream API: ${UPSTREAM_BASE_URL}`);
   console.log(`🌍 Public Base URL: ${PUBLIC_BASE_URL}`);
+  console.log(`🔑 Athenz ZTS Endpoint: ${ZTS_URL}`);
 });
