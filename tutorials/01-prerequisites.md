@@ -58,7 +58,7 @@ If you are interested in knowing what kind of ports used by default for this tut
 
   IdP:
 
-  - `9090`: Keycloak Server
+  - `34443`: Keycloak Server
 
   Authorization Server (Athenz):
 
@@ -68,9 +68,9 @@ If you are interested in knowing what kind of ports used by default for this tut
 
   Resource Server (API Server):
 
-  - `8102`: Athenz Authorization Proxy for API MCP Server (🟡 TODO: Will be removed, replaced by `24443`)
   - `14443`: API Server
-  - `24443`: MCP Server
+  - `24443`: MCP Server with Authorization Proxy
+
 </details>
 
 ## Reminder

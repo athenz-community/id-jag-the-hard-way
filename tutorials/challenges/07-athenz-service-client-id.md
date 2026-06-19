@@ -12,7 +12,7 @@ Now, try to get `ID_JAG` using this new client, BUT keep using the certificate `
 _get_id_jag_for_open_webui_another_name() {
   _secret=$1
 
-  _id_token=$(curl -s -X POST "http://localhost:9090/realms/master/protocol/openid-connect/token" \
+  _id_token=$(curl -s -X POST "http://localhost:34443/realms/master/protocol/openid-connect/token" \
     -d "client_id=ai.open-webui-another-name" \
     -d "client_secret=$_secret" \
     -d "username=idjag-learner" \

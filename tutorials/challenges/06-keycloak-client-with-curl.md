@@ -19,7 +19,7 @@ In the tutorial, we have so far used the UI to register `ClientID`. Can we do th
 _new_client_id="ai.open-webui-another-name"
 _new_client_secret="password"
 
-_keycloak="http://localhost:9090"
+_keycloak="http://localhost:34443"
 _realm="master"
 
 ADMIN_USER="admin"
@@ -60,7 +60,7 @@ curl -sS -i -X POST "$_keycloak/admin/realms/$_realm/clients" \
 
 ```sh
 # HTTP/1.1 201 Created
-# Location: http://localhost:9090/admin/realms/master/clients/3a4f03d5-cf95-4193-9d5d-27d0c7379bb0
+# Location: http://localhost:34443/admin/realms/master/clients/3a4f03d5-cf95-4193-9d5d-27d0c7379bb0
 # Referrer-Policy: no-referrer
 # Strict-Transport-Security: max-age=31536000; includeSubDomains
 # X-Content-Type-Options: nosniff

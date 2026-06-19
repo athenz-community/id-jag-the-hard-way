@@ -8,7 +8,8 @@ In this tutorial, we will configure [Keycloak](https://www.keycloak.org/) as an 
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
-- [Run Keycloak locally](#run-keycloak-locally)
+- [Deploy Keycloak in K8s](#deploy-keycloak-in-k8s)
+- [Open Keycloak on Browser](#open-keycloak-on-browser)
 - [Setup Client](#setup-client)
 - [Setup User](#setup-user)
 - [Setup id_token expiration date](#setup-id_token-expiration-date)
@@ -21,24 +22,101 @@ In this tutorial, we will configure [Keycloak](https://www.keycloak.org/) as an 
 
 <!-- /TOC -->
 
-## Run Keycloak locally
+## Deploy Keycloak in K8s
 
-We will run the Keycloak server using a local directory as its data store:
+> [!NOTE]
+> If you are using `kind` and facing `ImagePullBackOff` error, you can do:
+>
+> ```sh
+> docker pull quay.io/keycloak/keycloak:latest
+> kind load docker-image quay.io/keycloak/keycloak:latest
+> ```
+>
+
+First of all, Create a namespace for Keycloak:
 
 ```sh
-_keycloak_running_port=9090
-
-docker run -p ${_keycloak_running_port}:8080 \
-  -e KEYCLOAK_ADMIN=admin \
-  -e KEYCLOAK_ADMIN_PASSWORD=admin \
-  -v ./keycloak_data:/opt/keycloak/data \
-  quay.io/keycloak/keycloak:latest start-dev
+kubectl create ns idp
 ```
 
-Next, open your browser and log in using admin for both the username `admin` and password `admin`:
+Then deploy the keycloak:
 
 ```sh
-_keycloak_running_port=9090
+kubectl create deployment keycloak --image=quay.io/keycloak/keycloak:latest -n idp
+```
+
+Then, make sure that the keycloak has the correct ENV so that you can login as `admin` with password `admin`:
+
+```sh
+kubectl patch deploy keycloak -n idp --patch "$(cat <<'EOF'
+spec:
+  template:
+    spec:
+      containers:
+        - name: keycloak
+          imagePullPolicy: IfNotPresent
+          args:
+            - start-dev
+          env:
+            - name: KEYCLOAK_ADMIN
+              value: "admin"
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              value: "admin"
+EOF
+)"
+```
+
+In kubernetes, the data may be ephemeral so we need some kind of data storage to contain the IdP so that even if you restart your PC, and once you rerun the server your data is preserved.
+
+First, create a very simple `pvc`:
+
+```sh
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: keycloak-data-pvc
+  namespace: idp
+spec:
+  accessModes: [ "ReadWriteOnce" ]
+  resources:
+    requests:
+      storage: 1Gi
+EOF
+```
+
+Mount the volume we just created:
+
+```sh
+kubectl patch deploy keycloak -n idp --patch "$(cat <<'EOF'
+spec:
+  template:
+    spec:
+      containers:
+        - name: keycloak
+          volumeMounts:
+            - name: keycloak-data
+              mountPath: /opt/keycloak/data
+      volumes:
+        - name: keycloak-data
+          persistentVolumeClaim:
+            claimName: keycloak-data-pvc
+EOF
+)"
+```
+
+And finally expose the deployment:
+
+```sh
+kubectl expose deployment keycloak --port=8080 -n idp
+```
+
+## Open Keycloak on Browser
+
+Open your browser and log in using admin for both the username `admin` and password `admin`:
+
+```sh
+_keycloak_running_port=34443
 open http://localhost:${_keycloak_running_port}
 ```
 
@@ -113,6 +191,7 @@ set -euo pipefail
 CLIENT_ID="${1:-}"
 CLIENT_SECRET="${2:-}"
 PORT="${3:-3100}"
+KEYCLOAK_PORT="${4:-34443}"
 
 if [[ -z "${CLIENT_ID}" ]]; then
   echo "Error: Keyclaok CLIENT_ID is not set."
@@ -132,7 +211,7 @@ export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://localhost:11434}"
 export ENABLE_OAUTH_SIGNUP="true"
 export OAUTH_CLIENT_ID="${CLIENT_ID}"
 export OAUTH_CLIENT_SECRET="${CLIENT_SECRET}"
-export OPENID_PROVIDER_URL="http://localhost:9090/realms/master/.well-known/openid-configuration"
+export OPENID_PROVIDER_URL="http://localhost:${KEYCLOAK_PORT}/realms/master/.well-known/openid-configuration"
 export OAUTH_PROVIDER_NAME="Keycloak"
 export OAUTH_SCOPES="openid email profile"
 export OPENID_REDIRECT_URI="http://localhost:${PORT}/oauth/oidc/callback"
@@ -171,9 +250,10 @@ Now, run the application:
 mkdir -p open_webui
 _keycloak_client_id="ai.open-webui"
 _open_webui_keycloak_port=3100
+_keycloak_port=34443
 (
   cd open_webui
-  ../my_tools/run-open-webui-keycloak.sh "$_keycloak_client_id" "$_kcs" "$_open_webui_keycloak_port"
+  ../my_tools/run-open-webui-keycloak.sh "$_keycloak_client_id" "$_kcs" "$_open_webui_keycloak_port" "$_keycloak_port"
 )
 ```
 

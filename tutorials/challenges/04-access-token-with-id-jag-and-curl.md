@@ -18,9 +18,9 @@ This section covers hands-on challenges related to acquiring Access Tokens (RFC 
 You can retrieve the `ID_JAG` token using the following command:
 
 ```sh
-_id_token=$(curl -s -X POST "http://localhost:9090/realms/master/protocol/openid-connect/token" \
+_id_token=$(curl -s -X POST "http://localhost:34443/realms/master/protocol/openid-connect/token" \
   -d "client_id=ai.open-webui" \
-  -d "client_secret=wdoKE9MBkgjLayZLg9Q6xU2oP2IOZKXv" \
+  -d "client_secret=QHmUf9IpJftBZi5M8fBptubwlhW2DTWf" \
   -d "username=idjag-learner" \
   -d "password=password" \
   -d "scope=openid email profile" \

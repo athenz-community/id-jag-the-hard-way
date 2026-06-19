@@ -7,9 +7,9 @@
 Assume that you have the `id_token` fetched with the following command:
 
 ```sh
-_id_token=$(curl -s -X POST "http://localhost:9090/realms/master/protocol/openid-connect/token" \
+_id_token=$(curl -s -X POST "http://localhost:34443/realms/master/protocol/openid-connect/token" \
   -d "client_id=ai.open-webui" \
-  -d "client_secret=wdoKE9MBkgjLayZLg9Q6xU2oP2IOZKXv" \
+  -d "client_secret=QHmUf9IpJftBZi5M8fBptubwlhW2DTWf" \
   -d "username=idjag-learner" \
   -d "password=password" \
   -d "scope=openid email profile" \
@@ -20,7 +20,7 @@ echo $_id_token | jq -R 'split(".") | .[1] | @base64d | fromjson'
 
 ```sh
 # {
-#   "iss": "http://localhost:9090/realms/master",
+#   "iss": "http://localhost:34443/realms/master",
 #   "aud": "ai.open-webui",
 #   "sub": "aaa9c26b-9609-47b1-a298-2ded44f28f21",
 #   "typ": "ID",

@@ -106,6 +106,8 @@ _zts_port="${2:-8443}"
 _athenz_ui_port="${3:-3000}"
 _api_port="${4:-14443}"
 _mcp_port="${5:-24443}"
+_idp_port="${6:-34443}"
+_ai_client_gateway_port="${7:-44443}"
 
 _pf() {
   local ns=$1
@@ -126,6 +128,8 @@ _pf athenz deployment/athenz-zts-server "${_zts_port}" 4443 &
 _pf athenz deployment/athenz-ui "${_athenz_ui_port}" 3000 &
 _pf api deployment/api-server "${_api_port}" 8080 &
 _pf api service/mcp "${_mcp_port}" 8081 &
+_pf idp deployment/keycloak "${_idp_port}" 8080 &
+_pf human ai-client-gateway "${_ai_client_gateway_port}" 8080 &
 
 wait
 EOF
@@ -141,8 +145,10 @@ _zts_port=8443
 _athenz_ui_port=3000
 _api_port=14443
 _mcp_port=24443
+_idp_port=34443
+_ai_client_gateway=44443
 
-./my_tools/keep-k8s-port-forward.sh "$_zms_port" "$_zts_port" "$_athenz_ui_port" "$_api_port" "$_mcp_port"
+./my_tools/keep-k8s-port-forward.sh "$_zms_port" "$_zts_port" "$_athenz_ui_port" "$_api_port" "$_mcp_port" "$_idp_port" "$_ai_client_gateway"
 ```
 
 ## Open Athenz UI

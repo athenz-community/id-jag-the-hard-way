@@ -76,8 +76,8 @@ data:
   providers.json: |
     [
       {
-        "issuerUri": "http://localhost:9090/realms/master",
-        "jwksUri": "http://host.docker.internal:9090/realms/master/protocol/openid-connect/certs",
+        "issuerUri": "http://localhost:34443/realms/master",
+        "jwksUri": "http://keycloak.idp:8080/realms/master/protocol/openid-connect/certs",
         "providerClassName": "com.mlajkim.athenz.KeycloakTokenExchangeProvider"
       }
     ]
@@ -92,7 +92,7 @@ EOF
 > You can verify that the ZTS server has access to the `jwksUri` by running:
 >
 > ```sh
-> kubectl -n athenz exec deployment/athenz-zts-server -c athenz-zts-server -- sh -c "curl -k http://host.docker.internal:9090/realms/master/protocol/openid-connect/certs | jq ."
+> kubectl -n athenz exec deployment/athenz-zts-server -c athenz-zts-server -- sh -c "curl -k http://keycloak.idp:8080/realms/master/protocol/openid-connect/certs | jq ."
 > ```
 >
 > ```sh
@@ -127,8 +127,8 @@ kubectl -n athenz \
 ```sh
 # [
 #   {
-#     "issuerUri": "https://localhost:9090/realms/master",
-#     "jwksUri": "http://host.docker.internal:9090/realms/master/protocol/openid-connect/certs",
+#     "issuerUri": "http://localhost:34443/realms/master",
+#     "jwksUri": "http://keycloak.idp:8080/realms/master/protocol/openid-connect/certs",
 #     "providerClassName": "com.mlajkim.athenz.KeycloakTokenExchangeProvider"
 #   }
 # ]
