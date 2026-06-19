@@ -8,33 +8,28 @@ This tutorial **ID-JAG The Hard Way** walks you through building an ID-JAG-based
 
 ## What You Will Get
 
-By the end of this tutorial, you will have a fully functional local flow (like the demo below) where:
+By the end of this tutorial, you will have a fully functional local flow (like the demo below) 
+
+![ID-JAG The Hard Way Demo - Claude](./assets/id-jag-demo-claude.gif)
+
+> [!NOTE]
+> Claude CLI partially supported without IdP
+
+Or with OpenWebUI CLI flow:
+
+![ID-JAG The Hard Way Demo](./assets/id-jag-demo.gif)
+
+where:
 
 1. **You** send a real prompt to an AI agent.
 1. The **AI agent** calls a real protected MCP server on your behalf.
 1. The **Resource Server** authorizes the request using real tokens and least-privilege policies for each transaction.
 
-![ID-JAG The Hard Way Demo](./assets/id-jag-demo.gif)
+## Full Architecture
 
-> [!NOTE]
-> Claude CLI partially supported without IdP
-
-Or the Claude CLI flow, where:
-
-1. **The user** requests to delete a document without specifying an ID.
-2. **The user** is prompted to select which document to delete using the arrow keys.
-3. **The user** selects and deletes the document (with its ID explicitly specified).
-4. **Result**: The document is successfully deleted!
-
-![ID-JAG The Hard Way Demo - Claude](./assets/id-jag-demo-claude.gif)
-
-## Architecture
-
-The following diagram shows the full local architecture:
+Here is a diagram of the full architecture:
 
 ![full_architecture](./assets/full_architecture.png)
-
-Where:
 
 1. The user logs into the system via the Keycloak IdP.
 2. The user inputs a prompt, initiating a task with the AI agent.
