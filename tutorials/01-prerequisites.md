@@ -38,7 +38,7 @@ Install Homebrew:
 Then install the following package:
 
 ```sh
-brew install jq pyenv gh
+brew install jq gh
 ```
 
 ## Review Port Usage
@@ -51,9 +51,8 @@ If you are interested in knowing what kind of ports used by default for this tut
 
   AI Client Agent:
 
-  - `3100`: Open WebUI Port with Keycloak
-  - `3101`: OpenAI Athenz Client Gateway
-  - `3200`: Open WebUI Port without Keycloak
+  - `54443`: Open WebUI
+  - `44443`: OpenAI Athenz Client Gateway
   - `11434`: Ollama
 
   IdP:

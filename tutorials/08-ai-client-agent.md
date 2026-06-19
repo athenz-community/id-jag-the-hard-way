@@ -11,10 +11,17 @@ In this tutorial, we will install the AI Client Agent for the first time and tal
 - [Install Ollama](#install-ollama)
 - [Install Gemma 4 with Ollama](#install-gemma-4-with-ollama)
 - [Install Open WebUI](#install-open-webui)
+- [Open Open WebUI](#open-open-webui)
+- [Register MCP Server as a Tool Server in Open WebUI](#register-mcp-server-as-a-tool-server-in-open-webui)
+- [Verify](#verify)
+- [What's happened?](#whats-happened)
 
 <!-- /TOC -->
 
 ## Install Ollama
+
+> [!NOTE]
+> Ollama is installed locally
 
 Ollama is one of the easiest ways to install an open LLM locally and interact with it.
 
@@ -53,73 +60,82 @@ ollama pull gemma4:e4b
 
 Instead of using Ollama's native UI, we will use Open WebUI for a more feature-rich experience. Open WebUI requires a specific Python version and some system dependencies. At the time of writing, the official documentation states that Open WebUI runs on Python 3.11 or lower.
 
-### Install Python
+
+### Create namespace for webui
+
+First, create the `ai` namespace:
+
+```sh
+kubectl create ns ai
+```
+
+### Deploy Open WebUI in K8s
 
 > [!NOTE]
-> Learn how to install pyenv here: [pyenv/pyenv - GitHub](https://github.com/pyenv/pyenv)
+> Open WebUI is smart enough to find the ollama running in your local machine, despite Open WebUI is runnning on K8s
 
-Since managing Python versions can be a hassle, let's use the `pyenv` tool to manage them.
-
-```sh
-pyenv install 3.11
-pyenv local 3.11
-python --version
+Deploy Open WebUI:
 
 ```sh
-# Python 3.11.15
+kubectl create deploy open-webui -n ai \
+  --image=ghcr.io/open-webui/open-webui:main
 ```
 
-### Create OpenWebUI Runner Script
+Expose the deployment:
 
 ```sh
-cat > ./my_tools/run-open-webui-without-keycloak.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
+kubectl expose deploy open-webui -n ai --port 8080 --name open-webui
+```
 
-PORT="${1:-3200}"
+### Deploy pvc for the Open WebUI
 
-mkdir -p data
-export DATA_DIR="$(pwd)/data"
-export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://localhost:11434}"
+First, create a very simple `pvc`:
 
-if [[ ! -x venv/bin/python ]]; then
-  python3 -m venv venv
-fi
-
-source venv/bin/activate
-
-if ! python -m pip show open-webui >/dev/null 2>&1; then
-  python -m pip install open-webui \
-    --trusted-host pypi.org \
-    --trusted-host files.pythonhosted.org
-fi
-
-exec open-webui serve --port "${PORT}"
+```sh
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: open-webui-data-pvc
+  namespace: ai
+spec:
+  accessModes: [ "ReadWriteOnce" ]
+  resources:
+    requests:
+      storage: 1Gi
 EOF
-
-chmod +x ./my_tools/run-open-webui-without-keycloak.sh
 ```
 
-### Run Open WebUI without Keycloak for testing
-
-Run the following command to start Open WebUI Server (Takes about 5 minutes):
+Mount the volume we just created:
 
 ```sh
-mkdir -p open_webui
-_open_webui_without_keycloak_port=3200
-(
-  cd open_webui
-  ../my_tools/run-open-webui-without-keycloak.sh "$_open_webui_without_keycloak_port"
-)
+kubectl patch deploy open-webui -n ai --patch "$(cat <<'EOF'
+spec:
+  template:
+    spec:
+      containers:
+        - name: open-webui
+          volumeMounts:
+            - name: open-webui-data
+              mountPath: /app/backend/data
+      volumes:
+        - name: open-webui-data
+          persistentVolumeClaim:
+            claimName: open-webui-data-pvc
+EOF
+)"
 ```
 
 ## Open Open WebUI
 
-Open up the url:
+> [!NOTE]
+> It takes some time to open up Open WebUI with its size
+
+Open up the url (make sure you are running `keep-k8s-port-forward.sh`):
 
 ```sh
-_open_webui_without_keycloak_port=3200
-open http://localhost:$_open_webui_without_keycloak_port
+_open_webui_port=54443
+open http://localhost:$_open_webui_port
 ```
 
 You will be prompted to create an admin account as the first user. You can simply use:
@@ -150,7 +166,7 @@ Go to `User Icon` > `Admin Panel` > `Settings` > `Integrations` > `Manage Tool S
 
 - Name: `API MCP Server`
 - Description: `MCP server for API that holds documentation`
-- URL: `http://localhost:24443`
+- URL: `http://mcp.api:8081`
 - Auth type: `Bearer`
 - API Key: `<YOUR_ACCESS_TOKEN_THAT_YOU'VE_FETCHED`
 - Access: Change to `Public`

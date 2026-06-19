@@ -58,6 +58,7 @@ export async function proxyMiddleware(req: Request, res: Response) {
     console.error(`[Method]                    : ${fetchOptions.method}`);
     console.error(`[URL]                       : ${upstreamUrl.toString()}`);
     console.error(`[Athenz Required Scope]     : ${requiredScope}`);
+    DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN && console.error(`⚠️ [DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN] : ${DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN}`);
     console.error(`[Athenz AT (Authorization)] : Bearer ${DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN ? accessToken : `<redacted>`}`);
     console.error("==================================================================\n");
 
