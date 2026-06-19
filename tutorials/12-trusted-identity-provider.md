@@ -41,7 +41,7 @@ kubectl patch deployment athenz-zts-server \
 ```
 
 > [!NOTE]
-> This command applies the following patch YAML: [zts-providers-config-patch.yaml](https://github.com/athenz-community/keycloak-token-exchange-identity-provider-manifest/blob/main/hack/static/zts-providers-config-patch.yaml)
+> This command applies the following patch YAML: [zts-providers-config-patch.yaml](../keycloak_token_exchange_provider/hack/static/zts-plugin-jar-mount-patch.yaml)
 
 Verify that the JAR file has been successfully mounted inside the Athenz server container:
 
@@ -145,7 +145,7 @@ To do this, carefully follow the steps below to edit the ConfigMap using `vim` (
 1. Run the following command in your terminal:
 
 ```sh
-kubectl edit configmap athenz-zts-conf -n athenz`
+kubectl edit configmap athenz-zts-conf -n athenz
 ```
 
 2. Type `/zts.prop` and hit **Enter** to search for the properties section.
