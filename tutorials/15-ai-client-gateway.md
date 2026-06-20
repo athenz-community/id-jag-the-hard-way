@@ -1,5 +1,5 @@
-|                    Previous                    |        Current        |           Next           |
-|:----------------------------------------------:|:---------------------:|:------------------------:|
+|                            Previous                            |        Current        |           Next           |
+|:--------------------------------------------------------------:|:---------------------:|:------------------------:|
 | [Trusted Identity Provider](./14-trusted-identity-provider.md) | **AI Client Gateway** | [ID-JAG](./16-id-jag.md) |
 
 # AI Client Gateway
@@ -269,8 +269,8 @@ Follow the steps below to verify the setup.
 Login as `idjag-learner`:
 
 ```sh
-_open_webui_keycloak_port=54443
-open -na "Google Chrome" --args --incognito "http://localhost:${_open_webui_keycloak_port}"
+_open_webui_port=$(./tools/port.sh open-webui)
+./tools/open.sh "http://localhost:${_open_webui_port}" incognito=true
 ```
 
 ![15_logged_in_as_idjag_learner](./assets/15_logged_in_as_idjag_learner.png)

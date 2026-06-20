@@ -1,5 +1,5 @@
-|                      Previous                      |    Current     |                         Next                         |
-|:--------------------------------------------------:|:--------------:|:----------------------------------------------------:|
+|                     Previous                     |    Current     |                         Next                         |
+|:------------------------------------------------:|:--------------:|:----------------------------------------------------:|
 | [Kubernetes Cluster](./03-kubernetes-cluster.md) | **API Server** | [Authorization Server](./05-authorization-server.md) |
 
 # API Server

@@ -190,8 +190,8 @@ Execute the script to register the service:
 This successfully creates the `api.zpu` service identity. You can verify the result in the Athenz UI:
 
 ```sh
-_athenz_ui_port=3000
-open "http://localhost:${_athenz_ui_port}/domain/api/service"
+_athenz_ui_port=$(./tools/port.sh athenz-ui)
+./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/service"
 ```
 
 ## Enable Certificate Provisioning (Provider Setup)

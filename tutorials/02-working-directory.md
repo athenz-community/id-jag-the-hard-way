@@ -1,5 +1,5 @@
-|               Previous               |        Current        |                        Next                        |
-|:------------------------------------:|:---------------------:|:--------------------------------------------------:|
+|               Previous               |        Current        |                       Next                       |
+|:------------------------------------:|:---------------------:|:------------------------------------------------:|
 | [Prerequisites](01-prerequisites.md) | **Working Directory** | [Kubernetes Cluster](./03-kubernetes-cluster.md) |
 
 # Working Directory

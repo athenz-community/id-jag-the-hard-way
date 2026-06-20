@@ -57,8 +57,8 @@ Execute the script to register your identity `human.idjag-learner`:
 This successfully creates the `idjag-learner` service under the `human` domain. You can verify the result in the Athenz UI:
 
 ```sh
-_athenz_ui_port=3000
-open "http://localhost:${_athenz_ui_port}/domain/human/service"
+_athenz_ui_port=$(./tools/port.sh athenz-ui)
+./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/human/service"
 ```
 
 ![08_new_service](./assets/08_new_service.png)
@@ -117,8 +117,8 @@ _my_access_token=$(./my_tools/fetch-access-token.sh \
 Why did this request fail? Because the `human.idjag-learner` service identity is not explicitly authorized to assume the `api:role.docs-getter` role. Athenz defaults to deny. You can confirm this by checking the role members in the UI:
 
 ```sh
-_athenz_ui_port=3000
-open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
+_athenz_ui_port=$(./tools/port.sh athenz-ui)
+./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
 ```
 
 ![08_id_jag_learner_not_in_role_yet](./assets/08_id_jag_learner_not_in_role_yet.png)
@@ -132,8 +132,8 @@ To fix this, simply run the member addition script we created earlier:
 Open once again your Athenz UI to verify that `human.idjag-learner` has been successfully added to the role:
 
 ```sh
-_athenz_ui_port=3000
-open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
+_athenz_ui_port=$(./tools/port.sh athenz-ui)
+./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
 ```
 
 ![08_human_id_jag_learner_now_added_as_member](./assets/08_human_id_jag_learner_now_added_as_member.png)

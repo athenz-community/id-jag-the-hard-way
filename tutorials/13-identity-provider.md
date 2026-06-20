@@ -124,8 +124,8 @@ kubectl wait -n idp \
 Open your browser and log in using admin for both the username `admin` and password `admin`:
 
 ```sh
-_keycloak_running_port=34443
-open http://localhost:${_keycloak_running_port}
+_keycloak_running_port=$(./tools/port.sh keycloak)
+./tools/open.sh "http://localhost:${_keycloak_running_port}"
 ```
 
 ![13_keycloak_running](./assets/13_keycloak_running.png)
@@ -207,8 +207,8 @@ kubectl create secret generic keycloak-client-secret -n ai \
 Patch the Open WebUI deployment with Keycloak settings:
 
 ```sh
-_open_webui_port=54443
-_keycloak_port=34443
+_open_webui_port=$(./tools/port.sh open-webui)
+_keycloak_port=$(./tools/port.sh keycloak)
 
 kubectl patch deploy open-webui -n ai --patch "$(cat <<EOF
 spec:
@@ -260,22 +260,10 @@ kubectl rollout status deploy/open-webui -n ai
 
 In this tutorial, when you login to Open WebUI with the non-admin account (i.e. `idjag-learner`), you will open a different browser or incognito mode.
 
-If you are using Google Chrome:
-
 ```sh
-_open_webui_port=54443
-open -na "Google Chrome" --args --incognito "http://localhost:${_open_webui_port}"
+_open_webui_port=$(./tools/port.sh open-webui)
+./tools/open.sh "http://localhost:${_open_webui_port}" incognito=true
 ```
-
-Or Firefox:
-
-```sh
-_open_webui_port=54443
-open -na "Firefox" --args --private-window "http://localhost:${_open_webui_port}"
-```
-
-> [!NOTE]
-> The tutorial from now on will only present the Google Chrome
 
 You will see a new login panel with a **Continue with Keycloak** button:
 
@@ -295,11 +283,11 @@ Then you will be prompted to add member
 Return to the browser where you are logged in as the `admin` user.
 
 ```sh
-_open_webui_port=54443
-open http://localhost:${_open_webui_port}
+_open_webui_port=$(./tools/port.sh open-webui)
+./tools/open.sh "http://localhost:${_open_webui_port}"
 ```
 
-Navigate to `http://localhost:54443/admin/users/overview`
+Navigate to `http://localhost:${_open_webui_port}/admin/users/overview`
 
 ![13_pending_user_id_jag_learner_added](./assets/13_pending_user_id_jag_learner_added.png)
 
@@ -312,8 +300,8 @@ Click `Edit User` for the `idjag-learner`, then change `Pending` to `User`, and 
 Switch back to the browser window for `idjag-learner` and refresh the page.
 
 ```sh
-_open_webui_port=54443
-open -na "Google Chrome" --args --incognito "http://localhost:${_open_webui_port}"
+_open_webui_port=$(./tools/port.sh open-webui)
+./tools/open.sh "http://localhost:${_open_webui_port}" incognito=true
 ```
 
 You should now be successfully logged into the interface.

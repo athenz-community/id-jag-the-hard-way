@@ -1,0 +1,11 @@
+# DO NOT MODIFY THIS SETTING: IT IS THE DEFAULT
+# THIS FILE IS OVERRIDEN BY THE config.local.yaml IF IT EXISTS.
+ports:
+  zms: 4443
+  zts: 8443
+  athenz-ui: 3000
+  api-server: 14443
+  mcp: 24443
+  keycloak: 34443
+  ai-client-gateway: 44443
+  open-webui: 54443

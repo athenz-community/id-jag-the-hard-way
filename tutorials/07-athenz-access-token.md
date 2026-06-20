@@ -1,5 +1,5 @@
-|              Previous              |         Current         |                        Next                        |
-|:----------------------------------:|:-----------------------:|:--------------------------------------------------:|
+|             Previous             |         Current         |                        Next                        |
+|:--------------------------------:|:-----------------------:|:--------------------------------------------------:|
 | [ZPU Server](./06-zpu-server.md) | **Athenz Access Token** | [Granular Permission](./08-granular-permission.md) |
 
 # Athenz Access Token
@@ -66,8 +66,8 @@ Now, execute the script to create the `docs-getter` role inside the `api` domain
 You can verify the new role by navigating to the `api` domain in the **Athenz UI**:
 
 ```sh
-_athenz_ui_port=3000
-open "http://localhost:${_athenz_ui_port}/domain/api/role"
+_athenz_ui_port=$(./tools/port.sh athenz-ui)
+./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role"
 ```
 
 ![07_create_api_domain_role](./assets/07_create_api_domain_role.png)
@@ -150,8 +150,8 @@ The command above means, attach a policy `docs-get-policy` to the role `docs-get
 You can verify these policies and their assertions by navigating to the **Policies** tab under the `api` domain in the **Athenz UI**.
 
 ```sh
-_athenz_ui_port=3000
-open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/policy"
+_athenz_ui_port=$(./tools/port.sh athenz-ui)
+./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/policy"
 ```
 
 ![07_add_policy_to_role](./assets/07_add_policy_to_role.png)
@@ -199,8 +199,8 @@ The default service name for the root user is `user.athenz_admin`. We can add th
 You can see that `user.athenz_admin` is added to the `docs-getter` role in the `api` domain:
 
 ```sh
-_athenz_ui_port=3000
-open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
+_athenz_ui_port=$(./tools/port.sh athenz-ui)
+./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
 ```
 
 ![07_add_role_member](./assets/07_add_role_member.png)

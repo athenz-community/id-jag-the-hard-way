@@ -30,8 +30,8 @@ Let's add the role `api:role.docs-token-exchanger`. As the name implies, members
 Check if the role is created in Athenz UI:
 
 ```sh
-_athenz_ui_port=3000
-open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-token-exchanger/members"
+_athenz_ui_port=$(./tools/port.sh athenz-ui)
+./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/docs-token-exchanger/members"
 ```
 
 ![11_check_new_role](./assets/11_check_new_role.png)

@@ -43,34 +43,13 @@ brew install jq gh
 
 ## Review Port Usage
 
-If you are interested in knowing what kind of ports used by default for this tutorial, you may expand the following.
+If you are interested in knowing what kind of ports used by default for this tutorial, you may run the follwoing command to see the default:
 
-<details>
-  <summary>Click to expand</summary>
-  <br>
+```sh
+cat ./tools/config.yaml
+```
 
-  AI Client Agent:
-
-  - `54443`: Open WebUI
-  - `44443`: OpenAI Athenz Client Gateway
-  - `11434`: Ollama
-
-  IdP:
-
-  - `34443`: Keycloak Server
-
-  Authorization Server (Athenz):
-
-  - `3000`: Athenz UI
-  - `4443`: Athenz ZMS
-  - `8443`: Athenz ZTS
-
-  Resource Server (API Server):
-
-  - `14443`: API Server
-  - `24443`: MCP Server with Authorization Proxy
-
-</details>
+Note that you will be asked to customize it.
 
 ## Reminder
 

@@ -141,11 +141,11 @@ EOF
 >
 > You may also see errors like `Error from server (NotFound): namespaces "idp" not found` or `unable to forward port because pod is not running` in the port-forward terminal — these are expected at this stage and can be ignored.
 
-Open up the url (make sure you are running `keep-k8s-port-forward.sh`):
+Open up the url:
 
 ```sh
-_open_webui_port=54443
-open http://localhost:$_open_webui_port
+_open_webui_port=$(./tools/port.sh open-webui)
+./tools/open.sh "http://localhost:${_open_webui_port}"
 ```
 
 You will be prompted to create an admin account as the first user. You can simply use:
