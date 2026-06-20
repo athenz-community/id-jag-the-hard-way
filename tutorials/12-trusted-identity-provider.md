@@ -11,6 +11,7 @@ In this tutorial, we will configure the authorization server (Athenz) to trust K
 - [Learn what to do](#learn-what-to-do)
 - [Install Plugin into the ZTS Server](#install-plugin-into-the-zts-server)
 - [Connect Keycloak with the Plugin](#connect-keycloak-with-the-plugin)
+- [Verify successfully installed plugin](#verify-successfully-installed-plugin)
 - [Review Summary of Changes](#review-summary-of-changes)
 - [What's next?](#whats-next)
 
@@ -38,6 +39,10 @@ The Authorization Server does not natively know how to handle tokens generated b
 kubectl patch deployment athenz-zts-server \
   -n athenz \
   --patch-file keycloak_token_exchange_provider/hack/static/zts-plugin-jar-mount-patch.yaml
+```
+
+```sh
+kubectl rollout status deployment/athenz-zts-server -n athenz
 ```
 
 > [!NOTE]
@@ -88,20 +93,21 @@ EOF
 # configmap/zts-providers-config created
 ```
 
-> [!NOTE]
-> You can verify that the ZTS server has access to the `jwksUri` by running:
->
-> ```sh
-> kubectl -n athenz exec deployment/athenz-zts-server -c athenz-zts-server -- sh -c "curl -k http://keycloak.idp:8080/realms/master/protocol/openid-connect/certs | jq ."
-> ```
->
-> ```sh
-> # {
-> #  "keys": [
-> #    {
-> #      "kid": "LFe-YnLUWVVdHDlDZ1U7vBTDnuv7H5gn0FRQLij-d4Y",
-> # ...
-> ```
+## Verify successfully installed plugin
+
+Verify that the ZTS server has access to the `jwksUri`:
+
+```sh
+kubectl -n athenz exec deployment/athenz-zts-server -c athenz-zts-server -- sh -c "curl -k http://keycloak.idp:8080/realms/master/protocol/openid-connect/certs | jq ."
+```
+
+```sh
+# {
+#  "keys": [
+#    {
+#      "kid": "LFe-YnLUWVVdHDlDZ1U7vBTDnuv7H5gn0FRQLij-d4Y",
+# ...
+```
 
 Next, patch the Athenz ZTS deployment to mount this configuration map:
 
@@ -176,12 +182,15 @@ kubectl -n athenz rollout restart deployment athenz-zts-server
 # deployment.apps/athenz-zts-server restarted
 ```
 
-> [!NOTE]
-> If the configuration is loaded successfully, you will see a log entry similar to the following:
->
-> ```sh
-> # 12:34:56.233 [main] INFO  c.y.a.c.s.util.config.ConfigManager - configuration "athenz.zts.oauth_provider_config_file" created
-> ```
+Verify the configuration is loaded successfully:
+
+```sh
+kubectl logs -n athenz deployment/athenz-zts-server -c athenz-zts-server | grep "oauth_provider_config_file"
+```
+
+```sh
+# 12:34:56.233 [main] INFO  c.y.a.c.s.util.config.ConfigManager - configuration "athenz.zts.oauth_provider_config_file" created
+```
 
 Please note that the plugin we installed automatically formats the `preferred_username` claim from the OAuth token into the Athenz principal format `human.[preferred_username]`. You can customize the plugin's source code if your environment requires a different mapping behavior.
 

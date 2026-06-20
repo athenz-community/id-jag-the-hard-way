@@ -62,6 +62,13 @@ kubectl expose deploy mcp -n api --port 8081 --name mcp
 ```
 
 
+> [!NOTE]
+> If you see the following error, the container is still starting up. Wait a few seconds and try again.
+>
+> ```
+> Error from server (BadRequest): container "mcp" in pod is waiting to start: ContainerCreating
+> ```
+
 See the log:
 
 ```sh
@@ -103,12 +110,14 @@ Verify:
 
 ```sh
 kubectl logs deploy/mcp -n api
+```
 
 ```sh
-# ◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
-# 🚀 OpenAPI MCP Server for API listening on: http://mcp-server.api.svc.cluster.local
-# 🔗 Upstream API: http://api-server.api.svc.cluster.local
-# 📄 OpenAPI Spec available at: http://mcp-server.api.svc.cluster.local/openapi.json
+# ◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+# 🚀 OpenAPI MCP Server for API listening on: http://mcp.api:8081
+# 🌐 Upstream API: http://api-server.api:8080
+# 📄 OpenAPI Spec available at: http://mcp.api:8081/openapi.json
+# 🔌 MCP endpoint available at: http://mcp.api:8081/mcp
 ```
 
 ## What's done?

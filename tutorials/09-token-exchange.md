@@ -34,6 +34,8 @@ _athenz_ui_port=3000
 open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-token-exchanger/members"
 ```
 
+![09_check_new_role](./assets/09_check_new_role.png)
+
 In Athenz, you must explicitly define both the **source** and **target** of the token exchange. Since the MCP server operates within the `api` domain, we can apply both policies as follows:
 
 ```sh

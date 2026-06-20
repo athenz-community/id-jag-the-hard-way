@@ -133,13 +133,6 @@ Next, we will create a Top-Level Domain (TLD) named `ai` since we haven't create
 # Done!
 ```
 
-Let's quickly check if the TLD is created:
-
-```sh
-_athenz_ui_port=3000
-open "http://localhost:${_athenz_ui_port}/domain/ai/role"
-```
-
 Now, register the service open-webui under the `ai` domain using the public key we just generated:
 
 ```sh
@@ -240,6 +233,7 @@ kubectl logs deploy/ai-client-gateway -n human
 # 🚀 OpenWebUI OpenAPI Gateway listening on 0.0.0.0:3101
 # 🔗 Upstream API: http://mcp.api:8081
 # 🌍 Public Base URL: http://ai-client-gateway.api:3101
+# 🔑 Athenz ZTS Endpoint: https://athenz-zts-server.athenz:4443/zts/v1
 ```
 
 ## What's done?

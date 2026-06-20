@@ -41,6 +41,9 @@ Once you see the following output, you can proceed to the next step:
 
 ## Check Athenz Server Running
 
+> [!NOTE]
+> It may take about 5–10 minutes for all Athenz servers to be fully available.
+
 Execute the following to see the status of the Athenz server:
 
 ```sh
@@ -51,6 +54,8 @@ _athenz_components=(
   "athenz-zts-server"
   "athenz-ui"
 )
+
+echo "Waiting for athenz servers to be ready ..."
 
 for component in "${_athenz_components[@]}"; do
   kubectl wait -n athenz \
@@ -117,9 +122,8 @@ _pf() {
   local remote_port=$4
 
   while true; do
-    echo "Port-forwarding ${ns}/${resource}: ${local_port}:${remote_port}"
-    kubectl -n "${ns}" port-forward "${resource}" "${local_port}:${remote_port}" || true
-    echo "Restarting ${ns}/${resource} port-forward..."
+    err=$(kubectl -n "${ns}" port-forward "${resource}" "${local_port}:${remote_port}" 2>&1 1>/dev/tty) || true
+    echo "$err" | grep -q "address already in use" && { echo "Error: port ${local_port} is already in use" >&2; exit 1; } || true
     sleep 3
   done
 }

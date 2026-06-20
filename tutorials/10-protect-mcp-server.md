@@ -203,6 +203,12 @@ And we successfully get the docs from the API MCP Server!
 
 ![10_successsfully_get_docs_from_api_mcp_server](./assets/10_successsfully_get_docs_from_api_mcp_server.png)
 
+Check the MCP server logs to see what happened:
+
+```sh
+kubectl logs deploy/mcp -n api -c mcp
+```
+
 The permission check is illustrated in the architecture diagram below:
 
 ![10_mcp_access_permission_required](./assets/10_mcp_access_permission_required.png)

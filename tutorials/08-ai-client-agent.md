@@ -76,6 +76,14 @@ kubectl create ns ai
 
 Deploy Open WebUI:
 
+> [!NOTE]
+> If you are using kind, pre-loading the image can speed things up significantly:
+>
+> ```sh
+> docker pull ghcr.io/open-webui/open-webui:main
+> kind load docker-image ghcr.io/open-webui/open-webui:main
+> ```
+
 ```sh
 kubectl create deploy open-webui -n ai \
   --image=ghcr.io/open-webui/open-webui:main
@@ -129,7 +137,9 @@ EOF
 ## Open Open WebUI
 
 > [!NOTE]
-> It takes some time to open up Open WebUI with its size
+> It may take 3–5 minutes for Open WebUI to be fully available due to its size (1~2 gbs)
+>
+> You may also see errors like `Error from server (NotFound): namespaces "idp" not found` or `unable to forward port because pod is not running` in the port-forward terminal — these are expected at this stage and can be ignored.
 
 Open up the url (make sure you are running `keep-k8s-port-forward.sh`):
 

@@ -13,7 +13,6 @@ In this tutorial, we will configure [Keycloak](https://www.keycloak.org/) as an 
 - [Setup Client](#setup-client)
 - [Setup User](#setup-user)
 - [Setup id_token expiration date](#setup-id_token-expiration-date)
-- [Setup Frontend URL](#setup-frontend-url)
 - [Add Keycloak Settings to Open WebUI](#add-keycloak-settings-to-open-webui)
 - [Sign in as `idjag-learner`](#sign-in-as-idjag-learner)
 - [Accept the account](#accept-the-account)
@@ -24,15 +23,6 @@ In this tutorial, we will configure [Keycloak](https://www.keycloak.org/) as an 
 <!-- /TOC -->
 
 ## Deploy Keycloak in K8s
-
-> [!NOTE]
-> If you are using `kind` and facing `ImagePullBackOff` error, you can do:
->
-> ```sh
-> docker pull quay.io/keycloak/keycloak:latest
-> kind load docker-image quay.io/keycloak/keycloak:latest
-> ```
->
 
 First of all, Create a namespace for Keycloak:
 
@@ -114,6 +104,23 @@ kubectl expose deployment keycloak --port=8080 -n idp
 
 ## Open Keycloak on Browser
 
+> [!NOTE]
+> If you are using `kind` and facing `ImagePullBackOff` error, you can do:
+>
+> ```sh
+> docker pull quay.io/keycloak/keycloak:latest
+> kind load docker-image quay.io/keycloak/keycloak:latest
+> ```
+
+Make sure the Keycloak pod is running before opening the browser:
+
+```sh
+kubectl wait -n idp \
+  --for=condition=ready pod \
+  --selector=app=keycloak \
+  --timeout=180s
+```
+
 Open your browser and log in using admin for both the username `admin` and password `admin`:
 
 ```sh
@@ -130,7 +137,7 @@ In Keycloak, a `Client` represents an application that requests authentication o
 > [!NOTE]
 > We use the default `master` realm for this tutorial.
 
-Go to `http://localhost:9090/admin/master/console/#/master/clients/add-client` and configure the following:
+Go to `http://localhost:34443/admin/master/console/#/master/clients/add-client` and configure the following:
 
 - Client type: `OpenID Connect`
 - Client ID: `ai.open-webui`
@@ -155,7 +162,7 @@ You should see a confirmation screen similar to this:
 
 Let's create a human user account to represent you.
 
-Go to `http://localhost:9090/admin/master/console/#/master/users/add-user` and fill in the following:
+Go to `http://localhost:34443/admin/master/console/#/master/users/add-user` and fill in the following:
 
 - Username: `idjag-learner`
 - Email: `idjag-learner@athenz.io`
@@ -181,32 +188,19 @@ Go to `Keycloak` > `Realm settings` > `Tokens` > `Access Token Lifespan` and set
 ![11_idp_id_token_expiration](./assets/11_idp_id_token_expiration.png)
 
 
-## Setup Frontend URL
-
-Go to `Keycloak` > `Realm settings` > `Frontend URL`, then put:
-
-```sh
-http://localhost:34443
-```
-
-![11_keycloak_frontend_url](./assets/11_keycloak_frontend_url.png)
-
 ## Add Keycloak Settings to Open WebUI
 
 The Open WebUI deployed in K8s does not yet have Keycloak configured. We need to patch the deployment with the required environment variables.
 
-In Keycloak, navigate to `Clients` > `ai.open-webui` > `credentials` > `Copy Client Secret` then store as `_kcs`:
+In Keycloak, navigate to `Clients` > `ai.open-webui` > `credentials` > `Copy Client Secret`, then create the secret:
 
 ```sh
-_open_webui_client_id="ai.open-webui"
 _open_webui_secret="🟡TODO: Please put your secret here"
 ```
 
-Create secret:
-
 ```sh
 kubectl create secret generic keycloak-client-secret -n ai \
-  --from-literal=OAUTH_CLIENT_ID="${_open_webui_client_id}" \
+  --from-literal=OAUTH_CLIENT_ID="ai.open-webui" \
   --from-literal=OAUTH_CLIENT_SECRET="${_open_webui_secret}"
 ```
 
@@ -258,6 +252,12 @@ EOF
 
 ## Sign in as `idjag-learner`
 
+Wait for the Open WebUI pod to be ready after the patch:
+
+```sh
+kubectl rollout status deploy/open-webui -n ai
+```
+
 In this tutorial, when you login to Open WebUI with the non-admin account (i.e. `idjag-learner`), you will open a different browser or incognito mode.
 
 If you are using Google Chrome:
@@ -304,6 +304,8 @@ Navigate to `http://localhost:54443/admin/users/overview`
 ![11_pending_user_id_jag_learner_added](./assets/11_pending_user_id_jag_learner_added.png)
 
 Click `Edit User` for the `idjag-learner`, then change `Pending` to `User`, and click **Save**.
+
+![11_change_pending_to_user](./assets/11_change_pending_to_user.png)
 
 ## Return to the `idjag-learner` Browser
 
