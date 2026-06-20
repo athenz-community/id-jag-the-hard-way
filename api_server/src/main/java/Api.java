@@ -141,7 +141,15 @@ public class Api {
         });
 
         server.start();
-        System.out.println("🚀 Server started on port " + PORT + " (Athenz Required: " + authorizer.isRequired() + ")");
+        String jwkUri = System.getProperty("athenz.zpe.jwk_uri", "(not set)");
+        System.out.println("\n=========================================================");
+        System.out.println("🚀 API Server listening on http://0.0.0.0:" + PORT);
+        System.out.println("🛡️  Athenz Required: " + authorizer.isRequired());
+        if (authorizer.isRequired()) {
+            System.out.println("🔑 Athenz ZTS JWK URI: " + jwkUri);
+        }
+        System.out.println("📄 Docs endpoint: http://0.0.0.0:" + PORT + "/api/docs");
+        System.out.println("=========================================================\n");
     }
 
     private static void sendResponse(HttpExchange exchange, int code, String res) throws IOException {

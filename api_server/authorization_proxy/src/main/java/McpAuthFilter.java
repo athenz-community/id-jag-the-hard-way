@@ -56,7 +56,6 @@ public class McpAuthFilter implements Filter {
         if (System.getProperty("athenz.zpe.check_policy_zms_signature") == null) {
             System.setProperty("athenz.zpe.check_policy_zms_signature", "false");
         }
-        
         AuthZpeClient.init();
         System.out.println(String.format("[%s] [INFO] [MCP-Auth-Proxy] 🛡️ Athenz ZPE Initialized! Securing API Server's MCP endpoints.", getTimestamp()));
     }

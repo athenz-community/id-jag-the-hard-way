@@ -17,11 +17,18 @@ WORKDIR /app
 COPY --from=build /src/target/classes ./classes
 COPY --from=build /src/target/dependency ./dependency
 
+# Create empty-but-valid Athenz conf stubs so ZPE doesn't log WARN/ERROR on missing files
+RUN mkdir -p /home/athenz/conf/athenz /var/lib/sia && \
+    echo '{"zmsUrl":"","ztsUrl":"","ztsPublicKeys":[],"zmsPublicKeys":[]}' > /home/athenz/conf/athenz/athenz.conf && \
+    echo '{"zts":{"keys":[]},"zms":{"keys":[]}}' > /var/lib/sia/athenz.conf
+
 ENV PORT=8080
 ENV AT_REQUIRED=false
-ENV JAVA_TOOL_OPTIONS="-Dathenz.zpe.policy_dir=/app/policies \
--Dathenz.zpe.jwk_uri=https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true"
 
 EXPOSE 8080
 
-CMD ["java", "-cp", "classes:dependency/*", "Api"]
+CMD ["java", \
+  "-Dathenz.zpe.policy_dir=/app/policies", \
+  "-Dathenz.zpe.jwk_uri=https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true", \
+  "-cp", "classes:dependency/*", \
+  "Api"]
