@@ -87,6 +87,13 @@ export async function exchangeToIdjag(req, scope) {
 
   const now = Math.floor(Date.now() / 1000);
 
+  const idTokenExp = getJwtExpiration(idToken);
+  if (!idTokenExp || idTokenExp <= now) {
+    const err = new Error("ID token has expired. Please re-login.");
+    err.code = "ID_TOKEN_EXPIRED";
+    throw err;
+  }
+
   const cacheKey = scope; // for now it is simply use the scope as the key
 
   if (tokenCache.has(cacheKey)) {

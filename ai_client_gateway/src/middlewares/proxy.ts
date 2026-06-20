@@ -92,6 +92,12 @@ export async function proxyMiddleware(req: Request, res: Response) {
 
     res.send(responseBuffer);
   } catch (error: any) {
+    if (error.code === "ID_TOKEN_EXPIRED") {
+      return res.status(401).json({
+        error: "id_token_expired",
+        message: "Your session has expired. Please sign out from your IdP (e.g. Keycloak) and re-login to get a new session. (Automatic re-login is not yet implemented but coming soon.)",
+      });
+    }
     console.error(`[${new Date().toISOString()}] Proxy request failed:`, error);
     res.status(502).json({
       error: "upstream_request_failed",
