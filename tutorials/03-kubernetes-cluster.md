@@ -48,11 +48,11 @@ kubectl get ns
 
 ```sh
 # NAME                 STATUS   AGE
-# default              Active   52d
-# kube-node-lease      Active   52d
-# kube-public          Active   52d
-# kube-system          Active   52d
-# local-path-storage   Active   52d
+# default              Active   14s
+# kube-node-lease      Active   14s
+# kube-public          Active   14s
+# kube-system          Active   14s
+# local-path-storage   Active   15s
 ```
 
 Next: [API Server](./04-api-server.md)
