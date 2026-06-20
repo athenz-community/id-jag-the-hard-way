@@ -1,6 +1,6 @@
 |               Previous               |        Current        |                        Next                        |
 |:------------------------------------:|:---------------------:|:--------------------------------------------------:|
-| [Prerequisites](01-prerequisites.md) | **Working Directory** | [Kubernetes Cluster](./02.2-kubernetes-cluster.md) |
+| [Prerequisites](01-prerequisites.md) | **Working Directory** | [Kubernetes Cluster](./03-kubernetes-cluster.md) |
 
 # Working Directory
 
@@ -52,4 +52,4 @@ git submodule update --init --recursive
 
 Every script used in this tutorial will assume that it is being run from the `id_jag_the_hard_way_workspace` directory. If you need to run any script, you will need to change into this directory first. The name & directory can be customized to your needs, as long as you come back to this directory to run any scripts referenced by any tutorial.
 
-Next: [Kubernetes Cluster](./02.2-kubernetes-cluster.md)
+Next: [Kubernetes Cluster](./03-kubernetes-cluster.md)

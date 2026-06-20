@@ -1,6 +1,6 @@
 |             Previous             |         Current          |                Next                |
 |:--------------------------------:|:------------------------:|:----------------------------------:|
-| [API Server](./03-api-server.md) | **Authorization Server** | [ZPU Server](./04.1-zpu-server.md) |
+| [API Server](./04-api-server.md) | **Authorization Server** | [ZPU Server](./06-zpu-server.md) |
 
 # Authorization Server
 
@@ -165,8 +165,8 @@ _athenz_ui_port=3000
 open "http://localhost:${_athenz_ui_port}"
 ```
 
-![athenz_ui](assets/04_athenz_ui.png)
+![athenz_ui](assets/05_athenz_ui.png)
 
 In the next tutorial, we will create a ZPU (details later explained):
 
-Next: [ZPU Server](./04.1-zpu-server.md)
+Next: [ZPU Server](./06-zpu-server.md)

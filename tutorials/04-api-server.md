@@ -1,6 +1,6 @@
 |                      Previous                      |    Current     |                         Next                         |
 |:--------------------------------------------------:|:--------------:|:----------------------------------------------------:|
-| [Kubernetes Cluster](./02.2-kubernetes-cluster.md) | **API Server** | [Authorization Server](./04-authorization-server.md) |
+| [Kubernetes Cluster](./03-kubernetes-cluster.md) | **API Server** | [Authorization Server](./05-authorization-server.md) |
 
 # API Server
 
@@ -19,7 +19,7 @@ We will first run the API server without authorization so that we can understand
 
 <!-- /TOC -->
 
-![03_arc_get_docs_from_api_server](./assets/03_arc_get_docs_from_api_server.png)
+![04_arc_get_docs_from_api_server](./assets/04_arc_get_docs_from_api_server.png)
 
 ## Create a namespace `api` in kubernetes
 
@@ -130,7 +130,7 @@ The API server is now protected, so requests without a valid Bearer Access Token
 
 Unauthorized error is returned when you tried to fetch the data from the API Server, with `AT_REQUIRED=true` API Server:
 
-![03_arc_get_docs_from_api_server_unauthorized](./assets/03_arc_get_docs_from_api_server_unauthorized.png)
+![04_arc_get_docs_from_api_server_unauthorized](./assets/04_arc_get_docs_from_api_server_unauthorized.png)
 
 ## Learn what's next
 
@@ -138,4 +138,4 @@ So, how do we get past this Unauthorized error? We need a trusted authorization 
 
 In the next tutorial, we will introduce [Athenz](https://github.com/AthenZ/athenz)—a [CNCF Sandbox project](https://www.cncf.io/projects/athenz/) battle-tested by tech giants like [Yahoo Inc.](https://www.yahooinc.com/) in the United States, [LY Corporation](https://www.lycorp.co.jp/en/) in Japan, and [Vespa.ai](https://vespa.ai/) in Europe. We’ll deploy it locally, mint our own valid Access Token, and finally unlock our protected API server.
 
-Next: [Authorization Server](./04-authorization-server.md)
+Next: [Authorization Server](./05-authorization-server.md)

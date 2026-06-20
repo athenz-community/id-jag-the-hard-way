@@ -1,6 +1,6 @@
 |                     Previous                     |       Current       |                   Next                   |
 |:------------------------------------------------:|:-------------------:|:----------------------------------------:|
-| [MCP Server for API](./07-mcp-server-for-api.md) | **AI Client Agent** | [Token Exchange](./09-token-exchange.md) |
+| [MCP Server for API](./09-mcp-server-for-api.md) | **AI Client Agent** | [Token Exchange](./11-token-exchange.md) |
 
 # AI Client Agent
 
@@ -155,7 +155,7 @@ You will be prompted to create an admin account as the first user. You can simpl
 
 However, the credentials are up to you.
 
-![08_create_admin_account](./assets/08_create_admin_account.png)
+![10_create_admin_account](./assets/10_create_admin_account.png)
 
 ## Register MCP Server as a Tool Server in Open WebUI
 
@@ -181,7 +181,7 @@ Go to `User Icon` > `Admin Panel` > `Settings` > `Integrations` > `Manage Tool S
 - API Key: `<YOUR_ACCESS_TOKEN_THAT_YOU'VE_FETCHED`
 - Access: Change to `Public`
 
-![08_api_mcp_server_in_open_webui](./assets/08_api_mcp_server_in_open_webui.png)
+![10_api_mcp_server_in_open_webui](./assets/10_api_mcp_server_in_open_webui.png)
 
 Before we ask the AI Agent, let's quickly add the tool as the default tool server, so that you do not have to manually add the tool every time.
 
@@ -191,11 +191,11 @@ Select the edit (Pencil) Icon.
 
 Select `Access` > `Private` then change to `Public` (auotmatic save):
 
-![08_model_now_public](./assets/08_model_now_public.png)
+![10_model_now_public](./assets/10_model_now_public.png)
 
 Then in `tools` section, select the tool that we just created as the following:
 
-![08_select_tool_as_default_for_the_model](./assets/08_select_tool_as_default_for_the_model.png)
+![10_select_tool_as_default_for_the_model](./assets/10_select_tool_as_default_for_the_model.png)
 
 
 ## Verify
@@ -204,7 +204,7 @@ Follow the steps below to verify the setup.
 
 > [!NOTE]
 > Make sure that the tool we just created is selected
-> ![08_tool_selected](./assets/08_tool_selected.png)
+> ![10_tool_selected](./assets/10_tool_selected.png)
 
 Finally, ask the AI Agent the following (It is expected to fail):
 
@@ -212,11 +212,11 @@ Finally, ask the AI Agent the following (It is expected to fail):
 get docs!
 ```
 
-![08_deliberate_failure_no_permission_to_token_impersonation](./assets/08_deliberate_failure_no_permission_to_token_impersonation.png)
+![10_deliberate_failure_no_permission_to_token_impersonation](./assets/10_deliberate_failure_no_permission_to_token_impersonation.png)
 
 ## What's happened?
 
-![08_arc_failed_to_token_exchange](./assets/08_arc_failed_to_token_exchange.png)
+![10_arc_failed_to_token_exchange](./assets/10_arc_failed_to_token_exchange.png)
 
 We were able to successfully install the AI Client Agent, using:
 
@@ -226,4 +226,4 @@ We were able to successfully install the AI Client Agent, using:
 
 We manually passed the Access Token, which has permission to access the API server. However, it fails due to the default behavior of the MCP, which attempts to exchange the given Access Token into another token. This is an expected failure however. We will fix it in the next section.
 
-Next: [Token Exchange](./09-token-exchange.md)
+Next: [Token Exchange](./11-token-exchange.md)

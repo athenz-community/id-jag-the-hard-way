@@ -1,6 +1,6 @@
 |                     Previous                     |        Current        |                              Next                              |
 |:------------------------------------------------:|:---------------------:|:--------------------------------------------------------------:|
-| [Protect MCP Server](./10-protect-mcp-server.md) | **Identity Provider** | [Trusted Identity Provider](./12-trusted-identity-provider.md) |
+| [Protect MCP Server](./12-protect-mcp-server.md) | **Identity Provider** | [Trusted Identity Provider](./14-trusted-identity-provider.md) |
 
 # Identity Provider
 
@@ -128,7 +128,7 @@ _keycloak_running_port=34443
 open http://localhost:${_keycloak_running_port}
 ```
 
-![11_keycloak_running](./assets/11_keycloak_running.png)
+![13_keycloak_running](./assets/13_keycloak_running.png)
 
 ## Setup Client
 
@@ -156,7 +156,7 @@ Click **Save**.
 
 You should see a confirmation screen similar to this:
 
-![11_keycloak_client_added](./assets/11_keycloak_client_added.png)
+![13_keycloak_client_added](./assets/13_keycloak_client_added.png)
 
 ## Setup User
 
@@ -185,7 +185,7 @@ Click **Save**.
 
 Go to `Keycloak` > `Realm settings` > `Tokens` > `Access Token Lifespan` and set it to `4 hours`.
 
-![11_idp_id_token_expiration](./assets/11_idp_id_token_expiration.png)
+![13_idp_id_token_expiration](./assets/13_idp_id_token_expiration.png)
 
 
 ## Add Keycloak Settings to Open WebUI
@@ -279,7 +279,7 @@ open -na "Firefox" --args --private-window "http://localhost:${_open_webui_port}
 
 You will see a new login panel with a **Continue with Keycloak** button:
 
-![11_continue_with_keycloak_appeared](./assets/11_continue_with_keycloak_appeared.png)
+![13_continue_with_keycloak_appeared](./assets/13_continue_with_keycloak_appeared.png)
 
 Click it, and you will be prompted to log in. Use the credentials we created.
 
@@ -288,7 +288,7 @@ Then you will be prompted to add member
 - `Username`: `idjag-learner`
 - `Password`: `password`
 
-![11_login_successful_as_idjag_learner](./assets/11_login_successful_as_idjag_learner.png)
+![13_login_successful_as_idjag_learner](./assets/13_login_successful_as_idjag_learner.png)
 
 ## Accept the account
 
@@ -301,11 +301,11 @@ open http://localhost:${_open_webui_port}
 
 Navigate to `http://localhost:54443/admin/users/overview`
 
-![11_pending_user_id_jag_learner_added](./assets/11_pending_user_id_jag_learner_added.png)
+![13_pending_user_id_jag_learner_added](./assets/13_pending_user_id_jag_learner_added.png)
 
 Click `Edit User` for the `idjag-learner`, then change `Pending` to `User`, and click **Save**.
 
-![11_change_pending_to_user](./assets/11_change_pending_to_user.png)
+![13_change_pending_to_user](./assets/13_change_pending_to_user.png)
 
 ## Return to the `idjag-learner` Browser
 
@@ -318,16 +318,16 @@ open -na "Google Chrome" --args --incognito "http://localhost:${_open_webui_port
 
 You should now be successfully logged into the interface.
 
-![11_hello_idjag_leanrer](./assets/11_hello_idjag_leanrer.png)
+![13_hello_idjag_leanrer](./assets/13_hello_idjag_leanrer.png)
 
 ## What's done?
 
 We have installed Keycloak (Red dotted box) locally and configured it as an identity provider for our AI Client Agent. This way, non-admin user can sign in with his/her own account:
 
-![11_arc_signed_into_ui_with_keycloak](./assets/11_arc_signed_into_ui_with_keycloak.png)
+![13_arc_signed_into_ui_with_keycloak](./assets/13_arc_signed_into_ui_with_keycloak.png)
 
 ## What's next?
 
 We have let our AI Client agent to trust Keycloak as an IdP. But we have not yet configured Authorization Server to trust Keycloak as IdP. In the next tutorial, we will set up our Authorization Server to trust Keycloak.
 
-Next: [Trusted Identity Provider](./12-trusted-identity-provider.md)
+Next: [Trusted Identity Provider](./14-trusted-identity-provider.md)

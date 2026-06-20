@@ -1,6 +1,6 @@
 |                  Previous                  |      Current       |                       Next                       |
 |:------------------------------------------:|:------------------:|:------------------------------------------------:|
-| [AI Client Agent](./08-ai-client-agent.md) | **Token Exchange** | [Protect MCP Server](./10-protect-mcp-server.md) |
+| [AI Client Agent](./10-ai-client-agent.md) | **Token Exchange** | [Protect MCP Server](./12-protect-mcp-server.md) |
 
 # Token Exchange
 
@@ -34,7 +34,7 @@ _athenz_ui_port=3000
 open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-token-exchanger/members"
 ```
 
-![09_check_new_role](./assets/09_check_new_role.png)
+![11_check_new_role](./assets/11_check_new_role.png)
 
 In Athenz, you must explicitly define both the **source** and **target** of the token exchange. Since the MCP server operates within the `api` domain, we can apply both policies as follows:
 
@@ -43,7 +43,7 @@ In Athenz, you must explicitly define both the **source** and **target** of the 
 ./my_tools/add-policy.sh "api" "docs-token-exchanger" "zts.token_target_exchange" "api:role.docs-getter"
 ```
 
-![09_source_and_target_exchange_policy](assets/09_source_and_target_exchange_policy.png)
+![11_source_and_target_exchange_policy](assets/11_source_and_target_exchange_policy.png)
 
 > [!NOTE]
 > Note that the MCP server itself doesn't need direct access to the target resource; it only needs permission to perform the exchange.
@@ -75,7 +75,7 @@ Navigate to `User Icon` > `Admin Panel` > `Settings` > `Integrations`, and click
 
 Attach the access token exactly as we did previously:
 
-![09_attach_access_token](./assets/09_attach_access_token.png)
+![11_attach_access_token](./assets/11_attach_access_token.png)
 
 Now, ask the AI Agent the exact same prompt that failed last time:
 
@@ -83,13 +83,13 @@ Now, ask the AI Agent the exact same prompt that failed last time:
 get docs!
 ```
 
-![09_succcesfully_get_docs_through_ai_for_the_first_time](./assets/09_succcesfully_get_docs_through_ai_for_the_first_time.png)
+![11_succcesfully_get_docs_through_ai_for_the_first_time](./assets/11_succcesfully_get_docs_through_ai_for_the_first_time.png)
 
 ## What's happened?
 
 By introducing a specific role `docs-token-exchanger` that authorizes its members to perform token exchanges for a target scope, the MCP server can successfully exchange (Step 7 below) the provided Access Token for a new one, as illustrated below:
 
-![09_arc_success_to_token_exchange](./assets/09_arc_success_to_token_exchange.png)
+![11_arc_success_to_token_exchange](./assets/11_arc_success_to_token_exchange.png)
 
 ## What's next?
 
@@ -97,4 +97,4 @@ As shown in the architecture above, our API Server is now fully protected by Ath
 
 In the next section, we will implement an authentication layer for the MCP server to ensure only authenticated users can interact with it.
 
-Next: [Protect MCP Server](./10-protect-mcp-server.md)
+Next: [Protect MCP Server](./12-protect-mcp-server.md)

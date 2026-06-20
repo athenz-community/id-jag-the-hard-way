@@ -1,6 +1,6 @@
 |                    Previous                    |        Current        |           Next           |
 |:----------------------------------------------:|:---------------------:|:------------------------:|
-| [Identity Provider](./11-identity-provider.md) | **AI Client Gateway** | [ID-JAG](./14-id-jag.md) |
+| [Trusted Identity Provider](./14-trusted-identity-provider.md) | **AI Client Gateway** | [ID-JAG](./16-id-jag.md) |
 
 # AI Client Gateway
 
@@ -240,7 +240,7 @@ kubectl logs deploy/ai-client-gateway -n human
 
 We just installed `AI Client Agent` (Highlighted in Red) which Open WebUI can talk to as a tool :
 
-![13_ai_client_agent_installed_and_used](./assets/13_ai_client_agent_installed_and_used.png)
+![15_ai_client_agent_installed_and_used](./assets/15_ai_client_agent_installed_and_used.png)
 
 ## Modify the Tool Target
 
@@ -260,7 +260,7 @@ open http://localhost:$_open_webui_keycloak_port
   - Change the MCP Authorization Server URL to the proxy URL: http://ai-client-gateway.human:3101
   - Change the `Auth` to `Oauth`
 
-![13_edit_connection_of_tool](./assets/13_edit_connection_of_tool.png)
+![15_edit_connection_of_tool](./assets/15_edit_connection_of_tool.png)
 
 ## Verify
 
@@ -273,7 +273,7 @@ _open_webui_keycloak_port=54443
 open -na "Google Chrome" --args --incognito "http://localhost:${_open_webui_keycloak_port}"
 ```
 
-![13_logged_in_as_idjag_learner](./assets/13_logged_in_as_idjag_learner.png)
+![15_logged_in_as_idjag_learner](./assets/15_logged_in_as_idjag_learner.png)
 
 Now, test the setup by asking the AI Agent:
 
@@ -283,16 +283,16 @@ Get docs!
 
 The request will deliberately fail as following:
 
-![13_deliberate_failure_to_get_without_permission](./assets/13_deliberate_failure_to_get_without_permission.png)
+![15_deliberate_failure_to_get_without_permission](./assets/15_deliberate_failure_to_get_without_permission.png)
 
 ## What's happened?
 
 We created a certificate for `ai.open-webui`, but this service does not yet have the necessary permissions in Athenz to exchange your Keycloak ID Token into an ID-JAG token (indicated by the red box in your architecture diagram). Because the gateway cannot assert your identity, the request is denied.
 
-![13_arc_not_enough_permission_into_idjag](./assets/13_arc_not_enough_permission_into_idjag.png)
+![15_arc_not_enough_permission_into_idjag](./assets/15_arc_not_enough_permission_into_idjag.png)
 
 ## What's next?
 
 In the next tutorial, we will fix this permission error by granting the proper token exchange policies, allowing us to successfully execute the end-to-end prompt.
 
-Next: [ID-JAG](./14-id-jag.md)
+Next: [ID-JAG](./16-id-jag.md)

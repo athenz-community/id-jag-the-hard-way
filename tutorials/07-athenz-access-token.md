@@ -1,6 +1,6 @@
 |              Previous              |         Current         |                        Next                        |
 |:----------------------------------:|:-----------------------:|:--------------------------------------------------:|
-| [ZPU Server](./04.1-zpu-server.md) | **Athenz Access Token** | [Granular Permission](./06-granular-permission.md) |
+| [ZPU Server](./06-zpu-server.md) | **Athenz Access Token** | [Granular Permission](./08-granular-permission.md) |
 
 # Athenz Access Token
 
@@ -70,7 +70,7 @@ _athenz_ui_port=3000
 open "http://localhost:${_athenz_ui_port}/domain/api/role"
 ```
 
-![05_create_api_domain_role](./assets/05_create_api_domain_role.png)
+![07_create_api_domain_role](./assets/07_create_api_domain_role.png)
 
 ## Create Policies
 
@@ -154,7 +154,7 @@ _athenz_ui_port=3000
 open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/policy"
 ```
 
-![05_add_policy_to_role](./assets/05_add_policy_to_role.png)
+![07_add_policy_to_role](./assets/07_add_policy_to_role.png)
 
 ## Add Root User as a member
 
@@ -203,7 +203,7 @@ _athenz_ui_port=3000
 open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
 ```
 
-![05_add_role_member](./assets/05_add_role_member.png)
+![07_add_role_member](./assets/07_add_role_member.png)
 
 ## Get Access Token as Root User
 
@@ -336,7 +336,7 @@ curl -s -k -H "Authorization: Bearer $_root_user_at" http://localhost:14443/api/
 
 We have successfully retrieved an Athenz Access Token as `user.athenz_admin` and used it to access the protected API.
 
-![05_arc_get_athenz_at_and_pass_api_req](./assets/05_arc_get_athenz_at_and_pass_api_req.png)
+![07_arc_get_athenz_at_and_pass_api_req](./assets/07_arc_get_athenz_at_and_pass_api_req.png)
 
 ## What's next?
 
@@ -344,4 +344,4 @@ As you may have noticed, relying on the highly privileged `user.athenz_admin` fo
 
 In the next section, we will generate a new X.509 certificate that represents *you*—the one learning `id-jag`—and use it to securely access the API!
 
-Next: [Granular Permission](./06-granular-permission.md)
+Next: [Granular Permission](./08-granular-permission.md)

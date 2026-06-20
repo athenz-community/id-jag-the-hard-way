@@ -1,6 +1,6 @@
 |                      Previous                       |         Current         |                       Next                       |
 |:---------------------------------------------------:|:-----------------------:|:------------------------------------------------:|
-| [Authorization Server](./05-athenz-access-token.md) | **Granular Permission** | [MCP Server for API](./07-mcp-server-for-api.md) |
+| [Authorization Server](./07-athenz-access-token.md) | **Granular Permission** | [MCP Server for API](./09-mcp-server-for-api.md) |
 
 # Granular Permission
 
@@ -44,7 +44,7 @@ Run the following command to create the TLD:
 
 This creates the `human` domain, represented by the purple section in the following diagram:
 
-![06_create_tld_human](./assets/06_create_tld_human.png)
+![08_create_tld_human](./assets/08_create_tld_human.png)
 
 ## Create Service Identity
 
@@ -61,7 +61,7 @@ _athenz_ui_port=3000
 open "http://localhost:${_athenz_ui_port}/domain/human/service"
 ```
 
-![06_new_service](./assets/06_new_service.png)
+![08_new_service](./assets/08_new_service.png)
 
 ## Fetch X.509 Cert for idjag-learner
 
@@ -121,7 +121,7 @@ _athenz_ui_port=3000
 open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
 ```
 
-![06_id_jag_learner_not_in_role_yet](./assets/06_id_jag_learner_not_in_role_yet.png)
+![08_id_jag_learner_not_in_role_yet](./assets/08_id_jag_learner_not_in_role_yet.png)
 
 To fix this, simply run the member addition script we created earlier:
 
@@ -136,7 +136,7 @@ _athenz_ui_port=3000
 open "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
 ```
 
-![06_human_id_jag_learner_now_added_as_member](./assets/06_human_id_jag_learner_now_added_as_member.png)
+![08_human_id_jag_learner_now_added_as_member](./assets/08_human_id_jag_learner_now_added_as_member.png)
 
 Now that your service identity is a recognized member of the role, fetch the access token again:
 
@@ -204,6 +204,6 @@ curl -s -k -H "Authorization: Bearer $_my_access_token" http://localhost:14443/a
 
 You successfully fetched an X.509 certificate for the non-admin service identity (`human.idjag-learner`) and exchanged it for an Athenz Access Token scoped specifically to `api:role.docs-getter`:
 
-![06_arc_fetch_at_with_non_admin_certificiate](./assets/06_arc_fetch_at_with_non_admin_certificiate.png)
+![08_arc_fetch_at_with_non_admin_certificiate](./assets/08_arc_fetch_at_with_non_admin_certificiate.png)
 
-Next: [MCP Server for API](./07-mcp-server-for-api.md)
+Next: [MCP Server for API](./09-mcp-server-for-api.md)

@@ -1,6 +1,6 @@
 |                       Previous                       |    Current     |                        Next                        |
 |:----------------------------------------------------:|:--------------:|:--------------------------------------------------:|
-| [Authorization Server](./04-authorization-server.md) | **ZPU Server** | [Athenz Access Token](./05-athenz-access-token.md) |
+| [Authorization Server](./05-authorization-server.md) | **ZPU Server** | [Athenz Access Token](./07-athenz-access-token.md) |
 
 # ZPU Server
 
@@ -78,11 +78,11 @@ Create a domain `api` that represents the API server domain:
 
 You can verify that this domain is created successfully by refreshing the **Athenz UI** (`http://localhost:3000`):
 
-![05_create_api_tld](./assets/05_create_api_tld.png)
+![07_create_api_tld](./assets/06_create_api_tld.png)
 
 The new domain (or Top Level Domain, or TLD) `api` you just created represents the following blue dotted line:
 
-![05_create_api_domain](./assets/05_create_api_domain.png)
+![07_create_api_domain](./assets/06_create_api_domain.png)
 
 ## Create Certificate for ZPU
 
@@ -401,4 +401,4 @@ kubectl exec deploy/api-server -n api \
 # ...
 ```
 
-Next: [Athenz Access Token](./05-athenz-access-token.md)
+Next: [Athenz Access Token](./07-athenz-access-token.md)

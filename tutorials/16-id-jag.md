@@ -1,6 +1,6 @@
 |                    Previous                    |  Current   |  Next  |
 |:----------------------------------------------:|:----------:|:------:|
-| [AI Client Gateway](./13-ai-client-gateway.md) | **ID-JAG** | *None* |
+| [AI Client Gateway](./15-ai-client-gateway.md) | **ID-JAG** | *None* |
 
 # ID-JAG
 
@@ -64,7 +64,7 @@ Now, return to the AI Agent UI and test the exact same prompt that failed previo
 get docs!
 ```
 
-![14_successful_attrival_from_server](./assets/14_successful_attrival_from_server.png)
+![16_successful_attrival_from_server](./assets/16_successful_attrival_from_server.png)
 
 ## What's happened?
 
@@ -81,7 +81,7 @@ Here is a brief overview of how it all worked:
 
 At every hop, the Principle of Least Privilege was enforced — each component only held the minimum permissions it needed.
 
-![14_arc_get_docs_through_id_jag](./assets/14_arc_get_docs_through_id_jag.png)
+![16_arc_get_docs_through_id_jag](./assets/16_arc_get_docs_through_id_jag.png)
 
 ## Finally
 

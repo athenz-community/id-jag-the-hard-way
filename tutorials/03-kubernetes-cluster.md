@@ -1,6 +1,6 @@
 |                    Previous                    |        Current         |               Next               |
 |:----------------------------------------------:|:----------------------:|:--------------------------------:|
-| [Working Directory](./02-working-directory.md) | **Kubernetes Cluster** | [API Server](./03-api-server.md) |
+| [Working Directory](./02-working-directory.md) | **Kubernetes Cluster** | [API Server](./04-api-server.md) |
 
 # Kubernetes Cluster
 
@@ -55,4 +55,4 @@ kubectl get ns
 # local-path-storage   Active   52d
 ```
 
-Next: [API Server](./03-api-server.md)
+Next: [API Server](./04-api-server.md)
