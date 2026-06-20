@@ -22,13 +22,13 @@ Because `ai.open-webui` acts on behalf of our user (`human.idjag-learner`), we n
 First, create a role under domain `api`:
 
 ```sh
-./my_tools/create-role.sh "api" "token-exchangable-ai-agents"
+./tools/athenz/create-role.sh "api" "token-exchangable-ai-agents"
 ```
 
 In Athenz, you must allow the `zts.jag_exchange` action on the target roles. First, attach this policy for `role.docs-getter`:
 
 ```sh
-./my_tools/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
+./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
 ```
 
 ```sh
@@ -38,13 +38,13 @@ In Athenz, you must allow the `zts.jag_exchange` action on the target roles. Fir
 The `ai.open-webui` (AI Agent) also needs permission to perform a token exchange into the `api:role.mcp-accessor` role. Add that policy as well:
 
 ```sh
-./my_tools/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
+./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
 ```
 
 Next, add the `ai.open-webui` as a member of this new token exchange role:
 
 ```sh
-./my_tools/add-role-member.sh "api" "token-exchangable-ai-agents" "ai.open-webui"
+./tools/athenz/add-role-member.sh "api" "token-exchangable-ai-agents" "ai.open-webui"
 ```
 
 ```sh

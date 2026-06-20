@@ -113,7 +113,7 @@ First, create a directory and generate the RSA key pair:
 
 ```sh
 mkdir -p ./ai_client_gateway/certs
-./my_tools/create-private-key.sh "./ai_client_gateway/certs/open-webui"
+./tools/athenz/create-private-key.sh "./ai_client_gateway/certs/open-webui"
 ```
 
 ```sh
@@ -124,7 +124,7 @@ mkdir -p ./ai_client_gateway/certs
 Next, we will create a Top-Level Domain (TLD) named `ai` since we haven't created it yet:
 
 ```sh
-./my_tools/create-tld.sh "ai"
+./tools/athenz/create-tld.sh "ai"
 ```
 
 ```sh
@@ -136,7 +136,7 @@ Next, we will create a Top-Level Domain (TLD) named `ai` since we haven't create
 Now, register the service open-webui under the `ai` domain using the public key we just generated:
 
 ```sh
-./my_tools/create-service.sh "ai" "open-webui" "./ai_client_gateway/certs/open-webui.public.key"
+./tools/athenz/create-service.sh "ai" "open-webui" "./ai_client_gateway/certs/open-webui.public.key"
 ```
 
 ```sh
@@ -146,7 +146,7 @@ Now, register the service open-webui under the `ai` domain using the public key 
 Enable the certificate provider for this service:
 
 ```sh
-./my_tools/enable-cert-provider.sh "ai" "open-webui"
+./tools/athenz/enable-cert-provider.sh "ai" "open-webui"
 ```
 
 ```sh
@@ -156,7 +156,7 @@ Enable the certificate provider for this service:
 Generate the X.509 Certificate:
 
 ```sh
-./my_tools/fetch-cert.sh "ai" "open-webui" "./ai_client_gateway/certs/open-webui.key" "v1"
+./tools/athenz/fetch-cert.sh "ai" "open-webui" "./ai_client_gateway/certs/open-webui.key" "v1"
 ```
 
 ```sh

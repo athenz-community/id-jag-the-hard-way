@@ -39,8 +39,6 @@ keycloak_data/
 
 keys/
 
-my_tools/
-
 tools/config.local.yaml
 tools/.port-forward.pid
 

@@ -133,19 +133,19 @@ To authorize access to the authorization server, our identity service (`human.id
 Since we haven't prepared any roles or policies yet, let's create an explicit role named `mcp-accessor` and attach an access policy for the `mcp` resource.
 
 ```sh
-./my_tools/create-role.sh "api" "mcp-accessor"
+./tools/athenz/create-role.sh "api" "mcp-accessor"
 ```
 
 Next, attach the policy to the role:
 
 ```sh
-./my_tools/add-policy.sh "api" "mcp-accessor" "access" "mcp"
+./tools/athenz/add-policy.sh "api" "mcp-accessor" "access" "mcp"
 ```
 
 Finally, add you `human.idjag-learner` principal to the role:
 
 ```sh
-./my_tools/add-role-member.sh "api" "mcp-accessor" "human.idjag-learner"
+./tools/athenz/add-role-member.sh "api" "mcp-accessor" "human.idjag-learner"
 ```
 
 ## Fetch a New Access Token for the New Role
@@ -157,7 +157,7 @@ Now, let's generate a new Access Token containing both scopes (space-separated v
 
 ```sh
 _scope="api:role.mcp-accessor api:role.docs-getter"
-_my_access_token=$(./my_tools/fetch-access-token.sh \
+_my_access_token=$(./tools/athenz/fetch-access-token.sh \
   "./keys/idjag-learner.crt" \
   "./keys/idjag-learner.key" \
   "${_scope}" \

@@ -24,7 +24,7 @@ Even if the original requester has `get` access to the `api:docs` resource, it d
 Let's add the role `api:role.docs-token-exchanger`. As the name implies, members of this role are authorized to exchange Access Tokens for the target scope `api:role.docs-getter`:
 
 ```sh
-./my_tools/create-role.sh "api" "docs-token-exchanger"
+./tools/athenz/create-role.sh "api" "docs-token-exchanger"
 ```
 
 Check if the role is created in Athenz UI:
@@ -39,8 +39,8 @@ _athenz_ui_port=$(./tools/port.sh athenz-ui)
 In Athenz, you must explicitly define both the **source** and **target** of the token exchange. Since the MCP server operates within the `api` domain, we can apply both policies as follows:
 
 ```sh
-./my_tools/add-policy.sh "api" "docs-token-exchanger" "zts.token_source_exchange" "api"
-./my_tools/add-policy.sh "api" "docs-token-exchanger" "zts.token_target_exchange" "api:role.docs-getter"
+./tools/athenz/add-policy.sh "api" "docs-token-exchanger" "zts.token_source_exchange" "api"
+./tools/athenz/add-policy.sh "api" "docs-token-exchanger" "zts.token_target_exchange" "api:role.docs-getter"
 ```
 
 ![11_source_and_target_exchange_policy](assets/11_source_and_target_exchange_policy.png)
@@ -51,7 +51,7 @@ In Athenz, you must explicitly define both the **source** and **target** of the 
 Finally, add the member you want to authorize for the token exchange (in this case, the `api.api-mcp` service principal):
 
 ```sh
-./my_tools/add-role-member.sh "api" "docs-token-exchanger" "api.api-mcp"
+./tools/athenz/add-role-member.sh "api" "docs-token-exchanger" "api.api-mcp"
 ```
 
 ## Verify
@@ -62,7 +62,7 @@ Fetch a fresh Athenz Access Token to ensure it hasn't expired:
 
 ```sh
 _scope="api:role.docs-getter"
-_my_access_token=$(./my_tools/fetch-access-token.sh \
+_my_access_token=$(./tools/athenz/fetch-access-token.sh \
   "./keys/idjag-learner.crt" \
   "./keys/idjag-learner.key" \
   "${_scope}" \

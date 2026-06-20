@@ -33,43 +33,13 @@ Instead, the ZPU periodically downloads the latest policies directly to the loca
 
 Now that the Athenz server is running and accessible, let's create a Top-Level Domain (TLD). We can achieve this by making a `POST` request to the Athenz ZMS API, authenticating with the admin certificates generated during the deployment.
 
-Let's create a reusable script named `create-tld.sh` that takes the domain name as an argument:
-
-```sh
-cat > ./my_tools/create-tld.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-if [ -z "${1:-}" ]; then
-  echo "Usage: $0 <tld_name>"
-  exit 1
-fi
-
-tld_name=$1
-echo "Creating TLD: ${tld_name}..."
-
-curl -s -k -X POST "https://localhost:4443/zms/v1/domain" \
-  --cert ./athenz_dist/certs/athenz_admin.cert.pem \
-  --key ./athenz_dist/keys/athenz_admin.private.pem \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "'"${tld_name}"'",
-    "description": "TLD for '"${tld_name}"'",
-    "org": "ajkimkim",
-    "enabled": true,
-    "adminUsers": ["user.athenz_admin"]
-  }'
-
-EOF
-
-chmod +x ./my_tools/create-tld.sh
-
-```
+> [!NOTE]
+> `create-tld.sh` — POSTs to the Athenz ZMS API to register a new top-level domain. Run `cat ./tools/athenz/create-tld.sh` to inspect.
 
 Create a domain `api` that represents the API server domain:
 
 ```sh
-./my_tools/create-tld.sh "api"
+./tools/athenz/create-tld.sh "api"
 ```
 
 ```sh
@@ -88,44 +58,13 @@ The new domain (or Top Level Domain, or TLD) `api` you just created represents t
 
 In Athenz, every component (referred to as a `Service`) requires an X.509 certificate to authenticate itself when connecting to the central server. The standard process involves generating a private key and registering the corresponding public key as a `Service` within Athenz.
 
-Let's create a script named `create-private-key.sh` to generate an RSA private/public key pair using OpenSSL:
-
-```sh
-cat > ./my_tools/create-private-key.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-if [ -z "${1:-}" ]; then
-  echo "Usage: $0 <service_name>"
-  exit 1
-fi
-
-service_name=$1
-mkdir -p "$(dirname "${service_name}")"
-echo "Generating RSA key pair for: ${service_name}..."
-
-# Generate 2048-bit RSA private key
-openssl genrsa -out "${service_name}.old.key" 2048 >/dev/null 2>&1
-
-# Extract public key
-openssl rsa -in "${service_name}.old.key" -outform PEM -pubout -out "${service_name}.public.key" 2>/dev/null
-
-# Convert private key to traditional format (PKCS#1)
-openssl pkey -in "${service_name}.old.key" -out "${service_name}.key" -traditional
-
-# Cleanup intermediate key
-rm "${service_name}.old.key"
-
-echo "Done! Keys generated: ${service_name}.key, ${service_name}.public.key"
-EOF
-
-chmod +x ./my_tools/create-private-key.sh
-```
+> [!NOTE]
+> `create-private-key.sh` — Generates a 2048-bit RSA key pair using OpenSSL and outputs the private key (PKCS#1) and public key as separate files. Run `cat ./tools/athenz/create-private-key.sh` to inspect.
 
 Create a key
 
 ```sh
-./my_tools/create-private-key.sh "./keys/api-zpu"
+./tools/athenz/create-private-key.sh "./keys/api-zpu"
 ```
 
 ```sh
@@ -135,52 +74,13 @@ Create a key
 
 ## Create Service Identity
 
-Let's create a script named `create-service.sh`. This script will read your public key, strip out the PEM headers (as required by the Athenz API), and register the service.
-
-```sh
-cat > ./my_tools/create-service.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-if [ $# -lt 3 ]; then
-  echo "Usage: $0 <domain> <service_name> <public_key_path>"
-  exit 1
-fi
-
-domain=$1
-service_name=$2
-pub_key_path=$3
-key_id="v1"
-
-echo "Registering Service: ${domain}.${service_name}..."
-
-# Athenz expects the FULL PEM public key text encoded as YBase64.
-# YBase64 mapping: + -> . , / -> _ , = -> -
-pub_key_y64=$(base64 < "${pub_key_path}" | tr -d '\n' | tr '+/=' '._-')
-
-curl -s -k --fail-with-body -X PUT "https://localhost:4443/zms/v1/domain/${domain}/service/${service_name}" \
-  --cert ./athenz_dist/certs/athenz_admin.cert.pem \
-  --key ./athenz_dist/keys/athenz_admin.private.pem \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "'"${domain}.${service_name}"'",
-    "publicKeys": [
-      {
-        "id": "'"${key_id}"'",
-        "key": "'"${pub_key_y64}"'"
-      }
-    ]
-  }'
-
-EOF
-
-chmod +x ./my_tools/create-service.sh
-```
+> [!NOTE]
+> `create-service.sh` — Encodes the public key as YBase64 and PUTs it to the ZMS API to register a named service identity under a domain. Run `cat ./tools/athenz/create-service.sh` to inspect.
 
 Execute the script to register the service:
 
 ```sh
-./my_tools/create-service.sh "api" "zpu" "./keys/api-zpu.public.key"
+./tools/athenz/create-service.sh "api" "zpu" "./keys/api-zpu.public.key"
 ```
 
 ```sh
@@ -206,41 +106,13 @@ In a production environment, you would need cryptographic proof from the platfor
 
 We will authorize our `human` domain to use the default built-in ZTS provider (`sys.auth.zts`) by attaching the `zts_instance_launch_provider` template to our domain.
 
-Let's create a script named `enable-cert-provider.sh`:
-
-```sh
-cat > ./my_tools/enable-cert-provider.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-if [ $# -lt 2 ]; then
-  echo "Usage: $0 <domain> <service_name>"
-  exit 1
-fi
-
-domain=$1
-service_name=$2
-
-echo "Enabling ZTS Certificate Provider for ${domain}.${service_name}..."
-
-kubectl -n athenz exec -i deploy/athenz-cli -- \
-  zms-cli \
-    -i user.athenz_admin \
-    -z https://athenz-zms-server.athenz:4443/zms/v1 \
-    -key /var/run/athenz/athenz_admin.private.pem \
-    -cert /var/run/athenz/athenz_admin.cert.pem \
-    -d "${domain}" \
-    set-domain-template zts_instance_launch_provider service="${service_name}"
-
-EOF
-
-chmod +x ./my_tools/enable-cert-provider.sh
-```
+> [!NOTE]
+> `enable-cert-provider.sh` — Applies the `zts_instance_launch_provider` template via `zms-cli`, authorizing ZTS to issue X.509 certificates for the service. Run `cat ./tools/athenz/enable-cert-provider.sh` to inspect.
 
 Then, execute the following:
 
 ```sh
-./my_tools/enable-cert-provider.sh "api" "zpu"
+./tools/athenz/enable-cert-provider.sh "api" "zpu"
 ```
 
 ```sh
@@ -252,58 +124,13 @@ Then, execute the following:
 
 Now that the provider is set up, we can request the X.509 certificate. We will use a tool called `zts-svccert` (available inside our `athenz-cli` pod).
 
-Let's create a script named `fetch-cert.sh` that securely injects our local private key into the pod, generates the certificate via ZTS, and extracts the resulting certificate back to our local machine.
-
-```sh
-cat > ./my_tools/fetch-cert.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-if [ $# -lt 4 ]; then
-  echo "Usage: $0 <domain> <service> <private_key_path> <key_version>"
-  exit 1
-fi
-
-domain=$1
-service=$2
-private_key_path=$3
-key_version=$4
-
-out_cert_file="${private_key_path%.key}.crt"
-zts_url="https://athenz-zts-server.athenz:4443/zts/v1"
-
-echo "Fetching X.509 Certificate for ${domain}.${service}..."
-
-# Base64 encode the private key to safely pass it into the kubectl exec session
-b64_key=$(base64 < "${private_key_path}" | tr -d '\n')
-
-# Execute the cert request inside the athenz-cli pod
-kubectl exec -i deploy/athenz-cli -n athenz -- sh -c "
-  echo '${b64_key}' | base64 -d > /tmp/${service}.key && \
-  zts-svccert \
-    -domain ${domain} \
-    -service ${service} \
-    -private-key /tmp/${service}.key \
-    -key-version ${key_version} \
-    -zts ${zts_url} \
-    -dns-domain zts.athenz.cloud \
-    -provider sys.auth.zts \
-    -instance \$(date +%s) \
-    -cert-file /tmp/${service}.crt > /dev/null 2>&1 && \
-  cat /tmp/${service}.crt && \
-  rm -f /tmp/${service}.key /tmp/${service}.crt
-" > "${out_cert_file}"
-
-echo "Done! Certificate saved to: ${out_cert_file}"
-EOF
-
-chmod +x ./my_tools/fetch-cert.sh
-```
+> [!NOTE]
+> `fetch-cert.sh` — Injects the private key into the `athenz-cli` pod, runs `zts-svccert` to request an X.509 certificate from ZTS, then pulls the `.crt` back to your local machine. Run `cat ./tools/athenz/fetch-cert.sh` to inspect.
 
 Then:
 
 ```sh
-./my_tools/fetch-cert.sh "api" "zpu" "./keys/api-zpu.key" "v1"
+./tools/athenz/fetch-cert.sh "api" "zpu" "./keys/api-zpu.key" "v1"
 ```
 
 ```sh

@@ -24,7 +24,7 @@ In this tutorial, you will implement granular permissions by establishing a dedi
 Generate a private key that represents `idjag-learner`:
 
 ```sh
-./my_tools/create-private-key.sh "./keys/idjag-learner"
+./tools/athenz/create-private-key.sh "./keys/idjag-learner"
 ```
 
 ```sh
@@ -39,7 +39,7 @@ In Athenz, every service identity—even those representing human users—must r
 Run the following command to create the TLD:
 
 ```sh
-./my_tools/create-tld.sh "human"
+./tools/athenz/create-tld.sh "human"
 ```
 
 This creates the `human` domain, represented by the purple section in the following diagram:
@@ -51,7 +51,7 @@ This creates the `human` domain, represented by the purple section in the follow
 Execute the script to register your identity `human.idjag-learner`:
 
 ```sh
-./my_tools/create-service.sh "human" "idjag-learner" "./keys/idjag-learner.public.key"
+./tools/athenz/create-service.sh "human" "idjag-learner" "./keys/idjag-learner.public.key"
 ```
 
 This successfully creates the `idjag-learner` service under the `human` domain. You can verify the result in the Athenz UI:
@@ -68,7 +68,7 @@ _athenz_ui_port=$(./tools/port.sh athenz-ui)
 Execute the script to authorize the `idjag-learner` service to fetch certificates:
 
 ```sh
-./my_tools/enable-cert-provider.sh "human" "idjag-learner"
+./tools/athenz/enable-cert-provider.sh "human" "idjag-learner"
 ```
 
 ```sh
@@ -81,7 +81,7 @@ Execute the script to authorize the `idjag-learner` service to fetch certificate
 Execute the script using the parameters we configured earlier:
 
 ```sh
-./my_tools/fetch-cert.sh "human" "idjag-learner" "./keys/idjag-learner.key" "v1"
+./tools/athenz/fetch-cert.sh "human" "idjag-learner" "./keys/idjag-learner.key" "v1"
 ```
 
 ```sh
@@ -97,7 +97,7 @@ To enforce the principle of least privilege, we will specifically request a toke
 
 ```sh
 _scope="api:role.docs-getter"
-_my_access_token=$(./my_tools/fetch-access-token.sh \
+_my_access_token=$(./tools/athenz/fetch-access-token.sh \
   "./keys/idjag-learner.crt" \
   "./keys/idjag-learner.key" \
   "${_scope}" \
@@ -126,7 +126,7 @@ _athenz_ui_port=$(./tools/port.sh athenz-ui)
 To fix this, simply run the member addition script we created earlier:
 
 ```sh
-./my_tools/add-role-member.sh "api" "docs-getter" "human.idjag-learner"
+./tools/athenz/add-role-member.sh "api" "docs-getter" "human.idjag-learner"
 ```
 
 Open once again your Athenz UI to verify that `human.idjag-learner` has been successfully added to the role:
@@ -142,7 +142,7 @@ Now that your service identity is a recognized member of the role, fetch the acc
 
 ```sh
 _scope="api:role.docs-getter"
-_my_access_token=$(./my_tools/fetch-access-token.sh \
+_my_access_token=$(./tools/athenz/fetch-access-token.sh \
   "./keys/idjag-learner.crt" \
   "./keys/idjag-learner.key" \
   "${_scope}" \

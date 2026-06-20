@@ -25,11 +25,11 @@ To run the MCP Server, just like we have given service identity for human user `
 Run the following:
 
 ```sh
-./my_tools/create-private-key.sh "./keys/api-mcp"
-./my_tools/create-service.sh "api" "api-mcp" "./keys/api-mcp.public.key"
-./my_tools/enable-cert-provider.sh "api" "api-mcp"
+./tools/athenz/create-private-key.sh "./keys/api-mcp"
+./tools/athenz/create-service.sh "api" "api-mcp" "./keys/api-mcp.public.key"
+./tools/athenz/enable-cert-provider.sh "api" "api-mcp"
 sleep 2
-./my_tools/fetch-cert.sh "api" "api-mcp" "./keys/api-mcp.key" "v1"
+./tools/athenz/fetch-cert.sh "api" "api-mcp" "./keys/api-mcp.key" "v1"
 ```
 
 *Detailed explanation is skipped as thoroughly explained in the previous tutorials. Also, sleep has been included for Athenz to sync.*

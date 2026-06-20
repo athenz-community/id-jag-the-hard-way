@@ -24,39 +24,13 @@ Athenz uses **Role-Based Access Control (RBAC)**. When a user or service is adde
 
 Earlier, in our API server, we needed a way to check if a client has permission to perform a `get` (HTTP method) operation on the `api`'s resource `docs` (or `api:docs` in Athenz Grammar). Currently, there are no roles defined for this, so let's create them.
 
-Let's create a script named `create-role.sh` that takes the domain name and the role name as arguments:
-
-```sh
-cat > ./my_tools/create-role.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-if [ $# -lt 2 ]; then
-  echo "Usage: $0 <domain> <role>"
-  exit 1
-fi
-
-domain=$1
-role=$2
-echo "Creating Role: ${domain}:role.${role}..."
-
-curl -s -k -X PUT "https://localhost:4443/zms/v1/domain/${domain}/role/${role}" \
-  --cert ./athenz_dist/certs/athenz_admin.cert.pem \
-  --key ./athenz_dist/keys/athenz_admin.private.pem \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "'"${domain}:role.${role}"'"
-  }'
-
-EOF
-
-chmod +x ./my_tools/create-role.sh
-```
+> [!NOTE]
+> `create-role.sh` — PUTs an empty role definition to the ZMS API, creating a named role under a given domain. Run `cat ./tools/athenz/create-role.sh` to inspect.
 
 Now, execute the script to create the `docs-getter` role inside the `api` domain:
 
 ```sh
-./my_tools/create-role.sh "api" "docs-getter"
+./tools/athenz/create-role.sh "api" "docs-getter"
 ```
 
 ```sh
@@ -76,63 +50,8 @@ _athenz_ui_port=$(./tools/port.sh athenz-ui)
 
 The role we just created (`docs-getter`) is a container for members. The actual permissions are defined as **Policies** in Athenz and then attached to roles. Once attached, a member of that role inherits the defined permissions.
 
-Let's create a script named `add-policy.sh` that helps to create policy:
-
-```sh
-cat > ./my_tools/add-policy.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-if [ $# -lt 4 ]; then
-  echo "Usage: $0 <domain> <role_name> <resource> <action>"
-  exit 1
-fi
-
-domain=$1
-role_name=$2
-action=$3
-resource=$4
-
-sanitize_policy_name() {
-  local s="$1"
-
-  s="$(printf '%s' "$s" \
-    | sed -E 's/[^A-Za-z0-9_-]+/_/g; s/_+/_/g; s/^_+//; s/_+$//')"
-
-  if [ -z "$s" ]; then
-    s="policy"
-  fi
-
-  if [[ ! "$s" =~ ^[A-Za-z0-9_] ]]; then
-    s="_${s}"
-  fi
-
-  printf '%s' "$s"
-}
-
-raw_policy_name="${role_name}_${action}_${resource}"
-policy_name="$(sanitize_policy_name "$raw_policy_name")"
-
-echo "Creating Policy: ${domain}:policy.${policy_name}..."
-
-curl -s -k -X PUT "https://localhost:4443/zms/v1/domain/${domain}/policy/${policy_name}" \
-  --cert ./athenz_dist/certs/athenz_admin.cert.pem \
-  --key ./athenz_dist/keys/athenz_admin.private.pem \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "'"${domain}:policy.${policy_name}"'",
-    "assertions": [
-      {
-        "role": "'"${domain}:role.${role_name}"'",
-        "resource": "'"${domain}:${resource}"'",
-        "action": "'"${action}"'"
-      }
-    ]
-  }'
-EOF
-
-chmod +x ./my_tools/add-policy.sh
-```
+> [!NOTE]
+> `add-policy.sh` — Creates an Athenz policy assertion granting a role a specific action on a resource, then PUTs it to the ZMS API. Run `cat ./tools/athenz/add-policy.sh` to inspect.
 
 The API server has its own logic to translate the client request to Athenz resource and action.
 
@@ -142,7 +61,7 @@ The API server has its own logic to translate the client request to Athenz resou
 Therefore, we need to create a policy like this:
 
 ```sh
-./my_tools/add-policy.sh "api" "docs-getter" "get" "docs"
+./tools/athenz/add-policy.sh "api" "docs-getter" "get" "docs"
 ```
 
 The command above means, attach a policy `docs-get-policy` to the role `docs-getter` under the domain `api`. This policy grants the role `docs-getter` the permission to `get` the resource `docs` under the domain `api`, or `docs:api`. The `get` action on `docs:api` is equivalent to the `GET /docs` request to the API server.
@@ -160,40 +79,13 @@ _athenz_ui_port=$(./tools/port.sh athenz-ui)
 
 When we manifested Athenz server, it gives us the root user certificate by default. For now, we will use the root user to get the access token. To get the Access Token for the specific role (or scope), we first need to add the root user as a member of the role.
 
-```sh
-cat > ./my_tools/add-role-member.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-if [ $# -lt 3 ]; then
-  echo "Usage: $0 <domain> <role_name> <member_name>"
-  exit 1
-fi
-
-domain=$1
-role_name=$2
-member_name=$3
-
-echo "Adding Member ${member_name} to Role: ${domain}:role.${role_name}..."
-
-curl -s -k -X PUT "https://localhost:4443/zms/v1/domain/${domain}/role/${role_name}/member/${member_name}" \
-  --cert ./athenz_dist/certs/athenz_admin.cert.pem \
-  --key ./athenz_dist/keys/athenz_admin.private.pem \
-  -H "Content-Type: application/json" \
-  -d '{
-    "memberName": "'"${member_name}"'",
-    "roleName": "'"${role_name}"'"
-  }'
-
-EOF
-
-chmod +x ./my_tools/add-role-member.sh
-```
+> [!NOTE]
+> `add-role-member.sh` — PUTs a member entry to a role via the ZMS API, granting that principal the permissions associated with the role. Run `cat ./tools/athenz/add-role-member.sh` to inspect.
 
 The default service name for the root user is `user.athenz_admin`. We can add the admin user as a member of the `docs-getter` role in the `api` domain:
 
 ```sh
-./my_tools/add-role-member.sh "api" "docs-getter" "user.athenz_admin"
+./tools/athenz/add-role-member.sh "api" "docs-getter" "user.athenz_admin"
 ```
 
 You can see that `user.athenz_admin` is added to the `docs-getter` role in the `api` domain:
@@ -207,56 +99,14 @@ _athenz_ui_port=$(./tools/port.sh athenz-ui)
 
 ## Get Access Token as Root User
 
-At this point, we have the necessary ingredients to get the access token as `user.athenz_admin`. Let's create a script named `fetch-access-token.sh`:
-
-```sh
-cat > ./my_tools/fetch-access-token.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-if [ $# -lt 3 ]; then
-  echo "Usage: $0 <cert_path> <key_path> <scope>"
-  exit 1
-fi
-
-cert_path=$1
-key_path=$2
-scope=$3
-output=$4
-zts_url="https://localhost:8443/zts/v1/oauth2/token"
-
-# Print logs to stderr so stdout only outputs the pure token string
-echo "Fetching Access Token for scope: ${scope}..." >&2
-
-response=$(curl -s -k -X POST "${zts_url}" \
-  --cert "${cert_path}" \
-  --key "${key_path}" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&scope=${scope}&expires_in=3600")
-
-token=$(echo "${response}" | jq -r '.access_token // empty')
-
-if [ -z "${token}" ]; then
-  echo "🔥 [ERROR] Failed to issue an access token. ZTS Response:" >&2
-  echo "${response}" | jq . >&2
-  exit 1
-else
-  echo "✅ [SUCCESS] Issued the following access token:" >&2
-  echo "${token}" | jq -R 'split(".") | .[0] | @base64d | fromjson' >&2
-  echo "${token}" | jq -R 'split(".") | .[1] | @base64d | fromjson' >&2
-  echo "${token}" > "${output}"
-  echo "${token}"
-fi
-EOF
-
-chmod +x ./my_tools/fetch-access-token.sh
-```
+> [!NOTE]
+> `fetch-access-token.sh` — POSTs a `client_credentials` grant to the ZTS token endpoint and returns a signed Athenz access token scoped to the requested role. Run `cat ./tools/athenz/fetch-access-token.sh` to inspect.
 
 Execute the script, using the root user certificate and key generated by the athenz-distribution, and save the output directly into a variable named `_root_user_at`.
 
 ```sh
 _scope="api:role.docs-getter"
-_root_user_at=$(./my_tools/fetch-access-token.sh \
+_root_user_at=$(./tools/athenz/fetch-access-token.sh \
   "./athenz_dist/certs/athenz_admin.cert.pem" \
   "./athenz_dist/keys/athenz_admin.private.pem" \
   "${_scope}" \
