@@ -1,10 +1,22 @@
-|                     Previous                     |       Current       |                   Next                   |
-|:------------------------------------------------:|:-------------------:|:----------------------------------------:|
-| [MCP Server for API](./09-mcp-server-for-api.md) | **AI Client Agent** | [Token Exchange](./11-token-exchange.md) |
+|               Previous               |    Current     |                   Next                   |
+|:------------------------------------:|:--------------:|:----------------------------------------:|
+| [AI Client Agent](../10-ai-agent.md) | **Open WebUI** | [Token Exchange](./11-token-exchange.md) |
 
-# AI Client Agent
+# Open WebUI
 
-In this tutorial, we will install the AI Client Agent for the first time and talk to the API server through it.
+> [!WARNING]
+> Open WebUI + Ollama is resource-intensive. Running a local LLM requires significant RAM and CPU. On machines with less than 32 GB of memory you may experience very slow inference or out-of-memory errors.
+>
+> This path has been verified on the following hardware:
+>
+> |      OS       |          CPU          | Memory |    LLM     |      Status      |
+> |:-------------:|:---------------------:|:------:|:----------:|:----------------:|
+> |  Tahoe 26.2   |        M3 Pro         |  36GB  | gemma4:e4b | Verified Working |
+> | Ubuntu 24 LTS | Intel Core i7-11700KF |  32GB  | gemma4:e4b | Verified Working |
+>
+> If your machine does not meet these specs, consider using [Claude Code](../10-ai-agent.md) as the AI client instead — it runs in the cloud and has no local hardware requirements.
+
+In this tutorial, we will install Open WebUI as the AI client and connect it to the MCP server for the first time.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 

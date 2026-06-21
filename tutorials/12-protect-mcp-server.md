@@ -4,17 +4,17 @@
 
 # Protect MCP Server
 
-In this tutorial, we will secure the MCP server using an Authorization Server (Athenz), just as we did with the API Server.
+In this tutorial, we will secure the MCP server using an Authorization Proxy — exactly as we protected the API server with Athenz in earlier tutorials.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
 - [Run Authorization Proxy for API MCP](#run-authorization-proxy-for-api-mcp)
-- [Update the MCP Target Port to Proxy](#update-the-mcp-target-port-to-proxy)
-- [Verify](#verify)
+- [Update the MCP Service to Point to the Proxy](#update-the-mcp-service-to-point-to-the-proxy)
+- [Verify (Expected Failure)](#verify-expected-failure)
 - [Fix Insufficient Permission](#fix-insufficient-permission)
 - [Fetch a New Access Token for the New Role](#fetch-a-new-access-token-for-the-new-role)
-- [Attach the Access Token & Configure the New Authorization Server](#attach-the-access-token--configure-the-new-authorization-server)
-- [Verify](#verify-1)
+- [Update .mcp.json with the New Token](#update-mcpjson-with-the-new-token)
+- [Verify](#verify)
 - [Review Summary of Changes](#review-summary-of-changes)
 - [What's next?](#whats-next)
 
@@ -22,15 +22,14 @@ In this tutorial, we will secure the MCP server using an Authorization Server (A
 
 ## Run Authorization Proxy for API MCP
 
-We will deploy an authorization proxy for the API MCP server, that will check the access token to access to MCP:
+Deploy the authorization proxy as a sidecar container in the `mcp` deployment. It will intercept all incoming requests and verify the Athenz Access Token before forwarding to the real MCP server:
 
-```yaml
+```sh
 kubectl patch deploy mcp -n api --patch "$(cat <<'EOF'
 spec:
   template:
     spec:
       containers:
-        # 1. Add a new container auth-proxy
         - name: auth-proxy
           image: ghcr.io/mlajkim/mcp-authorization-proxy:latest
           imagePullPolicy: Always
@@ -45,22 +44,19 @@ EOF
 )"
 ```
 
-We are then going to attach the ZPU, that we have done:
+Attach the ZPU sidecar so the proxy can evaluate policies locally:
 
-```yaml
+```sh
 kubectl patch deploy mcp -n api --patch "$(cat <<'EOF'
 spec:
   template:
     spec:
       containers:
-        # 1. Update existing api-server container to read policies
         - name: auth-proxy
           volumeMounts:
             - name: api-server-policies
               mountPath: /app/policies
               readOnly: true
-
-        # 2. Add ZPU sidecar container
         - name: zpu
           image: ghcr.io/mlajkim/zpu:latest
           imagePullPolicy: Always
@@ -77,8 +73,6 @@ spec:
             - name: api-zpu-cert
               mountPath: /var/run/athenz/zpu
               readOnly: true
-
-      # 3. Define the volumes
       volumes:
         - name: api-server-policies
           emptyDir: {}
@@ -90,59 +84,55 @@ EOF
 )"
 ```
 
-## Update the MCP Target Port to Proxy
+## Update the MCP Service to Point to the Proxy
 
-We have a service `mcp` that watches the `mcp` server right now, with selector: `Selector: app=mcp`:
-
-```sh
-kubectl describe svc mcp -n api
-```
-
-We are going to change the service `mcp` to watch `mcp-authorization-proxy` instead, but with the same port and name:
+The `mcp` service currently routes traffic directly to the MCP container on port `8081`. We need to re-point it to the proxy on port `8082`:
 
 ```sh
 kubectl delete svc mcp -n api
-kubectl expose deploy mcp -n api --port 8081 --target-port 8082
+kubectl expose deploy mcp -n api --port 8081 --target-port 8082 --name mcp
 ```
 
-## Verify
+## Verify (Expected Failure)
 
-Follow the steps below to verify the setup.
+Reload the plugin with `/reload-plugins` in Claude Code, then ask:
 
-Now, let's test if the new authorization proxy forwards our request to the original MCP Server. (Spoiler: This request is expected to fail)
-
-```
-get docs!
+```sh
+get docs from k8s doc server!
 ```
 
-It will fail with an error similar to the following:
 
-![12_open_webui_says_no_permission_against_mcp_server](./assets/12_open_webui_says_no_permission_against_mcp_server.png)
+This fails because the proxy requires `access` on the `api:mcp` resource, and we haven't created that policy yet:
 
-This happens because the Authorization Proxy server we just configured requires the `access` action on the `api:mcp` resource, which we haven't granted yet. This permission check is illustrated in the architecture diagram below:
+![12_no_access_to_mcp](./assets/12_no_access_to_mcp)
 
-![12_failed_to_go_through_authorization_server](./assets/12_failed_to_go_through_authorization_server.png)
+You can also see from the log of the `auth-proxy` container that the request was rejected:
+
+```sh
+kubectl logs deploy/mcp -n api -c auth-proxy
+```
+
+```sh
+# =========================================================
+# 🚀 OpenAPI MCP Auth Proxy Server listening on: http://0.0.0.0:8082
+# 🔗 Upstream API: http://localhost:8081
+# 📄 OpenAPI Spec available at: http://0.0.0.0:8082/openapi.json
+# 📄 MCP endpoint available at: http://0.0.0.0:8082/mcp
+# =========================================================
+
+# [2026-06-21 01:38:33] [WARN] [MCP-Auth-Proxy] ❌ REJECTED: Policy denied access. (Action: 'access', Resource: 'mcp', Token: eyJraWQiOi...)
+```
 
 ## Fix Insufficient Permission
 
-To authorize access to the authorization server, our identity service (`human.idjag-learner`) must have the following permissions:
-
-- resource: `mcp` on domain `api`
-- action: `access`
-
-Since we haven't prepared any roles or policies yet, let's create an explicit role named `mcp-accessor` and attach an access policy for the `mcp` resource.
+Create the `mcp-accessor` role and attach the required policy:
 
 ```sh
 ./tools/athenz/create-role.sh "api" "mcp-accessor"
-```
-
-Next, attach the policy to the role:
-
-```sh
 ./tools/athenz/add-policy.sh "api" "mcp-accessor" "access" "mcp"
 ```
 
-Finally, add you `human.idjag-learner` principal to the role:
+Add `human.idjag-learner` (the identity whose token we are using) as a member:
 
 ```sh
 ./tools/athenz/add-role-member.sh "api" "mcp-accessor" "human.idjag-learner"
@@ -150,77 +140,74 @@ Finally, add you `human.idjag-learner` principal to the role:
 
 ## Fetch a New Access Token for the New Role
 
-Now, let's generate a new Access Token containing both scopes (space-separated values):
-
-- `api:role.mcp-accessor`: to access the MCP Authorization Server
-- `api:role.docs-getter`: to access `get /docs` endpoint
+The Access Token must now include both scopes — one to pass through the MCP proxy, and one to call the API server:
 
 ```sh
 _scope="api:role.mcp-accessor api:role.docs-getter"
-_my_access_token=$(./tools/athenz/fetch-access-token.sh \
+./tools/athenz/fetch-access-token.sh \
   "./keys/idjag-learner.crt" \
   "./keys/idjag-learner.key" \
   "${_scope}" \
-  "./keys/api_mcp-accessor_api_docs-getter.jwt")
-
-cat "./keys/api_mcp-accessor_api_docs-getter.jwt"
+  "./keys/idjag-learner.jwt"
 ```
 
-Note that the scope now includes both roles. This is because we need an Access Token that passes both authorization layer:
-
-- Able to call `GET /api/docs` (Or `get` on `api:docs`)
-- Able to access MCP Server (Or `access` on `api:mcp`)
-
-Check your access token with `scp` including both scopes:
+Verify that the token's `scp` claim contains both roles:
 
 ```json
 "scp": [
   "docs-getter",
   "mcp-accessor"
 ],
-...
 ```
 
-## Attach the Access Token & Configure the New Authorization Server
+## Update .mcp.json with the New Token
 
-Navigate to `User Icon` > `Admin Panel` > `Settings` > `Integrations`, and click the configure icon for the API MCP Server.
+```sh
+_mcp_port=$(./tools/port.sh mcp)
+_at=$(cat ./keys/idjag-learner.jwt)
 
-Then, attach the access token exactly as we did previously.
-
-![12_attach_access_token_with_new_scope](./assets/12_attach_access_token_with_new_scope.png)
+cat > .mcp.json <<EOF
+{
+  "mcpServers": {
+    "id-jag-the-hard-way-mcp": {
+      "type": "http",
+      "url": "http://localhost:${_mcp_port}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${_at}"
+      }
+    }
+  }
+}
+EOF
+```
 
 ## Verify
 
-Follow the steps below to verify the setup.
-
-Now, test the AI Agent with the exact same prompt that failed previously:
-
-```
-get docs!
-```
-
-And we successfully get the docs from the API MCP Server!
-
-![12_successsfully_get_docs_from_api_mcp_server](./assets/12_successsfully_get_docs_from_api_mcp_server.png)
-
-Check the MCP server logs to see what happened:
+Reload with `/reload-plugins` in Claude Code, then ask:
 
 ```sh
-kubectl logs deploy/mcp -n api -c mcp
+get docs from k8s doc server!
 ```
 
-The permission check is illustrated in the architecture diagram below:
+![12_claude_token_exchange_successful](./assets/12_claude_token_exchange_successful.png)
 
-![12_mcp_access_permission_required](./assets/12_mcp_access_permission_required.png)
+Check the MCP server logs to confirm the proxy authorized the request:
+
+```sh
+kubectl logs deploy/mcp -n api -c auth-proxy
+```
+
+```sh
+# ✅ AUTHORIZED: 'access' on 'mcp' (Token: eyJraWQi...)
+# ➡️  Forwarding to downstream MCP Server for API Server
+```
 
 ## Review Summary of Changes
 
-First, we deployed the Authorization Proxy Server (indicated by the red dotted box), which checks for `access` to the `api:mcp` resource. To grant this access, we created a new `mcp-accessor` role under the `api` domain and attached a policy matching the authorization server's requirements. As a result, the MCP server can only be accessed by an authenticated user holding an access token with the `mcp-accessor` scope—a key application of the Principle of Least Privilege.
-
-![12_arch_architecture_of_mcp_server_with_authorization_proxy](./assets/12_arch_architecture_of_mcp_server_with_authorization_proxy.png)
+We deployed the Authorization Proxy in front of the MCP server. Only callers whose Access Token carries the `api:role.mcp-accessor` scope can reach the MCP server. Everything else is rejected at the proxy — the MCP server itself never sees an unauthorized request.
 
 ## What's next?
 
-Up until now, we have been logging into the AI Client Agent using an admin account. In an enterprise environment, individual employees are assigned separate accounts to maintain control and security over the AI Client Agent—sharing the admin account is out of the question. In the next tutorial, we will deploy [Keycloak](https://www.keycloak.org/) as an Identity Provider (IdP) for our AI Client Agent, enabling users to sign in with non-admin (standard) accounts.
+We have been using the `human.idjag-learner` certificate to fetch Access Tokens — a static X.509 identity that represents a human user in Athenz. In a real enterprise environment, users sign in through an Identity Provider. In the next tutorial, we will deploy Keycloak so that individual users can sign in with their own credentials and receive a proper ID token.
 
 Next: [Identity Provider](./13-identity-provider.md)

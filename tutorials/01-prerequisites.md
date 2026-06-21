@@ -4,55 +4,30 @@
 
 # Prerequisites
 
-In this tutorial, we will review the machine requirements for this tutorial with the following steps:
+Before starting, make sure you have the following installed on your machine.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
-- [Review Virtual or Physical Machines](#review-virtual-or-physical-machines)
-- [Install Packages](#install-packages)
-- [Review Port Usage](#review-port-usage)
+- [Install Docker](#install-docker)
 - [Reminder](#reminder)
 
 <!-- /TOC -->
 
-## Review Virtual or Physical Machines
+## Install Docker
 
-This tutorial has been tested and confirmed to work seamlessly on the specifications below. While we expect it to run smoothly on lower-spec machines, those configurations haven't been officially verified. If you successfully run this tutorial on lower specifications, please open an Issue with your setup, and we will update this document!
-
-|      OS       |          CPU          | Memory |    LLM     |      Status      |
-|:-------------:|:---------------------:|:------:|:----------:|:----------------:|
-|  Tahoe 26.2   |        M3 Pro         |  36GB  | gemma4:e4b | Verified Working |
-| Ubuntu 24 LTS | Intel Core i7-11700KF |  32GB  | gemma4:e4b | Verified Working |
-
-## Install Packages
+All components in this tutorial run inside Kubernetes, which itself runs inside Docker. Docker is the only hard prerequisite.
 
 > [!NOTE]
-> Homebrew: https://brew.sh/
+> Official install guide: https://docs.docker.com/get-started/get-docker/
 
-Install Homebrew:
-
-```sh
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-Then install the following package:
+Verify Docker is running:
 
 ```sh
-brew install jq gh
+docker version
 ```
-
-## Review Port Usage
-
-If you are interested in knowing what kind of ports used by default for this tutorial, you may run the follwoing command to see the default:
-
-```sh
-cat ./tools/config.yaml
-```
-
-Note that you will be asked to customize it.
 
 ## Reminder
 
-The results of this tutorial should not be considered production ready. The goal is to learn the architecture, not to ship a hardened production platform
+The results of this tutorial should not be considered production-ready. The goal is to learn the architecture, not to ship a hardened production platform.
 
 Next: [Working Directory](./02-working-directory.md)

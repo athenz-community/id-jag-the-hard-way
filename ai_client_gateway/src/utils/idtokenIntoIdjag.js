@@ -2,15 +2,8 @@ import https from "https";
 import fs from "fs";
 import { URLSearchParams } from "url";
 import { extractCookieValue } from "../utils/httpHelpers.js";
-import path from "path";
-import { fileURLToPath } from "url";
-import { ZTS_URL } from "../config/env.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const CERT_PATH = path.join(__dirname, "../../certs/open-webui.crt");
-const KEY_PATH = path.join(__dirname, "../../certs/open-webui.key");
-const CA_PATH = path.join(__dirname, "../../certs/ca.crt");
+import { ZTS_URL, CERT_PATH, KEY_PATH, CA_PATH } from "../config/env.js";
+import { getSession } from "./sessionStore.js";
 const ID_JAG_AUD = "https://athenz-zts-server.athenz:4443/zts/v1";
 
 const httpsAgent = new https.Agent({
@@ -79,11 +72,27 @@ async function exchangeIdTokenToIdJag(idToken, scope) {
   });
 }
 
+function resolveIdToken(req) {
+  // Bearer token path: Claude Code sends the gateway session token as Authorization: Bearer
+  const authHeader = req.headers["authorization"];
+  if (authHeader?.startsWith("Bearer ")) {
+    const bearerValue = authHeader.slice(7);
+    const session = getSession(bearerValue);
+    if (session) {
+      console.error("[Athenz ID-JAG] 🔑 Resolved ID token from bearer session (Claude Code path)");
+      return session.idToken;
+    }
+  }
+
+  // Cookie path: Open WebUI sets oauth_id_token cookie after Keycloak login
+  const cookieHeader = req.headers.cookie;
+  return extractCookieValue(cookieHeader, "oauth_id_token");
+}
+
 // exchangeToIdjag returns jag token through ID-JAG process,
 // but if it holds the cache, it simply returns the cache ones
 export async function exchangeToIdjag(req, scope) {
-  const cookieHeader = req.headers.cookie;
-  const idToken = extractCookieValue(cookieHeader, "oauth_id_token");
+  const idToken = resolveIdToken(req);
 
   const now = Math.floor(Date.now() / 1000);
 

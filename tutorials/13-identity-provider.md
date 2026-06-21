@@ -4,19 +4,16 @@
 
 # Identity Provider
 
-In this tutorial, we will configure [Keycloak](https://www.keycloak.org/) as an Identity Provider (IdP) for our AI Client Agent, enabling users to sign in with non-admin (standard) accounts.
+In this tutorial, we will deploy [Keycloak](https://www.keycloak.org/) as an Identity Provider (IdP) so that individual users — not the admin certificate — can log in and have their own identity.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
 - [Deploy Keycloak in K8s](#deploy-keycloak-in-k8s)
 - [Open Keycloak on Browser](#open-keycloak-on-browser)
 - [Setup Client](#setup-client)
+- [Copy Client Secret](#copy-client-secret)
 - [Setup User](#setup-user)
-- [Setup id_token expiration date](#setup-id_token-expiration-date)
-- [Add Keycloak Settings to Open WebUI](#add-keycloak-settings-to-open-webui)
-- [Sign in as `idjag-learner`](#sign-in-as-idjag-learner)
-- [Accept the account](#accept-the-account)
-- [Return to the `idjag-learner` Browser](#return-to-the-idjag-learner-browser)
+- [Setup id_token Expiration](#setup-id_token-expiration)
 - [What's done?](#whats-done)
 - [What's next?](#whats-next)
 
@@ -24,19 +21,19 @@ In this tutorial, we will configure [Keycloak](https://www.keycloak.org/) as an 
 
 ## Deploy Keycloak in K8s
 
-First of all, Create a namespace for Keycloak:
+Create the `idp` namespace:
 
 ```sh
 kubectl create ns idp
 ```
 
-Then deploy the keycloak:
+Deploy Keycloak:
 
 ```sh
 kubectl create deployment keycloak --image=quay.io/keycloak/keycloak:latest -n idp
 ```
 
-Then, make sure that the keycloak has the correct ENV so that you can login as `admin` with password `admin`:
+Set the admin credentials and start in dev mode:
 
 ```sh
 kubectl patch deploy keycloak -n idp --patch "$(cat <<'EOF'
@@ -57,9 +54,7 @@ EOF
 )"
 ```
 
-In kubernetes, the data may be ephemeral so we need some kind of data storage to contain the IdP so that even if you restart your PC, and once you rerun the server your data is preserved.
-
-First, create a very simple `pvc`:
+Create a PVC so Keycloak data survives pod restarts:
 
 ```sh
 cat <<EOF | kubectl apply -f -
@@ -76,7 +71,7 @@ spec:
 EOF
 ```
 
-Mount the volume we just created:
+Mount the PVC:
 
 ```sh
 kubectl patch deploy keycloak -n idp --patch "$(cat <<'EOF'
@@ -96,7 +91,7 @@ EOF
 )"
 ```
 
-And finally expose the deployment:
+Expose the deployment:
 
 ```sh
 kubectl expose deployment keycloak --port=8080 -n idp
@@ -105,14 +100,14 @@ kubectl expose deployment keycloak --port=8080 -n idp
 ## Open Keycloak on Browser
 
 > [!NOTE]
-> If you are using `kind` and facing `ImagePullBackOff` error, you can do:
+> If you are using `kind` and encounter `ImagePullBackOff`, pre-load the image:
 >
 > ```sh
 > docker pull quay.io/keycloak/keycloak:latest
 > kind load docker-image quay.io/keycloak/keycloak:latest
 > ```
 
-Make sure the Keycloak pod is running before opening the browser:
+Wait for the pod to be ready:
 
 ```sh
 kubectl wait -n idp \
@@ -121,201 +116,110 @@ kubectl wait -n idp \
   --timeout=180s
 ```
 
-Open your browser and log in using admin for both the username `admin` and password `admin`:
+Open Keycloak in your browser (username: `admin`, password: `admin`):
 
 ```sh
-_keycloak_running_port=$(./tools/port.sh keycloak)
-./tools/open.sh "http://localhost:${_keycloak_running_port}"
+_keycloak_port=$(./tools/port.sh keycloak)
+./tools/open.sh "http://localhost:${_keycloak_port}"
 ```
 
-![13_keycloak_running](./assets/13_keycloak_running.png)
+![Keycloak running](./assets/13_keycloak_running.png)
 
 ## Setup Client
 
-In Keycloak, a `Client` represents an application that requests authentication on behalf of a user, in this case, our AI Client Agent. Since the service identity name of the AI client will be `ai.open-webui`, we will use that as the client name.
+In Keycloak, a **Client** represents an application that requests authentication on behalf of a user. We use the default `master` realm.
 
-> [!NOTE]
-> We use the default `master` realm for this tutorial.
+Open the add-client page:
 
-Go to `http://localhost:34443/admin/master/console/#/master/clients/add-client` and configure the following:
+```sh
+_keycloak_port=$(./tools/port.sh keycloak)
+./tools/open.sh "http://localhost:${_keycloak_port}/admin/master/console/#/master/clients/add-client"
+```
 
-- Client type: `OpenID Connect`
-- Client ID: `ai.open-webui`
-- Name: `AI Open WebUI`
-- Description: `AI Client Agent`
+Configure the following:
 
-Click **Next**, then set:
+- **Client type**: *No Change*: `OpenID Connect`
+- **Client ID**: `human.idjag-learner.claude`
+- **Name**: `human.idjag-learner.claude`
+- **Description**: `Local Claude Code for human.idjag-learner`
 
-- Client authentication: `ON`
+Click **Next**, then:
 
-Click **Next**, then set:
+- **Client authentication**: `ON`
 
-- Valid redirect URIs: `http://localhost:54443/oauth/oidc/callback`
+Click **Next**, then:
+
+```sh
+_ai_client_gateway_port=$(./tools/port.sh ai-client-gateway)
+echo "Put Valid redirect URIs: http://localhost:${_ai_client_gateway_port}/oauth/callback"
+echo "Put Web orgins: http://localhost:${_ai_client_gateway_port}"
+```
+
+*Sample following:*
+
+```sh
+# Put Valid redirect URIs: http://localhost:44443/oauth/callback
+# Put Web orgins: http://localhost:44443
+```
 
 Click **Save**.
 
-You should see a confirmation screen similar to this:
+> [!NOTE]
+> The redirect URI must exactly match `PUBLIC_BASE_URL/oauth/callback` of the human gateway. Port `44443` is the default from `tools/config.yaml`. If you changed it via `config.local.yaml`, update the URI accordingly.
 
-![13_keycloak_client_added](./assets/13_keycloak_client_added.png)
+![Keycloak client added](./assets/13_keycloak_client_added.png)
+
+## Copy Client Secret
+
+After saving, open the **Credentials** tab and copy the **Client secret** — you will need it when deploying the AI Client Gateway.
 
 ## Setup User
 
-Let's create a human user account to represent you.
+Create a human user account to represent a learner.
 
-Go to `http://localhost:34443/admin/master/console/#/master/users/add-user` and fill in the following:
+Open the add-user page:
 
-- Username: `idjag-learner`
-- Email: `idjag-learner@athenz.io`
-- First Name: `ID-JAG`
-- Last Name: `Learner`
+```sh
+_keycloak_port=$(./tools/port.sh keycloak)
+./tools/open.sh "http://localhost:${_keycloak_port}/admin/master/console/#/master/users/add-user"
+```
+
+Fill in:
+
+- **Username**: `idjag-learner`
+- **Email**: `idjag-learner@athenz.io`
+- **First Name**: `ID-JAG`
+- **Last Name**: `Learner`
 
 Click **Create**.
 
-Next, navigate to the **Credentials** tab and click **Set password**, then configure the following:
+Go to the **Credentials** tab, click **Set password**, and configure:
 
-- Password: `password` (It is only for test purpose)
-- Temporary: `off`
+- **Password**: `password`
+- **Temporary**: `off`
 
 Click **Save**.
 
-## Setup id_token expiration date
+## Setup id_token Expiration
 
 > [!TIP]
-> For this tutorial, it is okay to set the `id_token` lifespan to `4 hours`. In production, you must consider the appropriate lifespan based on your security requirements.
+> For this tutorial, setting the `id_token` lifespan to `4 hours` is fine. In production, set it based on your security requirements.
 
-Go to `Keycloak` > `Realm settings` > `Tokens` > `Access Token Lifespan` and set it to `4 hours`.
+Navigate to `Realm settings` > `Tokens` > **Access Token Lifespan** and set it to `4 hours`.
 
-![13_idp_id_token_expiration](./assets/13_idp_id_token_expiration.png)
-
-
-## Add Keycloak Settings to Open WebUI
-
-The Open WebUI deployed in K8s does not yet have Keycloak configured. We need to patch the deployment with the required environment variables.
-
-In Keycloak, navigate to `Clients` > `ai.open-webui` > `credentials` > `Copy Client Secret`, then create the secret:
-
-```sh
-_open_webui_secret="🟡TODO: Please put your secret here"
-```
-
-```sh
-kubectl create secret generic keycloak-client-secret -n ai \
-  --from-literal=OAUTH_CLIENT_ID="ai.open-webui" \
-  --from-literal=OAUTH_CLIENT_SECRET="${_open_webui_secret}"
-```
-
-Patch the Open WebUI deployment with Keycloak settings:
-
-```sh
-_open_webui_port=$(./tools/port.sh open-webui)
-_keycloak_port=$(./tools/port.sh keycloak)
-
-kubectl patch deploy open-webui -n ai --patch "$(cat <<EOF
-spec:
-  template:
-    spec:
-      containers:
-        - name: open-webui
-          env:
-            - name: ENABLE_OAUTH_SIGNUP
-              value: "true"
-            - name: OAUTH_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-client-secret
-                  key: OAUTH_CLIENT_ID
-            - name: OAUTH_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-client-secret
-                  key: OAUTH_CLIENT_SECRET
-            - name: OPENID_PROVIDER_URL
-              value: "http://localhost:${_keycloak_port}/realms/master/.well-known/openid-configuration"
-            - name: OAUTH_PROVIDER_NAME
-              value: "Keycloak"
-            - name: OAUTH_SCOPES
-              value: "openid email profile"
-            - name: OPENID_REDIRECT_URI
-              value: "http://localhost:${_open_webui_port}/oauth/oidc/callback"
-        
-        - name: keycloak-proxy
-          image: alpine/socat
-          command: ["socat"]
-          args: ["tcp-listen:${_keycloak_port},fork,reuseaddr", "tcp-connect:keycloak.idp:8080"]
-EOF
-)"
-```
-
-> [!NOTE]
-> `OPENID_PROVIDER_URL` uses the in-cluster Keycloak service address (`keycloak.idp:8080`) instead of `localhost`, so Open WebUI can reach Keycloak from inside the cluster.
-
-
-## Sign in as `idjag-learner`
-
-Wait for the Open WebUI pod to be ready after the patch:
-
-```sh
-kubectl rollout status deploy/open-webui -n ai
-```
-
-In this tutorial, when you login to Open WebUI with the non-admin account (i.e. `idjag-learner`), you will open a different browser or incognito mode.
-
-```sh
-_open_webui_port=$(./tools/port.sh open-webui)
-./tools/open.sh "http://localhost:${_open_webui_port}" incognito=true
-```
-
-You will see a new login panel with a **Continue with Keycloak** button:
-
-![13_continue_with_keycloak_appeared](./assets/13_continue_with_keycloak_appeared.png)
-
-Click it, and you will be prompted to log in. Use the credentials we created.
-
-Then you will be prompted to add member
-
-- `Username`: `idjag-learner`
-- `Password`: `password`
-
-![13_login_successful_as_idjag_learner](./assets/13_login_successful_as_idjag_learner.png)
-
-## Accept the account
-
-Return to the browser where you are logged in as the `admin` user.
-
-```sh
-_open_webui_port=$(./tools/port.sh open-webui)
-./tools/open.sh "http://localhost:${_open_webui_port}"
-```
-
-Navigate to `http://localhost:${_open_webui_port}/admin/users/overview`
-
-![13_pending_user_id_jag_learner_added](./assets/13_pending_user_id_jag_learner_added.png)
-
-Click `Edit User` for the `idjag-learner`, then change `Pending` to `User`, and click **Save**.
-
-![13_change_pending_to_user](./assets/13_change_pending_to_user.png)
-
-## Return to the `idjag-learner` Browser
-
-Switch back to the browser window for `idjag-learner` and refresh the page.
-
-```sh
-_open_webui_port=$(./tools/port.sh open-webui)
-./tools/open.sh "http://localhost:${_open_webui_port}" incognito=true
-```
-
-You should now be successfully logged into the interface.
-
-![13_hello_idjag_leanrer](./assets/13_hello_idjag_leanrer.png)
+![id_token expiration setting](./assets/13_idp_id_token_expiration.png)
 
 ## What's done?
 
-We have installed Keycloak (Red dotted box) locally and configured it as an identity provider for our AI Client Agent. This way, non-admin user can sign in with his/her own account:
+We have deployed Keycloak and created:
 
-![13_arc_signed_into_ui_with_keycloak](./assets/13_arc_signed_into_ui_with_keycloak.png)
+- A client `human.idjag-learner.claude` that will represent our AI client (Claude Code)
+- A user `idjag-learner` who represents a real human employee
+
+At this point, Keycloak is running and configured, but our Authorization Server (Athenz) does not yet trust it. The next tutorial establishes that trust.
 
 ## What's next?
 
-We have let our AI Client agent to trust Keycloak as an IdP. But we have not yet configured Authorization Server to trust Keycloak as IdP. In the next tutorial, we will set up our Authorization Server to trust Keycloak.
+We have set up the Identity Provider. Now we need to configure Athenz to accept and verify tokens issued by Keycloak.
 
 Next: [Trusted Identity Provider](./14-trusted-identity-provider.md)

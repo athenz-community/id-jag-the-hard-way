@@ -47,6 +47,13 @@ const scopeRouteTable: ScopeRouteEntry[] = [];
 
 let lastSyncedSpec: OpenApiSpec | null = null;
 let syncInFlight: Promise<OpenApiSpec> | null = null;
+let allScopesUnion: string | null = null;
+
+// getAllScopesUnion returns the union of every unique scope found in the OpenAPI spec.
+// Used by the MCP path which cannot resolve scope per-operation.
+export function getAllScopesUnion(): string | null {
+  return allScopesUnion;
+}
 
 function makeOperationId(method: string, path: string): string {
   return `${method}_${path.replace(/[^a-zA-Z0-9]/g, "_")}`
@@ -144,6 +151,23 @@ function rebuildScopeIndexes(spec: OpenApiSpec) {
   scopeRouteTable.sort((a, b) => {
     return routeSpecificity(b.openapiPath) - routeSpecificity(a.openapiPath);
   });
+
+  // MCP path uses the intersection of scopes across all operations — scopes that every
+  // operation requires. This avoids requesting jag_exchange for roles that not all
+  // operations need (e.g. docs-deleter), while still covering the common gateway role.
+  let intersection: Set<string> | null = null;
+  for (const entry of scopeRouteTable) {
+    const entryScopes = new Set(entry.scope.split(/\s+/).filter(Boolean));
+    if (intersection === null) {
+      intersection = entryScopes;
+    } else {
+      for (const s of intersection) {
+        if (!entryScopes.has(s)) intersection.delete(s);
+      }
+    }
+  }
+  allScopesUnion = intersection ? Array.from(intersection).sort().join(" ") : null;
+  console.log(`[OpenAPI Sync] MCP union scope: [${allScopesUnion}]`);
 }
 
 function cloneAndRewriteOpenApiSpec(spec: OpenApiSpec): OpenApiSpec {

@@ -4,208 +4,121 @@
 
 # AI Client Gateway
 
-In this tutorial, we will deploy the `AI Client Gateway`, which acts as an intermediary layer between:
-
-- Open WebUI (The AI Client Agent)
-- MCP Server (Authorization Proxy)
-
-with the following steps:
+In this tutorial, we will deploy the `AI Client Gateway`. This component sits between Claude Code and the MCP server. It intercepts every request, resolves the human user's Keycloak ID token, and runs the full ID-JAG token exchange chain — so neither Claude Code nor the user ever has to manage Athenz tokens by hand.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
-- [Learn about ID-JAG?](#learn-about-id-jag)
-- [Understand How the ID-JAG Specification Helps Us](#understand-how-the-id-jag-specification-helps-us)
+- [Understand What the Gateway Does](#understand-what-the-gateway-does)
 - [Deploy AI Client Gateway in K8s](#deploy-ai-client-gateway-in-k8s)
-- [Check the Logs](#check-the-logs)
 - [Generate the Required Certificates](#generate-the-required-certificates)
-- [Mount the Secret](#mount-the-secret)
-- [What's done?](#whats-done)
-- [Modify the Tool Target](#modify-the-tool-target)
+- [Mount the Certificates](#mount-the-certificates)
+- [Deploy the Human Gateway](#deploy-the-human-gateway)
+- [Verification Prerequisite](#verification-prerequisite)
 - [Verify](#verify)
-- [What's happened?](#whats-happened)
 - [What's next?](#whats-next)
 
 <!-- /TOC -->
 
-## Learn about ID-JAG?
+## Understand What the Gateway Does
 
-ID-JAG (Identity Assertion JWT Authorization Grant) is a proposed authorization standard, primarily championed by companies like Okta. It extends the trust model of Single Sign-On (SSO) into the realm of API access. In short, it applies the trust established with an Identity Provider (IdP) during SSO to secure API access between applications, or between an AI agent and a backend service.
+Claude Code supports OAuth2-protected MCP servers out of the box. The first time it connects to an MCP server that responds with `401 Unauthorized`, it reads the `WWW-Authenticate` header, fetches the gateway's OAuth2 metadata document, and opens your browser to begin a login flow.
 
-You can learn more about the specifics here:
+The gateway itself acts as a thin OAuth2 Authorization Server that delegates the actual authentication to Keycloak. After you log in, the gateway stores your Keycloak ID token in a server-side session and hands Claude Code a short-lived session token. From that point on, every MCP request from Claude Code carries that session token as a `Bearer` credential. The gateway resolves it back to your ID token and performs the same ID-JAG exchange chain you have seen in earlier tutorials.
 
-- [Identity Assertion JWT Authorization Grant - IETF](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-assertion-authz-grant/)
-- [Why ID-JAG is the future of AI agent security - LY Corp. Tech Blog](https://techblog.lycorp.co.jp/en/20260417a)
-
-## Understand How the ID-JAG Specification Helps Us
-
-When you log in via `Keycloak`, it generates an ID Token that represents your identity. Through the ID-JAG process, we can dynamically handle permissions without manual token management. Specifically, we can:
-
-1. Exchange the initial ID Token for an ID-JAG token scoped to a new audience, `ai.open-webui`.
-1. Fetch an Access Token with the audience `api` (and its required scopes) using the `ai.open-webui` ID-JAG token.
-
-This means we no longer have to manually insert an Access Token for each tool in the UI. Furthermore, tools can be securely shared among all users in the AI Client Agent without any manual intervention.
+```
+[human ns]                       [ai ns]          [api ns]
+Claude Code
+    │ Bearer (session token)
+    ▼
+human ai-client-gateway
+    │ resolves ID token
+    │ → ID-JAG exchange (as human.idjag-learner.claude)
+    │ → Athenz AT
+    ▼
+                              MCP Auth Proxy → MCP Server → API Server
+```
 
 ## Deploy AI Client Gateway in K8s
 
-Let's deploy the `ai_client_gateway` into Kubernetes under the `human` namespace.
+The gateway belongs in the `human` namespace — it represents the human-controlled, client side of the architecture.
 
-First, create the `human` namespace:
+Create the `human` namespace:
 
 ```sh
 kubectl create ns human
 ```
 
-Deploy the AI Client Gateway:
+Deploy the gateway with name `claude-idjag-learner-ai-client-gateway`:
 
 ```sh
-kubectl create deploy ai-client-gateway -n human \
+kubectl create deploy claude-idjag-learner-ai-client-gateway -n human \
   --image=ghcr.io/mlajkim/ai-client-gateway:latest
 ```
 
-Configure the `ai-client-gateway` to watch the MCP server:
-
-```yaml
-kubectl patch deploy ai-client-gateway -n human --patch "$(cat <<'EOF'
-spec:
-  template:
-    spec:
-      containers:
-        - name: ai-client-gateway
-          imagePullPolicy: Always
-          env:
-            - name: UPSTREAM_BASE_URL
-              value: "http://mcp.api:8081"
-            - name: ZTS_URL
-              value: "https://athenz-zts-server.athenz:4443/zts/v1"
-EOF
-)"
-```
-
-Expose the deployment so it can be accessed:
+Check the logs — you will see an error about missing certificates:
 
 ```sh
-kubectl expose deploy ai-client-gateway -n human --port 3101 --name ai-client-gateway
+kubectl logs deploy/claude-idjag-learner-ai-client-gateway -n human
 ```
-
-## Check the Logs
-
-Let's check if the AI Client Gateway started successfully:
 
 ```sh
-kubectl logs deploy/ai-client-gateway -n human
+# Error: ENOENT: no such file or directory, open '...certs/ai-client-gateway.crt'
 ```
 
-You will likely encounter an error similar to this:
-
-```sh
-# Error: ENOENT: no such file or directory, open '/app/certs/open-webui.crt'
-#     at Object.openSync (node:fs:563:18)
-#     at Object.readFileSync (node:fs:447:35)
-```
-
-This happens because the AI Client Gateway requires a TLS certificate to connect to Athenz Server securely.
+This is expected. The gateway needs an X.509 certificate to identify itself to Athenz ZTS, and we have not provided one yet. The next two sections take care of that.
 
 ## Generate the Required Certificates
 
-Let's generate the necessary keys and certificate that represents `ai_client_gateway` service.
+The gateway authenticates to Athenz ZTS as the service identity `human.idjag-learner.claude`. To do that, it needs an X.509 certificate issued by Athenz for that identity.
 
-First, create a directory and generate the RSA key pair:
+First, create the `human` top-level domain in Athenz:
 
 ```sh
-mkdir -p ./ai_client_gateway/certs
-./tools/athenz/create-private-key.sh "./ai_client_gateway/certs/open-webui"
+./tools/athenz/create-tld.sh "human"
+```
+
+Generate an RSA key pair for the service:
+
+```sh
+./tools/athenz/create-private-key.sh "./keys/human-idjag-learner-claude"
 ```
 
 ```sh
-# Generating RSA key pair for: ./ai_client_gateway/certs/open-webui...
-# Done! Keys generated: ./ai_client_gateway/certs/open-webui.key, ./ai_client_gateway/certs/open-webui.public.key
+# Generating RSA key pair for: ./keys/human-idjag-learner-claude...
+# Done! Keys generated: ./keys/human-idjag-learner-claude.key, ./keys/human-idjag-learner-claude.public.key
 ```
 
-Next, we will create a Top-Level Domain (TLD) named `ai` since we haven't created it yet:
+Create the `idjag-learner` subdomain under `human`:
 
 ```sh
-./tools/athenz/create-tld.sh "ai"
+./tools/athenz/create-subdomain.sh "human" "idjag-learner"
 ```
+
+Register the `claude` service under `human.idjag-learner` and enable the certificate provider so Athenz can issue X.509 certs for it:
 
 ```sh
-# Creating TLD: ai...
-# {"description":"TLD for ai","org":"ajkimkim","auditEnabled":false,"ypmId":0,"autoDeleteTenantAssumeRoleAssertions":false,"name":"ai","modified":"2026-05-16T07:44:39.295Z","id":"17e2d0f0-50fb-11f1-8af4-88f84977247b"}
-# Done!
+./tools/athenz/create-service.sh "human.idjag-learner" "claude" "./keys/human-idjag-learner-claude.public.key"
+./tools/athenz/enable-cert-provider.sh "human.idjag-learner" "claude"
 ```
 
-Now, register the service open-webui under the `ai` domain using the public key we just generated:
+## Mount the Certificates
+
+Now that the service is registered, fetch the signed X.509 certificate from Athenz and store it as a Kubernetes Secret:
 
 ```sh
-./tools/athenz/create-service.sh "ai" "open-webui" "./ai_client_gateway/certs/open-webui.public.key"
+./tools/athenz/fetch-cert.sh "human.idjag-learner" "claude" "./keys/human-idjag-learner-claude.key" "v1"
+
+kubectl delete -n human secret human-idjag-learner-claude-cert --ignore-not-found=true
+kubectl -n human create secret generic human-idjag-learner-claude-cert \
+  --from-file=ai-client-gateway.crt=./keys/human-idjag-learner-claude.crt \
+  --from-file=ai-client-gateway.key=./keys/human-idjag-learner-claude.key \
+  --from-file=ca.crt=./athenz_dist/certs/ca.cert.pem
 ```
+
+Mount the secret into the gateway pod so the application can read the certificate files at `/app/certs`:
 
 ```sh
-# Registering Service: ai.open-webui...
-```
-
-Enable the certificate provider for this service:
-
-```sh
-./tools/athenz/enable-cert-provider.sh "ai" "open-webui"
-```
-
-```sh
-# [Template(s) successfully applied to domain]
-```
-
-Generate the X.509 Certificate:
-
-```sh
-./tools/athenz/fetch-cert.sh "ai" "open-webui" "./ai_client_gateway/certs/open-webui.key" "v1"
-```
-
-```sh
-# Fetching X.509 Certificate for ai.open-webui...
-# Done! Certificate saved to: ./ai_client_gateway/certs/open-webui.crt
-```
-
-Finally, the `ai_client_gateway` requires the Athenz CA certificate. Copy it from the `athenz_dist/certs` directory:
-
-```sh
-cp ./athenz_dist/certs/ca.cert.pem ./ai_client_gateway/certs/ca.crt
-```
-
-Verify that all necessary certificates have been created:
-
-```sh
-ls -al ./ai_client_gateway/certs/
-```
-
-```sh
-# total 24
-# drwxr-xr-x   5 mlajkim  staff   160 May 2 16:47 .
-# drwxr-xr-x  13 mlajkim  staff   416 May 2 16:43 ..
-# -rw-r--r--   1 mlajkim  staff  1834 May 2 16:49 ca.crt
-# -rw-r--r--   1 mlajkim  staff  1716 May 2 16:47 open-webui.crt
-# -rw-------   1 mlajkim  staff  1675 May 2 16:43 open-webui.key
-# -rw-r--r--   1 mlajkim  staff   451 May 2 16:43 open-webui.public.key
-```
-
-## Mount the Secret
-
-Now, create a Kubernetes secret using the generated certificates:
-
-```sh
-kubectl -n human delete secret ai-client-gateway-cert --ignore-not-found
-kubectl -n human create secret generic ai-client-gateway-cert \
-  --from-file=open-webui.crt=./ai_client_gateway/certs/open-webui.crt \
-  --from-file=open-webui.key=./ai_client_gateway/certs/open-webui.key \
-  --from-file=ca.crt=./ai_client_gateway/certs/ca.crt
-```
-
-```sh
-# secret/ai-client-gateway-cert created
-```
-
-Mount the Secret to the Deployment:
-
-```yaml
-kubectl patch deploy ai-client-gateway -n human --patch "$(cat <<'EOF'
+kubectl patch deploy claude-idjag-learner-ai-client-gateway -n human --patch "$(cat <<'EOF'
 spec:
   template:
     spec:
@@ -218,81 +131,150 @@ spec:
       volumes:
         - name: certs
           secret:
-            secretName: ai-client-gateway-cert
+            secretName: human-idjag-learner-claude-cert
 EOF
 )"
 ```
 
-Check the logs again to ensure it started successfully:
+Verify the gateway started without errors:
 
 ```sh
-kubectl logs deploy/ai-client-gateway -n human
+kubectl logs deploy/claude-idjag-learner-ai-client-gateway -n human
 ```
 
 ```sh
 # 🚀 OpenWebUI OpenAPI Gateway listening on 0.0.0.0:3101
 # 🔗 Upstream API: http://mcp.api:8081
-# 🌍 Public Base URL: http://ai-client-gateway.api:3101
+# 🌍 Public Base URL: http://localhost:44443
 # 🔑 Athenz ZTS Endpoint: https://athenz-zts-server.athenz:4443/zts/v1
 ```
 
-## What's done?
+![AI Client Gateway deployed](./assets/15_ai_client_agent_installed_and_used.png)
 
-We just installed `AI Client Agent` (Highlighted in Red) which Open WebUI can talk to as a tool :
+## Deploy the Human Gateway
 
-![15_ai_client_agent_installed_and_used](./assets/15_ai_client_agent_installed_and_used.png)
+Now that the certificate is in place, configure the gateway with the Keycloak credentials it needs to drive the OAuth2 login flow.
 
-## Modify the Tool Target
-
-Instead of pointing the Open WebUI directly to the MCP server, we will route it through our new `ai_client_gateway`.
-
-Open the Open WebUI in your browser:
+Store the Keycloak client credentials (use the client secret you copied in [tutorial 13](./13-identity-provider.md#copy-client-secret)):
 
 ```sh
-_open_webui_keycloak_port=54443
-open http://localhost:$_open_webui_keycloak_port
+_client_secret="🟡TODO: Put your client secret here"
+
+kubectl delete -n human secret human-idjag-learner-claude-keycloak --ignore-not-found=true
+kubectl -n human create secret generic human-idjag-learner-claude-keycloak \
+  --from-literal=client-id="human.idjag-learner.claude" \
+  --from-literal=client-secret="${_client_secret}"
 ```
 
-1. Log in to Open WebUI using an admin account (required to modify integrations).
-1. Navigate to `User Icon` > `Admin Panel` > `Settings` > `Integrations`.
-1. Click the configuration icon for the API MCP Server.
-1. Make the following changes:
-  - Change the MCP Authorization Server URL to the proxy URL: http://ai-client-gateway.human:3101
-  - Change the `Auth` to `Oauth`
+Configure the environment variables for the gateway deployment:
 
-![15_edit_connection_of_tool](./assets/15_edit_connection_of_tool.png)
+```sh
+_gateway_port=$(./tools/port.sh ai-client-gateway)
+_keycloak_port=$(./tools/port.sh keycloak)
+
+kubectl patch deploy claude-idjag-learner-ai-client-gateway -n human --patch "$(cat <<EOF
+spec:
+  template:
+    spec:
+      containers:
+        - name: ai-client-gateway
+          imagePullPolicy: Always
+          env:
+            - name: UPSTREAM_BASE_URL
+              value: "http://mcp.api:8081"
+            - name: ZTS_URL
+              value: "https://athenz-zts-server.athenz:4443/zts/v1"
+            - name: KEYCLOAK_URL
+              value: "http://keycloak.idp:8080"
+            - name: KEYCLOAK_REALM
+              value: "master"
+            - name: KEYCLOAK_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: human-idjag-learner-claude-keycloak
+                  key: client-id
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: human-idjag-learner-claude-keycloak
+                  key: client-secret
+            - name: PUBLIC_BASE_URL
+              value: "http://localhost:${_gateway_port}"
+            - name: KEYCLOAK_PUBLIC_URL
+              value: "http://localhost:${_keycloak_port}"
+EOF
+)"
+```
+
+> [!NOTE]
+> `KEYCLOAK_URL` uses the in-cluster address `keycloak.idp:8080` because the server-side token exchange happens inside the cluster during the OAuth callback. `KEYCLOAK_PUBLIC_URL` uses the port-forwarded address because the browser's login redirect must be reachable from your local machine.
+
+Expose the deployment as a service and confirm the logs look healthy:
+
+```sh
+kubectl delete -n human svc ai-client-gateway --ignore-not-found=true
+kubectl expose deploy claude-idjag-learner-ai-client-gateway -n human --port 3101 --name ai-client-gateway
+kubectl logs deploy/claude-idjag-learner-ai-client-gateway -n human --tail=5
+```
+
+```sh
+# 🚀 OpenWebUI OpenAPI Gateway listening on 0.0.0.0:3101
+# 🔗 Upstream API: http://mcp.api:8081
+# 🌍 Public Base URL: http://localhost:44443
+# 🔑 Athenz ZTS Endpoint: https://athenz-zts-server.athenz:4443/zts/v1
+```
+
+## Verification Prerequisite
+
+Before verifying, sign out of Keycloak so you start with a clean session. You may still be logged in as `admin` or `idjag-learner` from a previous tutorial.
+
+```sh
+_keycloak_port=$(./tools/port.sh keycloak)
+./tools/open.sh "http://localhost:${_keycloak_port}/realms/master/protocol/openid-connect/logout"
+```
+
+![15_signed_out_from_idp_keycloak](./assets/15_signed_out_from_idp_keycloak.png)
 
 ## Verify
 
-Follow the steps below to verify the setup.
-
-Login as `idjag-learner`:
+Point Claude Code at the gateway by writing an `.mcp.json` configuration file:
 
 ```sh
-_open_webui_port=$(./tools/port.sh open-webui)
-./tools/open.sh "http://localhost:${_open_webui_port}" incognito=true
+_gateway_port=$(./tools/port.sh ai-client-gateway)
+
+cat > .mcp.json <<EOF
+{
+  "mcpServers": {
+    "id-jag-the-hard-way-mcp": {
+      "type": "http",
+      "url": "http://localhost:${_gateway_port}/mcp"
+    }
+  }
+}
+EOF
 ```
 
-![15_logged_in_as_idjag_learner](./assets/15_logged_in_as_idjag_learner.png)
+> [!NOTE]
+> Notice that there is no `Authorization` header or pre-fetched access token in this configuration. The gateway handles the entire ID-JAG flow on your behalf — you no longer need `_at=$(cat ./keys/idjag-learner.jwt)` or anything like it.
 
-Now, test the setup by asking the AI Agent:
+Then run `/reload-plugins` → `/mcp` → select **1. Authenticate**.
 
-```
-Get docs!
-```
+Claude Code will detect that the gateway requires a login and prompt you to authenticate:
 
-The request will deliberately fail as following:
+![15_ask_to_login](./assets/15_ask_to_login.png)
 
-![15_deliberate_failure_to_get_without_permission](./assets/15_deliberate_failure_to_get_without_permission.png)
+Open the link (Claude Code may open it automatically). You will be redirected to Keycloak and asked to sign in. Use username `idjag-learner` and password `password`:
 
-## What's happened?
+![15_password_requested](./assets/15_password_requested.png)
 
-We created a certificate for `ai.open-webui`, but this service does not yet have the necessary permissions in Athenz to exchange your Keycloak ID Token into an ID-JAG token (indicated by the red box in your architecture diagram). Because the gateway cannot assert your identity, the request is denied.
+After signing in, you will see the authentication succeed but the MCP connection fail immediately:
 
-![15_arc_not_enough_permission_into_idjag](./assets/15_arc_not_enough_permission_into_idjag.png)
+![15_got_new_credential_but_reconnection_failed](./assets/15_got_new_credential_but_reconnection_failed.png)
+
+This failure is intentional. The gateway now has your ID token and can prove who you are, but the `human.idjag-learner.claude` service does not yet have permission in Athenz to exchange that ID token for an ID-JAG token. Think of it like an enterprise policy: even though `idjag-learner` personally has access to the API, the organization has not yet granted this AI agent the right to act on that person's behalf.
 
 ## What's next?
 
-In the next tutorial, we will fix this permission error by granting the proper token exchange policies, allowing us to successfully execute the end-to-end prompt.
+In the next tutorial, we will grant `human.idjag-learner.claude` the Athenz permissions it needs to perform the full ID-JAG token exchange — effectively telling the authorization server that this AI agent is allowed to act on behalf of `idjag-learner`.
 
 Next: [ID-JAG](./16-id-jag.md)

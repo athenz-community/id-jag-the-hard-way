@@ -8,12 +8,9 @@ This tutorial **ID-JAG The Hard Way** walks you through building an ID-JAG-based
 
 ## What You Will Get
 
-By the end of this tutorial, you will have a fully functional local flow (like the demo below) 
+By the end of this tutorial, you will have a fully functional local flow (like the demo below)
 
 ![ID-JAG The Hard Way Demo - Claude](./assets/id-jag-demo-claude.gif)
-
-> [!NOTE]
-> Claude CLI partially supported without IdP
 
 Or with OpenWebUI CLI flow:
 

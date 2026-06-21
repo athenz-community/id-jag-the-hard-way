@@ -20,6 +20,7 @@
 *.rar
 
 .DS_Store
+.mcp.json
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
@@ -41,7 +42,5 @@ keys/
 
 tools/config.local.yaml
 tools/.port-forward.pid
-
-open_webui/
 
 venv/

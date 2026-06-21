@@ -1,6 +1,6 @@
-|                      Previous                      |        Current         |                    Next                    |
-|:--------------------------------------------------:|:----------------------:|:------------------------------------------:|
-| [Granular Permission](./08-granular-permission.md) | **MCP Server for API** | [AI Client Agent](./10-ai-client-agent.md) |
+|                      Previous                      |        Current         |             Next             |
+|:--------------------------------------------------:|:----------------------:|:----------------------------:|
+| [Granular Permission](./08-granular-permission.md) | **MCP Server for API** | [AI Agent](./10-ai-agent.md) |
 
 # MCP Server for API
 
@@ -28,17 +28,14 @@ Run the following:
 ./tools/athenz/create-private-key.sh "./keys/api-mcp"
 ./tools/athenz/create-service.sh "api" "api-mcp" "./keys/api-mcp.public.key"
 ./tools/athenz/enable-cert-provider.sh "api" "api-mcp"
-sleep 2
-./tools/athenz/fetch-cert.sh "api" "api-mcp" "./keys/api-mcp.key" "v1"
 ```
-
-*Detailed explanation is skipped as thoroughly explained in the previous tutorials. Also, sleep has been included for Athenz to sync.*
 
 ## Create K8s Secret
 
 Create a secret based on the generated certificates:
 
 ```sh
+./tools/athenz/fetch-cert.sh "api" "api-mcp" "./keys/api-mcp.key" "v1"
 kubectl -n api delete secret api-mcp-cert --ignore-not-found
 kubectl -n api create secret generic api-mcp-cert \
   --from-file=api-mcp.crt=./keys/api-mcp.crt \
@@ -132,4 +129,4 @@ We have created a running MCP Server for API with service identity `api.mcp-api`
 
 In next tutorial, we will do actual chat with local AI Agent and see how it interacts with our protected API server through the MCP Server we just created.
 
-Next: [AI Client Agent](./10-ai-client-agent.md)
+Next: [AI Agent](./10-ai-agent.md)

@@ -1,22 +1,79 @@
-import { UPSTREAM_BASE_URL, DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN } from "../config/env.js";
+import { UPSTREAM_BASE_URL, DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN, PUBLIC_BASE_URL } from "../config/env.js";
 import { collectForwardHeaders } from "../utils/httpHelpers.js";
 import { logIncomingRequest } from "./logger.js";
 import { getAccessToken } from "../utils/athenzAt.ts";
 import {
   ensureOpenApiSpecSynced,
   resolveRequiredScope,
+  getAllScopesUnion,
+  operationScopeMap,
 } from "../utils/openapi.js";
+import { getSession } from "../utils/sessionStore.js";
 import {Request, Response } from "express";
+
+function isAuthenticated(req: Request): boolean {
+  const authHeader = req.headers["authorization"];
+  if (authHeader?.startsWith("Bearer ")) {
+    const session = getSession(authHeader.slice(7));
+    if (session) return true;
+  }
+  const cookie = req.headers.cookie ?? "";
+  return cookie.includes("oauth_id_token=");
+}
 
 export async function proxyMiddleware(req: Request, res: Response) {
   if (req.path === "/openapi.json" || req.path === "/health") {
     return res.status(404).json({ error: "not_found" });
   }
 
+  if (!isAuthenticated(req)) {
+    res.setHeader(
+      "WWW-Authenticate",
+      `Bearer realm="${PUBLIC_BASE_URL}", resource_metadata="${PUBLIC_BASE_URL}/.well-known/oauth-authorization-server"`
+    );
+    return res.status(401).json({
+      error: "unauthorized",
+      message: "No valid session. Authenticate via the gateway OAuth2 flow.",
+    });
+  }
+
   try {
     await ensureOpenApiSpecSynced();
 
-    const requiredScope = resolveRequiredScope(req.method, req.path);
+    let requiredScope: string | null;
+
+    if (req.path === "/mcp") {
+      // For MCP tool calls, resolve scope from the tool name (= operationId).
+      // For all other MCP messages (initialize, tools/list, ping, etc.) fall back
+      // to the common intersection scope so the session token is always valid.
+      const mcpMethod = (() => {
+        try {
+          const body = req.body && Buffer.isBuffer(req.body)
+            ? JSON.parse(req.body.toString("utf8"))
+            : req.body;
+          return body?.method as string | undefined;
+        } catch { return undefined; }
+      })();
+
+      const toolName = (() => {
+        if (mcpMethod !== "tools/call") return undefined;
+        try {
+          const body = req.body && Buffer.isBuffer(req.body)
+            ? JSON.parse(req.body.toString("utf8"))
+            : req.body;
+          return body?.params?.name as string | undefined;
+        } catch { return undefined; }
+      })();
+
+      if (toolName) {
+        requiredScope = operationScopeMap.get(toolName) ?? getAllScopesUnion();
+        console.log(`[Scope Resolve] MCP tools/call "${toolName}" -> ${requiredScope}`);
+      } else {
+        requiredScope = getAllScopesUnion();
+      }
+    } else {
+      requiredScope = resolveRequiredScope(req.method, req.path);
+    }
 
     if (!requiredScope) {
       return res.status(403).json({
@@ -41,15 +98,15 @@ export async function proxyMiddleware(req: Request, res: Response) {
       headers: forwardHeaders,
     };
 
-    const hasBody =
-      req.body &&
-      Buffer.isBuffer(req.body) &&
-      req.body.length > 0 &&
-      req.method !== "GET" &&
-      req.method !== "HEAD";
+    const hasBody = req.body && req.method !== "GET" && req.method !== "HEAD";
 
     if (hasBody) {
-      fetchOptions.body = req.body;
+      if (Buffer.isBuffer(req.body)) {
+        fetchOptions.body = req.body;
+      } else {
+        fetchOptions.body = JSON.stringify(req.body);
+        forwardHeaders["content-type"] = "application/json";
+      }
     }
 
     const timestamp = new Date().toISOString();
@@ -58,6 +115,8 @@ export async function proxyMiddleware(req: Request, res: Response) {
     console.error(`[Method]                    : ${fetchOptions.method}`);
     console.error(`[URL]                       : ${upstreamUrl.toString()}`);
     console.error(`[Athenz Required Scope]     : ${requiredScope}`);
+    console.error(`[Request Headers]           : ${JSON.stringify(forwardHeaders)}`);
+    console.error(`[Request Body]              : ${fetchOptions.body ? fetchOptions.body.toString().slice(0, 500) : "(none)"}`);
     DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN && console.error(`⚠️ [DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN] : ${DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN}`);
     console.error(`[Athenz AT (Authorization)] : Bearer ${DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN ? accessToken : `<redacted>`}`);
     console.error("==================================================================\n");

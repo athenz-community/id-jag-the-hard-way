@@ -1,18 +1,8 @@
 import https from "https";
 import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import { URLSearchParams } from "url";
 import { exchangeToIdjag } from "./idtokenIntoIdjag.js";
-import { ZTS_URL } from "../config/env.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-
-const CERT_PATH = path.join(__dirname, "../../certs/open-webui.crt");
-const KEY_PATH = path.join(__dirname, "../../certs/open-webui.key");
-const CA_PATH = path.join(__dirname, "../../certs/ca.crt");
+import { ZTS_URL, CERT_PATH, KEY_PATH, CA_PATH } from "../config/env.js";
 
 const httpsAgent = new https.Agent({
   cert: fs.readFileSync(CERT_PATH),
