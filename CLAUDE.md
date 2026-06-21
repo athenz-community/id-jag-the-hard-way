@@ -93,6 +93,18 @@ The `keycloak_token_exchange_provider` Dockerfile is export-only — it copies t
 
 The `tutorials/` directory contains the canonical learning path (01–14, with sub-steps). They are Markdown files intended to be read in order. The `tutorials/challenges/` subdirectory contains challenge exercises. Always keep tutorial content consistent with the code behavior when making changes.
 
+## Environment Cleanup
+
+To fully tear down the tutorial environment, run these commands in order. But the cluster part is only when you used kind cluster for the tutorial.
+
+```sh
+kind delete cluster
+rm -rf ~/id_jag_the_hard_way_workspace/athenz_dist
+rm -rf ~/id_jag_the_hard_way_workspace
+```
+
+**IMPORTANT for AI assistants**: Never run these commands unless the user explicitly asks to tear down or clean up the entire environment. They are destructive and irreversible — they delete the kind cluster and all local tutorial files.
+
 ## No Test Suite
 
 There are no automated tests in this repository. The `test` script in all `package.json` files exits with an error. Validation is done manually by following the tutorials.
