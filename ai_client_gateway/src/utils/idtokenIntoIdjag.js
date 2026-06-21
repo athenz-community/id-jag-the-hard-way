@@ -1,6 +1,7 @@
 import https from "https";
 import fs from "fs";
 import { URLSearchParams } from "url";
+import jwt from "jsonwebtoken";
 import { extractCookieValue } from "../utils/httpHelpers.js";
 import { ZTS_URL, CERT_PATH, KEY_PATH, CA_PATH } from "../config/env.js";
 import { getSession } from "./sessionStore.js";
@@ -11,8 +12,6 @@ const httpsAgent = new https.Agent({
   key: fs.readFileSync(KEY_PATH),
   ca: fs.readFileSync(CA_PATH),
 });
-
-const tokenCache = new Map();
 
 function getJwtExpiration(token) {
   try {
@@ -89,8 +88,6 @@ function resolveIdToken(req) {
   return extractCookieValue(cookieHeader, "oauth_id_token");
 }
 
-// exchangeToIdjag returns jag token through ID-JAG process,
-// but if it holds the cache, it simply returns the cache ones
 export async function exchangeToIdjag(req, scope) {
   const idToken = resolveIdToken(req);
 
@@ -103,29 +100,12 @@ export async function exchangeToIdjag(req, scope) {
     throw err;
   }
 
-  const cacheKey = scope; // for now it is simply use the scope as the key
-
-  if (tokenCache.has(cacheKey)) {
-    const cached = tokenCache.get(cacheKey);
-    
-    if (cached.exp > now + 60) {
-      console.error(`[Athenz ID-JAG] ⚡ Successfully returned the cached id-jag for scope [${scope}] (Remaining: ${cached.exp - now} secs)`);
-      return cached.idJag;
-    } else {
-      console.error(`[Athenz ID-JAG] 🗑️ Destroyed the stored cache with expired caching for scope [${scope}]`);
-      tokenCache.delete(cacheKey);
-    }
-  } else {
-    console.error(`[Athenz ID-JAG] No cache found for id-jag (Scope: ${scope})`);
-  }
-
   console.error(`[Athenz ID-JAG] 🔄 Attempting to exchange new ID-JAG with id-token for scope [${scope}] ...`);
   const idJag = await exchangeIdTokenToIdJag(idToken, scope);
-  
-  const exp = getJwtExpiration(idJag) || (now + 3600);
-  
-  tokenCache.set(cacheKey, { idJag, exp });
-  console.error(`[Athenz ID-JAG] 💾 Successfully exchanged and cached ID-JAG for scope [${scope}]`);
+
+  const decoded = jwt.decode(idJag);
+  const grantedScope = decoded?.scp ?? decoded?.scope ?? "(none)";
+  console.error(`[Athenz ID-JAG] 🎫 Granted scope in ID-JAG: ${JSON.stringify(grantedScope)}`);
 
   return idJag;
 }

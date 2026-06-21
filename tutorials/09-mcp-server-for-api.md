@@ -20,7 +20,7 @@ In this tutorial, we will set up MCP Server for API so that our AI client agent 
 
 ### Service Cert for MCP Server
 
-To run the MCP Server, just like we have given service identity for human user `human.idjag-learner` , we also need to give service identity for the MCP server. Because mcp server is part of the API server, we will simply create service `api-mcp` under the tld (domain) `api`.
+To run the MCP Server, just like we have given service identity for human user `human.idjag-learner`, we also need to give service identity for the MCP server. Because the MCP server is part of the API server, we will simply create service `api-mcp` under the TLD `api`.
 
 Run the following:
 
@@ -47,7 +47,7 @@ kubectl -n api create secret generic api-mcp-cert \
 # secret/api-mcp-cert created
 ```
 
-### Run the MCP Server
+## Deploy the MCP Server
 
 ```sh
 kubectl create deploy mcp -n api \
@@ -60,6 +60,11 @@ Expose the deployment above:
 kubectl expose deploy mcp -n api --port 8081 --name mcp
 ```
 
+Wait for the container to be ready:
+
+```sh
+kubectl rollout status deploy/mcp -n api
+```
 
 > [!NOTE]
 > If you see the following error, the container is still starting up. Wait a few seconds and try again.
@@ -68,23 +73,9 @@ kubectl expose deploy mcp -n api --port 8081 --name mcp
 > Error from server (BadRequest): container "mcp" in pod is waiting to start: ContainerCreating
 > ```
 
-See the log:
-
-```sh
-kubectl logs deploy/mcp -n api
-```
-
-```sh
-# ◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
-# node:fs:560
-#   return binding.open(
-#                  ^
-
-# Error: ENOENT: no such file or directory, open '/app/certs/api-mcp.crt'
-# ...
-```
-
 ## Mount Secret
+
+Mount the cert secret into the MCP container:
 
 ```yaml
 kubectl patch deploy mcp -n api --patch "$(cat <<'EOF'
@@ -103,6 +94,16 @@ spec:
             secretName: api-mcp-cert
 EOF
 )"
+```
+
+Wait for the rollout to complete:
+
+```sh
+kubectl rollout status deploy/mcp -n api
+```
+
+```sh
+# deployment "mcp" successfully rolled out
 ```
 
 Verify:

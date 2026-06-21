@@ -4,7 +4,32 @@
 
 # Granular Permission
 
-In this tutorial, you will implement granular permissions by establishing a dedicated service identity to access the protected API server.
+In the previous tutorial, you used the admin certificate — which has unrestricted power — to mint an Access Token. This tutorial replaces that with a dedicated identity representing you, scoped to exactly the permissions you need.
+
+<details>
+<summary>Why does dedicated identity matter?</summary>
+<br>
+
+### Why a separate identity instead of admin?
+
+Admin credentials can do anything in Athenz: create domains, register services, modify policies. Using them for routine API calls is like handing someone a master key every time they need to open one specific door. If those credentials are ever leaked or misused, the blast radius is unlimited.
+
+Instead, you create a dedicated identity — `human.idjag-learner` — that exists solely to call the API as you, the learner. In Athenz, access control is always evaluated against a **principal**: a named entity that can be placed into roles and granted policies. By giving yourself a distinct principal, you can apply fine-grained policies to it without touching anything admin-level.
+
+> [!NOTE]
+> Athenz has a feature called **UserCert**, which represents an actual human being rather than a service account. For simplicity, this tutorial skips that feature and uses a service identity to represent you instead.
+
+### Why generate a private key?
+
+In Athenz, **identity is cryptographic — holding the private key is what makes you that identity.** There is no username or password. The public key is registered with Athenz under your service name. When you authenticate to ZTS (the token server), you present a certificate signed with your private key. ZTS verifies the signature against the registered public key and, if they match, issues you an Access Token as `human.idjag-learner`.
+
+If you hold the key, you are that principal. If you don't, you cannot claim to be.
+
+### Why does scoping the token matter?
+
+The token you fetch is not a general-purpose credential — it is scoped to a specific role (`api:role.docs-getter`). Even if the token is leaked, an attacker can only call the endpoints that role permits and nothing else. The private key stays on your machine; the short-lived, narrowly scoped token is what travels over the network. This is the foundation of **least-privilege access**.
+
+</details>
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
@@ -202,7 +227,7 @@ curl -s -k -H "Authorization: Bearer $_my_access_token" http://localhost:14443/a
 
 ## Review Architecture
 
-You successfully fetched an X.509 certificate for the non-admin service identity (`human.idjag-learner`) and exchanged it for an Athenz Access Token scoped specifically to `api:role.docs-getter`:
+You successfully fetched an X.509 certificate for the non-admin service identity (`human.idjag-learner`) — instead of the admin certificate — and exchanged it for an Athenz Access Token scoped specifically to `api:role.docs-getter`:
 
 ![08_arc_fetch_at_with_non_admin_certificiate](./assets/08_arc_fetch_at_with_non_admin_certificiate.png)
 

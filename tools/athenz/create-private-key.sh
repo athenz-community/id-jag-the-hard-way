@@ -7,6 +7,7 @@ if [ -z "${1:-}" ]; then
 fi
 
 service_name=$1
+mkdir -p "$(dirname "${service_name}")"
 echo "Generating RSA key pair for: ${service_name}..."
 
 # Generate 2048-bit RSA private key

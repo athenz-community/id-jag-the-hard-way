@@ -10,6 +10,9 @@ export const AUTHORIZATION_SERVER_URL = process.env.AUTHORIZATION_SERVER_URL || 
 export const LOGGER_ENABLE_HEADERS = process.env.LOGGER_ENABLE_HEADERS || false;
 export const LOGGER_ENABLE_BODY = process.env.LOGGER_ENABLE_BODY || true;
 
+// debug:
+export const DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN = process.env.DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN === "true";
+
 export const corsOptions = {
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

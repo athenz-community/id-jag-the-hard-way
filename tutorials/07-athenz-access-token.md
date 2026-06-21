@@ -159,7 +159,7 @@ curl -s -k http://localhost:14443/api/docs | jq .
 ```
 
 
-With the Access Token, let's see if we can access it now.
+With the Access Token, let's see if we can access it now. Pass it as `Authorization: Bearer <token>`:
 
 ```sh
 curl -s -k -H "Authorization: Bearer $_root_user_at" http://localhost:14443/api/docs | jq .

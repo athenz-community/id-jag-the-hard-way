@@ -8,16 +8,25 @@ In this tutorial, we will deploy [Keycloak](https://www.keycloak.org/) as an Ide
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
+- [Docker pull keycloak](#docker-pull-keycloak)
 - [Deploy Keycloak in K8s](#deploy-keycloak-in-k8s)
 - [Open Keycloak on Browser](#open-keycloak-on-browser)
 - [Setup Client](#setup-client)
-- [Copy Client Secret](#copy-client-secret)
 - [Setup User](#setup-user)
 - [Setup id_token Expiration](#setup-id_token-expiration)
 - [What's done?](#whats-done)
 - [What's next?](#whats-next)
 
 <!-- /TOC -->
+
+## Docker pull keycloak
+
+If you are using **kind**, do the following:
+
+```sh
+docker pull quay.io/keycloak/keycloak:latest
+kind load docker-image quay.io/keycloak/keycloak:latest
+```
 
 ## Deploy Keycloak in K8s
 
@@ -99,14 +108,6 @@ kubectl expose deployment keycloak --port=8080 -n idp
 
 ## Open Keycloak on Browser
 
-> [!NOTE]
-> If you are using `kind` and encounter `ImagePullBackOff`, pre-load the image:
->
-> ```sh
-> docker pull quay.io/keycloak/keycloak:latest
-> kind load docker-image quay.io/keycloak/keycloak:latest
-> ```
-
 Wait for the pod to be ready:
 
 ```sh
@@ -143,6 +144,8 @@ Configure the following:
 - **Name**: `human.idjag-learner.claude`
 - **Description**: `Local Claude Code for human.idjag-learner`
 
+![13_client_name_and_type](./assets/13_client_name_and_type.png)
+
 Click **Next**, then:
 
 - **Client authentication**: `ON`
@@ -169,10 +172,6 @@ Click **Save**.
 
 ![Keycloak client added](./assets/13_keycloak_client_added.png)
 
-## Copy Client Secret
-
-After saving, open the **Credentials** tab and copy the **Client secret** — you will need it when deploying the AI Client Gateway.
-
 ## Setup User
 
 Create a human user account to represent a learner.
@@ -190,6 +189,8 @@ Fill in:
 - **Email**: `idjag-learner@athenz.io`
 - **First Name**: `ID-JAG`
 - **Last Name**: `Learner`
+
+![13_user_created_idjag_learner](./assets/13_user_created_idjag_learner.png)
 
 Click **Create**.
 

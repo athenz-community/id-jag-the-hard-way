@@ -66,6 +66,7 @@ done
 ```
 
 ```sh
+# Waiting for athenz servers to be ready ...
 # pod/athenz-db-0 condition met
 # pod/athenz-cli-574d747dff-mfdgz condition met
 # pod/athenz-zms-server-568d4cfd89-tqwwn condition met

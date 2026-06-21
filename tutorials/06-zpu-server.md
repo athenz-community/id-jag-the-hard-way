@@ -15,6 +15,7 @@ In this tutorial, we will deploy a simple ZMS Policy Updater (ZPU) to synchroniz
 - [Fetch X.509 Certificate for `api.zpu`](#fetch-x509-certificate-for-apizpu)
 - [Create a TLS Secret for `api.zpu` as K8s Secret](#create-a-tls-secret-for-apizpu-as-k8s-secret)
 - [Deploy ZPU Sidecar](#deploy-zpu-sidecar)
+- [Verify](#verify)
 
 <!-- /TOC -->
 
@@ -46,7 +47,11 @@ Create a domain `api` that represents the API server domain:
 # {"description":"TLD for api","org":"ajkimkim","auditEnabled":false,"ypmId":0,"autoDeleteTenantAssumeRoleAssertions":false,"name":"api","modified":"2026-05-10T07:56:23.059Z","id":"bce22e30-4c45-11f1-8af4-88f84977247b"}
 ```
 
-You can verify that this domain is created successfully by refreshing the **Athenz UI** (`http://localhost:3000`):
+You can verify that this domain is created successfully by refreshing the **Athenz UI** (`http://localhost:3000`). You can open it with:
+
+```sh
+open http://localhost:3000
+```
 
 ![07_create_api_tld](./assets/06_create_api_tld.png)
 
@@ -93,6 +98,8 @@ This successfully creates the `api.zpu` service identity. You can verify the res
 _athenz_ui_port=$(./tools/port.sh athenz-ui)
 ./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/service"
 ```
+
+![06_new_service_zpu](./assets/06_new_service_zpu.png)
 
 ## Enable Certificate Provisioning (Provider Setup)
 
@@ -206,8 +213,17 @@ EOF
 # deployment.apps/api-server patched
 ```
 
-> [!NOTE]
-> It may take 5–10 seconds for the policies to be downloaded.
+## Verify
+
+Wait for the ZPU sidecar to be ready:
+
+```sh
+kubectl rollout status deploy/api-server -n api
+```
+
+```sh
+# deployment "api-server" successfully rolled out
+```
 
 Verify that the policies have been successfully downloaded:
 

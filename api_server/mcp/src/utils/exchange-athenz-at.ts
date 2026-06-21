@@ -4,7 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Request } from "express";
 import { getAtFromReq } from "./readAtFromReq";
-import { AUTHORIZATION_SERVER_URL } from "../config/env";
+import { AUTHORIZATION_SERVER_URL, DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN } from "../config/env";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +25,8 @@ export async function exchangeAthenzAT(req: Request, scope: string): Promise<str
     throw new Error("No Access Token found in request header");
   }
 
-  console.log(`[INFO] [Token Exchange] Initiating for scope: "${scope}" using api-mcp cert`);
+  const tokenDisplay = DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN ? `${receivedToken} (⚠️ Visible because DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN=${DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN})` : receivedToken.substring(0, 16) + "..."
+  console.log(`[INFO] [Token Exchange] Initiating for scope: "${scope}" using api-mcp cert, token: ${tokenDisplay}`);
 
   return new Promise((resolve, reject) => {
     const params = new URLSearchParams({
@@ -59,8 +60,12 @@ export async function exchangeAthenzAT(req: Request, scope: string): Promise<str
         if (res.statusCode === 200) {
           try {
             const result = JSON.parse(responseData);
-            console.log(`[INFO] [Token Exchange] ✅ Success! Exchanged for ${scope}`);
-            resolve(result.access_token);
+            const accessToken = result.access_token;
+            const decoded = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64").toString());
+            const grantedScope = decoded?.scp ?? decoded?.scope ?? "(none)";
+            const tokenDisplay = DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN ? `${accessToken} (⚠️ Visible because DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN=${DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN})` : accessToken.substring(0, 16) + "...";
+            console.log(`[INFO] [Token Exchange] ✅ Success! scope: ${JSON.stringify(scope.split(" "))} gotScope: ${JSON.stringify(grantedScope)} token: ${tokenDisplay}`);
+            resolve(accessToken);
           } catch (e) {
             reject(new Error("Failed to parse ZTS response"));
           }

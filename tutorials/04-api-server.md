@@ -51,12 +51,15 @@ kubectl expose deploy api-server -n api --port 8080 --name api-server
 
 ## Send a Request to the API Server
 
-> [!NOTE]
-> It may take a few seconds for the API Server to be available. If not, you will see:
->
-> ```
-> error: Internal error occurred: unable to upgrade connection: container not found ("api-server")
-> ```
+Wait for the deployment to be ready:
+
+```sh
+kubectl rollout status deploy/api-server -n api
+```
+
+```sh
+# deployment "api-server" successfully rolled out
+```
 
 Send a request to list the documents.
 

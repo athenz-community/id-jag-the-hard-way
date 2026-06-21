@@ -29,7 +29,7 @@ Check if Claude is already installed:
 claude --version
 ```
 
-If you don't see a version (e.g. `2.1.177 (Claude Code)`), install it:
+If you don't see a version (e.g. `X.X.XXX (Claude Code)`), install it:
 
 macOS / Linux / WSL:
 

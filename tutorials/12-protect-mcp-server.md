@@ -95,7 +95,11 @@ kubectl expose deploy mcp -n api --port 8081 --target-port 8082 --name mcp
 
 ## Verify (Expected Failure)
 
-Reload the plugin with `/reload-plugins` in Claude Code, then ask:
+Reload the plugin in Claude Code, then ask:
+
+```sh
+/reload-plugins
+```
 
 ```sh
 get docs from k8s doc server!
@@ -183,7 +187,11 @@ EOF
 
 ## Verify
 
-Reload with `/reload-plugins` in Claude Code, then ask:
+Reload in Claude Code, then ask:
+
+```sh
+/reload-plugins
+```
 
 ```sh
 get docs from k8s doc server!

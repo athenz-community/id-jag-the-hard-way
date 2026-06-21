@@ -56,7 +56,7 @@ Now add `human.idjag-learner.claude` as a member of this role:
 
 ## Verify
 
-Run `/reload-plugins` → `/mcp` → select **1. Re-Authenticate** to reconnect. This time, with the token exchange permission in place, you will see the connection succeed.
+Do `/reload-plugins` → `/mcp` → select **1. Re-Authenticate** to reconnect. This time, with the token exchange permission in place, you will see the connection succeed.
 
 Then send the same prompt that failed in the previous tutorial:
 

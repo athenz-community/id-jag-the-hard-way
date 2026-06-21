@@ -71,12 +71,6 @@ This is expected. The gateway needs an X.509 certificate to identify itself to A
 
 The gateway authenticates to Athenz ZTS as the service identity `human.idjag-learner.claude`. To do that, it needs an X.509 certificate issued by Athenz for that identity.
 
-First, create the `human` top-level domain in Athenz:
-
-```sh
-./tools/athenz/create-tld.sh "human"
-```
-
 Generate an RSA key pair for the service:
 
 ```sh
@@ -155,10 +149,24 @@ kubectl logs deploy/claude-idjag-learner-ai-client-gateway -n human
 
 Now that the certificate is in place, configure the gateway with the Keycloak credentials it needs to drive the OAuth2 login flow.
 
-Store the Keycloak client credentials (use the client secret you copied in [tutorial 13](./13-identity-provider.md#copy-client-secret)):
+Store the Keycloak client credentials. Open the clients list:
 
 ```sh
-_client_secret="🟡TODO: Put your client secret here"
+_keycloak_port=$(./tools/port.sh keycloak)
+./tools/open.sh "http://localhost:${_keycloak_port}/admin/master/console/#/master/clients"
+```
+
+Click **human.idjag-learner.claude** → **Credentials** tab → You will later use the copy button in the red box to copy the client secret.
+
+![Keycloak credentials tab](./assets/15_keycloak_client_credentials.png)
+
+Now run the command below, then switch back to the browser and paste your secret:
+
+![15_input_client_secret](./assets/15_input_client_secret.png)
+
+```sh
+printf '\033[1mPaste your client secret and press Enter:\033[0m\n'
+read _client_secret
 
 kubectl delete -n human secret human-idjag-learner-claude-keycloak --ignore-not-found=true
 kubectl -n human create secret generic human-idjag-learner-claude-keycloak \
@@ -166,7 +174,19 @@ kubectl -n human create secret generic human-idjag-learner-claude-keycloak \
   --from-literal=client-secret="${_client_secret}"
 ```
 
-Configure the environment variables for the gateway deployment:
+Configure the environment variables for the gateway deployment. This patches the deployment with the URLs and credentials it needs to wire up the full token exchange chain.
+
+<details>
+<summary>What each variable does</summary>
+
+- `UPSTREAM_BASE_URL` — the in-cluster MCP server the gateway proxies requests to.
+- `ZTS_URL` — the Athenz ZTS endpoint used to exchange ID-JAG tokens for scoped Access Tokens.
+- `KEYCLOAK_URL` / `KEYCLOAK_REALM` — in-cluster Keycloak address used for server-side token validation during the OAuth callback.
+- `KEYCLOAK_CLIENT_ID` / `KEYCLOAK_CLIENT_SECRET` — pulled from the Kubernetes Secret you just created; used to authenticate this gateway as a registered OAuth2 client.
+- `PUBLIC_BASE_URL` — the port-forwarded gateway address the browser is redirected back to after login.
+- `KEYCLOAK_PUBLIC_URL` — the port-forwarded Keycloak address used in the browser-facing login redirect URL.
+
+</details>
 
 ```sh
 _gateway_port=$(./tools/port.sh ai-client-gateway)
@@ -233,6 +253,8 @@ _keycloak_port=$(./tools/port.sh keycloak)
 ./tools/open.sh "http://localhost:${_keycloak_port}/realms/master/protocol/openid-connect/logout"
 ```
 
+If Keycloak asks **"Do you want to log out?"**, click **Logout** to confirm.
+
 ![15_signed_out_from_idp_keycloak](./assets/15_signed_out_from_idp_keycloak.png)
 
 ## Verify
@@ -257,17 +279,24 @@ EOF
 > [!NOTE]
 > Notice that there is no `Authorization` header or pre-fetched access token in this configuration. The gateway handles the entire ID-JAG flow on your behalf — you no longer need `_at=$(cat ./keys/idjag-learner.jwt)` or anything like it.
 
-Then run `/reload-plugins` → `/mcp` → select **1. Authenticate**.
+Then run the following, then `/mcp` → `/reload-plugins` → select **1. Re-authenticate**.
+
+![15_re_authenticate](./assets/15_re_authenticate.png)
 
 Claude Code will detect that the gateway requires a login and prompt you to authenticate:
 
 ![15_ask_to_login](./assets/15_ask_to_login.png)
 
-Open the link (Claude Code may open it automatically). You will be redirected to Keycloak and asked to sign in. Use username `idjag-learner` and password `password`:
+Open the link (Claude Code may open it automatically). You will be redirected to Keycloak and asked to sign in. Use
+
+- username `idjag-learner`
+- password `password`
 
 ![15_password_requested](./assets/15_password_requested.png)
 
 After signing in, you will see the authentication succeed but the MCP connection fail immediately:
+
+`Got new credentials, but reconnecting to id-jag-the-hard-way-mcp failed: HTTP 502 at http://localhost:44443/mcp`
 
 ![15_got_new_credential_but_reconnection_failed](./assets/15_got_new_credential_but_reconnection_failed.png)
 
