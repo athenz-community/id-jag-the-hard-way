@@ -2,7 +2,7 @@
 
 *Bootstrap ID-JAG Architecture the hard way in the AI Agent Era. No scripts.*
 
-This tutorial **ID-JAG The Hard Way** walks you through building an ID-JAG-based AI agent authorization architecture from scratch. It is not for someone looking for a fully automated demo or a one-command installer. The **ID-JAG The Hard Way** is optimized for learning, which means taking the long route to understand the identities, tokens, policies, and trust boundaries required to let an AI agent access protected APIs on behalf of a signed-in human user in [ID-JAG specification](https://techblog.lycorp.co.jp/en/20260417a).
+This tutorial walks you through building an ID-JAG-based AI agent authorization architecture from scratch. It is not for someone looking for a fully automated demo or a one-command installer. It is optimized for learning — taking the long route to understand the identities, tokens, policies, and trust boundaries required to let an AI agent access protected APIs on behalf of a signed-in human user, as defined in the [ID-JAG specification](https://techblog.lycorp.co.jp/en/20260417a).
 
 [![Start Tutorial](./assets/start-tutorial-glow.svg)](./tutorials/01-prerequisites.md)
 
@@ -57,6 +57,14 @@ The name and concept of this tutorial series is inspired by [kelseyhightower/kub
 
 ID-JAG The Hard Way is listed on the [OAuth.net Cross-App Access (XAA) page](https://oauth.net/cross-app-access/) as a test tool for learning ID-JAG
 
-## 🚀 Ready to dive in?
+## ⭐ Appreciation goes a long way
+
+If this tutorial helped you, a ⭐ on GitHub means a lot — it helps others find it too!
+
+[![GitHub Stars](https://img.shields.io/github/stars/mlajkim/id-jag-the-hard-way?style=social)](https://github.com/mlajkim/id-jag-the-hard-way)
+
+Have questions or ran into a problem? [Open an issue](https://github.com/mlajkim/id-jag-the-hard-way/issues).
+
+If not:
 
 [![Start Tutorial](./assets/start-tutorial-glow.svg)](./tutorials/01-prerequisites.md)
