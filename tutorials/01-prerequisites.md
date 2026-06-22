@@ -24,7 +24,7 @@ All components in this tutorial run inside Kubernetes, which itself runs inside 
 Verify Docker is running:
 
 ```sh
-docker version
+docker ps
 ```
 
 ## Install Packages

@@ -39,6 +39,16 @@ Five microservices implement the full authorization flow:
 | Open WebUI        | —          | `54443`          | `8080`             |
 | Ollama Server     | `11434`    | —                | —                  |
 
+## Prerequisites
+
+Before running or building anything, ensure the Docker daemon is running:
+
+```sh
+docker info
+```
+
+If this fails, start Docker Desktop (Mac/Windows) or run `sudo systemctl start docker` (Linux) before proceeding.
+
 ## Running Components Locally
 
 All local development uses `make` commands. Maven commands pass `-Dmaven.resolver.transport=wagon -Dmaven.wagon.http.ssl.insecure=true` to handle self-signed certs.

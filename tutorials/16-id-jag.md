@@ -25,20 +25,15 @@ First, create a role under the `api` domain to represent AI agents that are allo
 ./tools/athenz/create-role.sh "api" "token-exchangable-ai-agents"
 ```
 
-In Athenz, the `zts.jag_exchange` action controls whether a principal can exchange an ID token for an ID-JAG token scoped to a given role. Grant it for `role.docs-getter`:
+In Athenz, the `zts.jag_exchange` action controls whether a principal can exchange an ID token for an ID-JAG token scoped to a given role. Grant it for `role.docs-getter` and `role.mcp-accessor`:
 
 ```sh
 ./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
+./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
 ```
 
 ```sh
 # Creating Policy: api:policy.zts.jag_exchange...
-```
-
-Grant it for `role.mcp-accessor` as well, since the gateway also needs to exchange into that role to reach the MCP server:
-
-```sh
-./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
 ```
 
 Now add `human.idjag-learner.claude` as a member of this role:

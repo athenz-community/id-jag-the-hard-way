@@ -50,7 +50,7 @@ Create a domain `api` that represents the API server domain:
 You can verify that this domain is created successfully by refreshing the **Athenz UI** (`http://localhost:3000`). You can open it with:
 
 ```sh
-open http://localhost:3000
+tools/open.sh http://localhost:$(tools/port.sh athenz-ui)
 ```
 
 ![07_create_api_tld](./assets/06_create_api_tld.png)
