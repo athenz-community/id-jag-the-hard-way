@@ -10,6 +10,7 @@ In this tutorial, we will set up MCP Server for API so that our AI client agent 
 
 - [Run MCP Server for API](#run-mcp-server-for-api)
 - [Create K8s Secret](#create-k8s-secret)
+- [Deploy the MCP Server](#deploy-the-mcp-server)
 - [Mount Secret](#mount-secret)
 - [What's done?](#whats-done)
 - [What's next?](#whats-next)
@@ -48,6 +49,8 @@ kubectl -n api create secret generic api-mcp-cert \
 ```
 
 ## Deploy the MCP Server
+
+Deploy the MCP Server:
 
 ```sh
 kubectl create deploy mcp -n api \

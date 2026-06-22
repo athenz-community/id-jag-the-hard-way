@@ -53,19 +53,11 @@ curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del in
 > Official Claude installation guide: [Claude Code Quickstart](https://code.claude.com/docs/en/quickstart#native-install-recommended)
 > ![10_install_calude_app](./assets/10_install_calude_app.png)
 
-## Login to Claude
-
-Run the following and follow the prompts:
-
-```sh
-claude
-```
-
-If it is your first time, choose `2. Anthropic Console account`. You can create an account or use **Continue with Google** for a faster sign-up.
-
 ## Add the MCP Server to Claude Code
 
-To access the API Server through MCP server, we need to get the Acces Token.
+Claude Code reads `.mcp.json` only on startup, so create this file before launching Claude.
+
+Get the Access Token:
 
 ```sh
 _scope="api:role.docs-getter"
@@ -78,7 +70,7 @@ _my_access_token=$(./tools/athenz/fetch-access-token.sh \
 cat "./keys/idjag-learner.jwt"
 ```
 
-Create a `.mcp.json` at the root of this project, with Access Token Attached:
+Create `.mcp.json` at the root of this project:
 
 ```sh
 _mcp_port=$(./tools/port.sh mcp)
@@ -99,13 +91,42 @@ cat > .mcp.json <<EOF
 EOF
 ```
 
+Check the created `.mcp.json` file:
+
+```sh
+cat .mcp.json
+```
+
+```sh
+# {
+#   "mcpServers": {
+#     "id-jag-the-hard-way-mcp": {
+#       "type": "http",
+#       "url": "http://localhost:<your_port>/mcp"
+#     }
+#   }
+# }
+```
+
+## Login to Claude
+
+Now start Claude — it will pick up `.mcp.json` automatically on launch:
+
+```sh
+claude
+```
+
+If it is your first time, choose `2. Anthropic Console account`. You can create an account or use **Continue with Google** for a faster sign-up.
+
 ## Connect to MCP Server
 
-First, reload the session with `/reload-plugin`:
+Run:
 
-![10_reload_plugins_in_claude](./assets/10_reload_plugins_in_claude.png)
+```sh
+/mcp
+```
 
-Then, run `/mcp`, then you can see that you are `✅ Connected` for the `id-jag-the-hard-way-mcp`:
+You can see that you are `✅ Connected` for the `id-jag-the-hard-way-mcp`:
 
 ![10_mcp_connected](./assets/10_mcp_connected.png)
 
@@ -126,7 +147,7 @@ You will be prompted `Do you want to proceed?`. select `2` (Or `1` if you want t
 ![10_claude_says_do_you_want_to_proceed](./assets/10_claude_says_do_you_want_to_proceed.png)
 
 
-The request will fail with an error `No Permission to Token Exchange`, similar to:
+This will intentionally fail — the request will return a `No Permission to Token Exchange` error, similar to:
 
 ![10_claude_says_no_access_for_token_exchange](./assets/10_claude_says_no_access_for_token_exchange.png)
 

@@ -95,6 +95,9 @@ kubectl expose deploy mcp -n api --port 8081 --target-port 8082 --name mcp
 
 ## Verify (Expected Failure)
 
+> [!WARNING]
+> This step will intentionally fail — that is the point, and you will fix it in the next section.
+
 Reload the plugin in Claude Code, then ask:
 
 ```sh
@@ -106,9 +109,7 @@ get docs from k8s doc server!
 ```
 
 
-This fails because the proxy requires `access` on the `api:mcp` resource, and we haven't created that policy yet:
-
-![12_no_access_to_mcp](./assets/12_no_access_to_mcp)
+This fails because the proxy requires `access` on the `api:mcp` resource, and we haven't created that policy yet.
 
 You can also see from the log of the `auth-proxy` container that the request was rejected:
 

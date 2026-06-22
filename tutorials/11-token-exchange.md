@@ -76,7 +76,13 @@ cat > .mcp.json <<EOF
 EOF
 ```
 
-Reload your MCP server in Claude Code (`/reload-plugin`), then ask:
+Reload your MCP server in Claude Code:
+
+```sh
+/reload-plugin
+```
+
+Then ask:
 
 ```sh
 get docs from k8s doc server!

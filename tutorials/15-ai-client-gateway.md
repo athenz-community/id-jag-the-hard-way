@@ -13,6 +13,7 @@ In this tutorial, we will deploy the `AI Client Gateway`. This component sits be
 - [Generate the Required Certificates](#generate-the-required-certificates)
 - [Mount the Certificates](#mount-the-certificates)
 - [Deploy the Human Gateway](#deploy-the-human-gateway)
+- [Set env vars for the gateway](#set-env-vars-for-the-gateway)
 - [Verification Prerequisite](#verification-prerequisite)
 - [Verify](#verify)
 - [What's next?](#whats-next)
@@ -55,7 +56,7 @@ kubectl create deploy claude-idjag-learner-ai-client-gateway -n human \
   --image=ghcr.io/mlajkim/ai-client-gateway:latest
 ```
 
-Check the logs — you will see an error about missing certificates:
+Check the logs — you will see an error about missing certificates (this is expected and you will fix it shortly):
 
 ```sh
 kubectl logs deploy/claude-idjag-learner-ai-client-gateway -n human
@@ -156,13 +157,15 @@ _keycloak_port=$(./tools/port.sh keycloak)
 ./tools/open.sh "http://localhost:${_keycloak_port}/admin/master/console/#/master/clients"
 ```
 
-Click **human.idjag-learner.claude** → **Credentials** tab → You will later use the copy button in the red box to copy the client secret.
+Click **human.idjag-learner.claude**:
+
+![15_click_human_idjag_learner](./assets/15_click_human_idjag_learner.png)
+
+Go to the **Credentials** tab: You will later use the copy button in the red box to copy the client secret.
 
 ![Keycloak credentials tab](./assets/15_keycloak_client_credentials.png)
 
-Now run the command below, then switch back to the browser and paste your secret:
-
-![15_input_client_secret](./assets/15_input_client_secret.png)
+Now run the command below:
 
 ```sh
 printf '\033[1mPaste your client secret and press Enter:\033[0m\n'
@@ -173,6 +176,12 @@ kubectl -n human create secret generic human-idjag-learner-claude-keycloak \
   --from-literal=client-id="human.idjag-learner.claude" \
   --from-literal=client-secret="${_client_secret}"
 ```
+
+Then Enter the secret:
+
+![15_input_client_secret](./assets/15_input_client_secret.png)
+
+## Set env vars for the gateway
 
 Configure the environment variables for the gateway deployment. This patches the deployment with the URLs and credentials it needs to wire up the full token exchange chain.
 
@@ -255,6 +264,10 @@ _keycloak_port=$(./tools/port.sh keycloak)
 
 If Keycloak asks **"Do you want to log out?"**, click **Logout** to confirm.
 
+![15_click_logout_from_keycloak](./assets/15_click_logout_from_keycloak.png)
+
+Then you will see the following after successful logout:
+
 ![15_signed_out_from_idp_keycloak](./assets/15_signed_out_from_idp_keycloak.png)
 
 ## Verify
@@ -279,7 +292,19 @@ EOF
 > [!NOTE]
 > Notice that there is no `Authorization` header or pre-fetched access token in this configuration. The gateway handles the entire ID-JAG flow on your behalf — you no longer need `_at=$(cat ./keys/idjag-learner.jwt)` or anything like it.
 
-Then run the following, then `/mcp` → `/reload-plugins` → select **1. Re-authenticate**.
+Then reload the plugin:
+
+```sh
+/reload-plugin
+```
+
+Then run the following, then:
+
+```sh
+/mcp
+```
+
+Then select **1. Re-authenticate**.
 
 ![15_re_authenticate](./assets/15_re_authenticate.png)
 
@@ -294,7 +319,7 @@ Open the link (Claude Code may open it automatically). You will be redirected to
 
 ![15_password_requested](./assets/15_password_requested.png)
 
-After signing in, you will see the authentication succeed but the MCP connection fail immediately:
+After signing in, you will see the authentication succeed but the MCP connection fail immediately — this is intentional and will be fixed in the next tutorial:
 
 `Got new credentials, but reconnecting to id-jag-the-hard-way-mcp failed: HTTP 502 at http://localhost:44443/mcp`
 

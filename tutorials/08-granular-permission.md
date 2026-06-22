@@ -120,6 +120,9 @@ Now that you possess your Mutual TLS (mTLS) credentials (`idjag-learner.crt` and
 
 To enforce the principle of least privilege, we will specifically request a token scoped only to the `docs-getter` role within the `api` domain (`api:role.docs-getter`):
 
+> [!WARNING]
+> This command will fail — that is intentional and you will fix it in the next section.
+
 ```sh
 _scope="api:role.docs-getter"
 _my_access_token=$(./tools/athenz/fetch-access-token.sh \

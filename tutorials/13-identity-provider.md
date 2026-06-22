@@ -130,42 +130,36 @@ _keycloak_port=$(./tools/port.sh keycloak)
 
 In Keycloak, a **Client** represents an application that requests authentication on behalf of a user. We use the default `master` realm.
 
-Open the add-client page:
+First, run the following command to get all the values you will need for each step:
+
+```sh
+./tools/keycloak-client-settings.sh
+```
+
+```sh
+# Step 1: General Settings
+# +-------------+-------------------------------------------+
+# | Field       | Value                                     |
+# +-------------+-------------------------------------------+
+# | Client type | OpenID Connect (no change)                |
+# | Client ID   | human.idjag-learner.claude                |
+# ...
+```
+
+Then open the add-client page:
 
 ```sh
 _keycloak_port=$(./tools/port.sh keycloak)
 ./tools/open.sh "http://localhost:${_keycloak_port}/admin/master/console/#/master/clients/add-client"
 ```
 
-Configure the following:
-
-- **Client type**: *No Change*: `OpenID Connect`
-- **Client ID**: `human.idjag-learner.claude`
-- **Name**: `human.idjag-learner.claude`
-- **Description**: `Local Claude Code for human.idjag-learner`
+Fill in the **Step 1** values and click **Next**.
 
 ![13_client_name_and_type](./assets/13_client_name_and_type.png)
 
-Click **Next**, then:
+Fill in the **Step 2** values and click **Next**.
 
-- **Client authentication**: `ON`
-
-Click **Next**, then:
-
-```sh
-_ai_client_gateway_port=$(./tools/port.sh ai-client-gateway)
-echo "Put Valid redirect URIs: http://localhost:${_ai_client_gateway_port}/oauth/callback"
-echo "Put Web orgins: http://localhost:${_ai_client_gateway_port}"
-```
-
-*Sample following:*
-
-```sh
-# Put Valid redirect URIs: http://localhost:44443/oauth/callback
-# Put Web orgins: http://localhost:44443
-```
-
-Click **Save**.
+Fill in the **Step 3** values and click **Save**.
 
 > [!NOTE]
 > The redirect URI must exactly match `PUBLIC_BASE_URL/oauth/callback` of the human gateway. Port `44443` is the default from `tools/config.yaml`. If you changed it via `config.local.yaml`, update the URI accordingly.
@@ -206,7 +200,15 @@ Click **Save**.
 > [!TIP]
 > For this tutorial, setting the `id_token` lifespan to `4 hours` is fine. In production, set it based on your security requirements.
 
-Navigate to `Realm settings` > `Tokens` > **Access Token Lifespan** and set it to `4 hours`.
+Navigate to `Realm settings`:
+
+![13_navigate_to_realm_setting](./assets/13_navigate_to_realm_setting.png)
+
+Then go to `Tokens`:
+
+![13_navigate_to_token_setting](./assets/13_navigate_to_token_setting.png)
+
+Find `Access Token Lifespan` and set it to `4 hours`.
 
 ![id_token expiration setting](./assets/13_idp_id_token_expiration.png)
 

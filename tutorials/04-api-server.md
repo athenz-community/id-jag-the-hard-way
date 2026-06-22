@@ -110,7 +110,7 @@ kubectl set env deploy/api-server AT_REQUIRED=true -n api
 # deployment.apps/api-server env updated
 ```
 
-Now send the same request to the protected API server:
+Now send the same request to the protected API server — this will intentionally return an error:
 
 ```sh
 kubectl exec deploy/api-server -n api \

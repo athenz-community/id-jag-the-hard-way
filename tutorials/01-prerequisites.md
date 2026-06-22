@@ -10,6 +10,7 @@ Before starting, make sure you have the following installed on your machine.
 
 - [Install Docker](#install-docker)
 - [Install Packages](#install-packages)
+- [Open up two screens](#open-up-two-screens)
 - [Reminder](#reminder)
 
 <!-- /TOC -->
@@ -43,6 +44,17 @@ Then install the following packages:
 ```sh
 brew install jq gh kubectl
 ```
+
+## Open up two screens
+
+It is highly recommended to have your:
+
+- `id-jag-the-hard-way` in the left (red box)
+- `Terminal` in the right (blue box)
+
+This is because you will be switching back and forth between the tutorial and the terminal throughout the steps.
+
+![01_two_screens_recommended](./assets/01_two_screens_recommended.png)
 
 ## Reminder
 
