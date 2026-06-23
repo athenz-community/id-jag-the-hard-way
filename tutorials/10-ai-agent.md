@@ -2,15 +2,17 @@
 |:------------------------------------------------:|:------------:|:----------------------------------------:|
 | [MCP Server for API](./09-mcp-server-for-api.md) | **AI Agent** | [Token Exchange](./11-token-exchange.md) |
 
-# AI Agent
+# AI Agent: Claude
+
+![10_claude](./assets/10_claude.png)
 
 In this tutorial, we connect an AI agent to the MCP server for the first time. We will manually provide an Athenz Access Token as a Bearer header and see how far we get.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
 - [Install Claude](#install-claude)
-- [Login to Claude](#login-to-claude)
 - [Add the MCP Server to Claude Code](#add-the-mcp-server-to-claude-code)
+- [Login to Claude](#login-to-claude)
 - [Connect to MCP Server](#connect-to-mcp-server)
 - [Verify](#verify)
 - [What's happened?](#whats-happened)
@@ -19,7 +21,9 @@ In this tutorial, we connect an AI agent to the MCP server for the first time. W
 
 > [!NOTE]
 > `Claude Code` is the default client for this tutorial path. If you prefer a different client, see the alternatives:
+> - [Codex](./codex/10-ai-agent.md)
 > - [Open WebUI](./open_webui/10-ai-agent.md)
+
 
 ## Install Claude
 

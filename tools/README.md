@@ -55,8 +55,6 @@ Opens a URL in the system browser. Works on macOS, Linux, and Windows. Supports 
 
 Browser priority for incognito: Chrome → Firefox → Safari/Edge (platform-dependent).
 
----
-
 ## Configuration
 
 ### `config.yaml`
