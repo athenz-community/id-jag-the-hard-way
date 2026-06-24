@@ -21,24 +21,24 @@ By implementing the OAuth 2.0 Token Exchange ([RFC 8693](https://www.rfc-editor.
 
 Even if the original requester has `get` access to the `api:docs` resource, it doesn't mean just anyone can exchange the Access Token on their behalf. We must create a dedicated role specifically to allow token impersonation (exchange).
 
-Let's add the role `api:role.docs-token-exchanger`. As the name implies, members of this role are authorized to exchange Access Tokens for the target scope `api:role.docs-getter`:
+Let's add the role `api:role.token-exchanging-mcp`. As the name implies, members of this role are authorized to exchange Access Tokens for the target scope `api:role.docs-getter`:
 
 ```sh
-./tools/athenz/create-role.sh "api" "docs-token-exchanger"
+./tools/athenz/create-role.sh "api" "token-exchanging-mcp"
 ```
 
 Check if the role is created in Athenz UI:
 
 ```sh
 _athenz_ui_port=$(./tools/port.sh athenz-ui)
-./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/docs-token-exchanger/members"
+./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/token-exchanging-mcp/members"
 ```
 
 In Athenz, you must explicitly define both the **source** and **target** of the token exchange. Since the MCP server operates within the `api` domain, we can apply both policies as follows:
 
 ```sh
-./tools/athenz/add-policy.sh "api" "docs-token-exchanger" "zts.token_source_exchange" "api"
-./tools/athenz/add-policy.sh "api" "docs-token-exchanger" "zts.token_target_exchange" "api:role.docs-getter"
+./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_source_exchange" "api"
+./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_target_exchange" "api:role.docs-getter"
 ```
 
 > [!NOTE]
@@ -47,7 +47,7 @@ In Athenz, you must explicitly define both the **source** and **target** of the 
 Finally, add the member you want to authorize for the token exchange (in this case, the `api.api-mcp` service principal):
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "docs-token-exchanger" "api.api-mcp"
+./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "api.api-mcp"
 ```
 
 ## Verify
@@ -94,7 +94,7 @@ get docs!
 
 ## What's happened?
 
-By introducing a specific role `docs-token-exchanger` that authorizes its members to perform token exchanges for a target scope, the MCP server can successfully exchange the provided Access Token for a new one.
+By introducing a specific role `token-exchanging-mcp` that authorizes its members to perform token exchanges for a target scope, the MCP server can successfully exchange the provided Access Token for a new one.
 
 ## What's next?
 

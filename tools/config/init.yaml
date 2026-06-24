@@ -1,0 +1,119 @@
+# Athenz permission model for the ID-JAG demo.
+# Edit this file to change services, roles, members, and policies.
+# Apply with: make -C ui setup-permissions
+
+domain: api
+
+# Service identities in this domain
+services:
+  - name: api-zpu
+    key_version: v1
+    local_keys_dir: ./keys
+    k8s:
+      ns: api
+      deployment: api-server
+      secret:
+        name: api-zpu-cert
+        files:
+          cert:
+            k8s_name: cert
+            local_name: api-zpu.crt
+          key:
+            k8s_name: key
+            local_name: api-zpu.key
+          ca:
+            k8s_name: ca
+            import_from: ./athenz_dist/certs/ca.cert.pem
+
+  - name: api-mcp
+    key_version: v1
+    local_keys_dir: ./keys
+    k8s:
+      ns: api
+      deployment: mcp
+      secret:
+        name: api-mcp-cert
+        files:
+          cert:
+            k8s_name: api-mcp.crt
+            local_name: api-mcp.crt
+          key:
+            k8s_name: api-mcp.key
+            local_name: api-mcp.key
+          ca:
+            k8s_name: ca.crt
+            import_from: ./athenz_dist/certs/ca.cert.pem
+
+roles:
+  # docs-getter: human user => GET /docs on the API server
+  - name: docs-getter
+    members:
+      - human.idjag-learner
+    policies:
+      - allow: get
+        on: docs
+
+  # docs-poster: human user => POST /docs on the API server
+  - name: docs-poster
+    members:
+      - human.idjag-learner
+    policies:
+      - allow: post
+        on: docs
+
+  # docs-deleter: human user => DELETE /docs on the API server
+  - name: docs-deleter
+    members:
+      - human.idjag-learner
+    policies:
+      - allow: delete
+        on: docs
+
+  # mcp-accessor: human user => access the MCP auth proxy
+  - name: mcp-accessor
+    members:
+      - human.idjag-learner
+    policies:
+      - allow: access
+        on: mcp
+
+  # jag-exchanging-ai-agents: Claude (ID-JAG token) => exchange into docs-getter or mcp-accessor on the user's behalf
+  - name: jag-exchanging-ai-agents
+    members:
+      - human.idjag-learner.claude
+    policies:
+      - allow: zts.jag_exchange
+        on: role.mcp-accessor
+      - allow: zts.jag_exchange
+        on: role.docs-getter
+      - allow: zts.jag_exchange
+        on: role.docs-poster
+      # Intentionally disabled to mimic organization not allow AI agents to delete docs on behalf of humans:
+      # - allow: zts.jag_exchange
+      #   on: role.docs-deleter
+
+  # jag-exchanging-uis: Next.js UI => exchange into docs roles on the user's behalf
+  - name: jag-exchanging-uis
+    members:
+      - org.idjag-ui
+    policies:
+      - allow: zts.jag_exchange
+        on: role.docs-getter
+      - allow: zts.jag_exchange
+        on: role.docs-poster
+      - allow: zts.jag_exchange
+        on: role.docs-deleter
+
+  # token-exchanging-mcp: MCP server => narrow inbound token to docs-getter scope before calling the API server
+  - name: token-exchanging-mcp
+    members:
+      - api.api-mcp
+    policies:
+      - allow: zts.token_source_exchange
+        on: api
+      - allow: zts.token_target_exchange
+        on: api:role.docs-getter
+      - allow: zts.token_target_exchange
+        on: api:role.docs-poster
+      - allow: zts.token_target_exchange
+        on: api:role.docs-deleter

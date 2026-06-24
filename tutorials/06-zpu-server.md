@@ -239,7 +239,7 @@ kubectl exec deploy/api-server -n api \
 #       "domain": "api",
 #       "policies": [
 #         {
-#           "name": "api:policy.docs-token-exchanger_zts_token_target_exchange_api_role_docs-getter",
+#           "name": "api:policy.token-exchanging-mcp_zts_token_target_exchange_api_role_docs-getter",
 #           "modified": "2026-05-17T21:41:12.752Z",
 # ...
 ```

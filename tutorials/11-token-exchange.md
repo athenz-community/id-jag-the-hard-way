@@ -20,17 +20,17 @@ By implementing [OAuth 2.0 Token Exchange (RFC 8693)](https://www.rfc-editor.org
 
 Even if the original requester has `get` access to the `api:docs` resource, that does not automatically mean anyone can exchange the Access Token on their behalf. We need to create a dedicated role that explicitly allows token exchange.
 
-Create the `docs-token-exchanger` role:
+Create the `token-exchanging-mcp` role:
 
 ```sh
-./tools/athenz/create-role.sh "api" "docs-token-exchanger"
+./tools/athenz/create-role.sh "api" "token-exchanging-mcp"
 ```
 
 In Athenz, you must explicitly define both the **source** and the **target** of the exchange. Add both policies:
 
 ```sh
-./tools/athenz/add-policy.sh "api" "docs-token-exchanger" "zts.token_source_exchange" "api"
-./tools/athenz/add-policy.sh "api" "docs-token-exchanger" "zts.token_target_exchange" "api:role.docs-getter"
+./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_source_exchange" "api"
+./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_target_exchange" "api:role.docs-getter"
 ```
 
 > [!NOTE]
@@ -39,7 +39,7 @@ In Athenz, you must explicitly define both the **source** and the **target** of 
 Add the `api.api-mcp` service principal as a member of this role:
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "docs-token-exchanger" "api.api-mcp"
+./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "api.api-mcp"
 ```
 
 ## Verify
@@ -94,7 +94,7 @@ get docs from k8s doc server!
 
 ## What's happened?
 
-By creating the `docs-token-exchanger` role and assigning both source and target exchange policies, the MCP server (`api.api-mcp`) can now exchange the incoming Access Token for a narrower-scoped token before calling the API server.
+By creating the `token-exchanging-mcp` role and assigning both source and target exchange policies, the MCP server (`api.api-mcp`) can now exchange the incoming Access Token for a narrower-scoped token before calling the API server.
 
 Our API server is so far fully protected by Athenz Access Tokens. However, the MCP server itself has no authentication layer — anyone who can reach it can use it. In the next tutorial, we will deploy an Authorization Proxy in front of the MCP server.
 
