@@ -264,27 +264,40 @@ EOF
 > [!NOTE]
 > Notice that there is no `Authorization` header or pre-fetched access token. The gateway handles the entire ID-JAG flow on your behalf.
 
-> [!NOTE]
-> 🟡 TODO: Verify the exact TOML config format for OAuth-protected MCP servers in Codex CLI. It may require an additional `auth` field.
-
 ## Verify
 
-Restart Codex to pick up the new config:
+Log in to the MCP server. Unlike Claude Code (which prompts you inside the chat), Codex uses a dedicated login command:
+
+```sh
+codex mcp login id-jag-the-hard-way-mcp
+```
+
+Codex will print a URL and wait:
+
+```sh
+# Authorize `id-jag-the-hard-way-mcp` by opening this URL in your browser:
+# http://localhost:44443/oauth/authorize?...
+```
+
+Open that URL in your browser and sign in with:
+
+- username: `idjag-learner`
+- password: `password`
+
+Once you complete the login, the terminal will confirm:
+
+```sh
+# Successfully logged in to MCP server 'id-jag-the-hard-way-mcp'.
+```
+
+Now start Codex:
 
 ```sh
 codex
 ```
 
 > [!NOTE]
-> 🟡 TODO: Add a screenshot of Codex CLI prompting for authentication (similar to Claude Code's `Re-authenticate` flow).
-
-Codex should detect that the gateway requires a login and prompt you to authenticate. Open the link shown and sign in with:
-
-- username `idjag-learner`
-- password `password`
-
-> [!NOTE]
-> 🟡 TODO: Add a screenshot of the Keycloak login page opened by Codex.
+> 🟡 TODO: Add a screenshot of Codex CLI running after successful MCP login.
 
 After signing in, the MCP connection will fail — this is intentional. The `human.idjag-learner.codex` service does not yet have permission in Athenz to exchange the ID token for an ID-JAG token.
 
