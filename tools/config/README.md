@@ -31,3 +31,19 @@ make -C ui setup-permissions
 | `token-exchanging-mcp`     | `api.api-mcp`                | RFC 8693 exchange from any `api` token into `docs-*` scoped tokens |
 
 > **Note:** `jag-exchanging-ai-agents` intentionally does **not** grant `docs-deleter` exchange — AI agents cannot delete docs on behalf of users by design.
+
+## org.yaml
+
+The config for the `org` domain, which owns the ID-JAG UI service identity. Apply it when setting up or resetting the UI deployment:
+
+```sh
+./tools/setup-permissions.sh tools/config/org.yaml
+```
+
+### What's inside
+
+| Service | K8s namespace | K8s secret | Cert files |
+|---|---|---|---|
+| `idjag-ui` | `org` | `idjag-ui-cert` | `org.idjag-ui.crt` / `org.idjag-ui.key` |
+
+The cert is mounted into the `idjag-ui` deployment at `/app/certs` so the UI can authenticate to Athenz ZTS for JAG token exchange.

@@ -1,0 +1,28 @@
+# Athenz permission model for the org domain (ID-JAG UI).
+# Edit this file to change services, roles, members, and policies.
+# Apply with: ./tools/setup-permissions.sh tools/config/org.yaml
+
+domain: org
+
+# Service identities in this domain
+services:
+  - name: idjag-ui
+    key_version: v1
+    local_keys_dir: ./keys
+    k8s:
+      ns: org
+      deployment: idjag-ui
+      secret:
+        name: idjag-ui-cert
+        files:
+          cert:
+            k8s_name: org.idjag-ui.crt
+            local_name: org.idjag-ui.crt
+          key:
+            k8s_name: org.idjag-ui.key
+            local_name: org.idjag-ui.key
+          ca:
+            k8s_name: ca.crt
+            import_from: ./athenz_dist/certs/ca.cert.pem
+
+roles: []
