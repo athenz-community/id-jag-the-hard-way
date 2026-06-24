@@ -79,8 +79,8 @@ Generate an RSA key pair for the service:
 ```
 
 ```sh
-# Generating RSA key pair for: ./keys/human-idjag-learner-claude...
-# Done! Keys generated: ./keys/human-idjag-learner-claude.key, ./keys/human-idjag-learner-claude.public.key
+#   ·  Generating RSA key pair for: ./keys/human-idjag-learner-claude...
+#   ✔  Keys generated: ./keys/human-idjag-learner-claude.key, ./keys/human-idjag-learner-claude.public.key
 ```
 
 Create the `idjag-learner` subdomain under `human`:
@@ -161,11 +161,11 @@ Click **human.idjag-learner.claude**:
 
 ![15_click_human_idjag_learner](./assets/15_click_human_idjag_learner.png)
 
-Go to the **Credentials** tab: You will later use the copy button in the red box to copy the client secret.
+Go to the **Credentials** tab. You will see a **Client secret** field — click the copy icon next to it to copy the value.
 
 ![Keycloak credentials tab](./assets/15_keycloak_client_credentials.png)
 
-Now run the command below:
+Now run the command below and paste the copied secret when prompted:
 
 ```sh
 printf '\033[1mPaste your client secret and press Enter:\033[0m\n'
@@ -295,7 +295,7 @@ EOF
 Then reload the plugin:
 
 ```sh
-/reload-plugin
+/reload-plugins
 ```
 
 Then run the following, then:

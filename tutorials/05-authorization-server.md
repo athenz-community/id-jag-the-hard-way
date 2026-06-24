@@ -93,11 +93,17 @@ kubectl get pods -n athenz
 
 The `kubectl port-forward` command may stop if a pod restarts. Therefore, we need a way to keep the port-forwarding active.
 
-Start the port-forwarder. If a default port is already in use, it will ask you to pick a different one:
+Start the port-forwarder in the background. If a default port is already in use, it will ask you to pick a different one.
+
+> [!IMPORTANT]
+> You need two terminals: one to run the port-forwarder, and one to run commands. Open a second terminal now, then run the port-forwarder in that terminal:
 
 ```sh
-./tools/keep-k8s-port-forward.sh
+./tools/keep-k8s-port-forward.sh &
 ```
+
+> [!TIP]
+> Adding `&` sends it to the background. If you prefer to keep it visible, run it in a separate dedicated terminal window without `&`.
 
 ## Open Athenz UI
 

@@ -61,6 +61,9 @@ curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del in
 
 Claude Code reads `.mcp.json` only on startup, so create this file before launching Claude.
 
+> [!NOTE]
+> You need two terminals open: one to keep the port-forwarder running (`./tools/keep-k8s-port-forward.sh`), and one to run the commands below.
+
 Get the Access Token:
 
 ```sh
@@ -111,6 +114,16 @@ cat .mcp.json
 #   }
 # }
 ```
+
+> [!TIP]
+> If you already launched Claude Code and forgot to create `.mcp.json` first, you can add the MCP server without restarting by running this command in your shell:
+>
+> ```sh
+> _mcp_port=$(./tools/port.sh mcp)
+> claude mcp add --transport http --scope project id-jag-the-hard-way-mcp "http://localhost:${_mcp_port}/mcp"
+> ```
+>
+> This writes the server entry to `.mcp.json` (project scope). You still need to reload: run `/reload-plugins` inside Claude Code.
 
 ## Login to Claude
 

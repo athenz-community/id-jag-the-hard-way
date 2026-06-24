@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${TOOLS_DIR}/color.sh"
+
 if [ $# -lt 4 ]; then
-  echo "Usage: $0 <domain> <service> <private_key_path> <key_version>"
-  exit 1
+  fatal "Usage: $0 <domain> <service> <private_key_path> <key_version>"
 fi
 
 domain=$1
@@ -14,12 +16,11 @@ key_version=$4
 out_cert_file="${private_key_path%.key}.crt"
 zts_url="https://athenz-zts-server.athenz:4443/zts/v1"
 
-echo "Fetching X.509 Certificate for ${domain}.${service}..."
+info "Fetching X.509 Certificate for ${domain}.${service}..."
 
 # Base64 encode the private key to safely pass it into the kubectl exec session
 b64_key=$(base64 < "${private_key_path}" | tr -d '\n')
 
-# Execute the cert request inside the athenz-cli pod
 kubectl exec -i deploy/athenz-cli -n athenz -- sh -c "
   echo '${b64_key}' | base64 -d > /tmp/${service}.key && \
   zts-svccert \
@@ -36,4 +37,4 @@ kubectl exec -i deploy/athenz-cli -n athenz -- sh -c "
   rm -f /tmp/${service}.key /tmp/${service}.crt
 " > "${out_cert_file}"
 
-echo "Done! Certificate saved to: ${out_cert_file}"
+ok "Certificate saved to: ${out_cert_file}"

@@ -34,7 +34,8 @@ Now, execute the script to create the `docs-getter` role inside the `api` domain
 ```
 
 ```sh
-# Creating Role: api:role.docs-getter...
+#   ·  Creating Role: api:role.docs-getter...
+#   ✔  Role created: api:role.docs-getter
 ```
 
 You can verify the new role by navigating to the `api` domain in the **Athenz UI**:
@@ -62,6 +63,11 @@ Therefore, we need to create a policy like this:
 
 ```sh
 ./tools/athenz/add-policy.sh "api" "docs-getter" "get" "docs"
+```
+
+```sh
+#   ·  Creating Policy: api:policy.docs-getter_get_docs...
+#   ✔  Policy created: api:policy.docs-getter_get_docs
 ```
 
 The command above means, attach a policy `docs-get-policy` to the role `docs-getter` under the domain `api`. This policy grants the role `docs-getter` the permission to `get` the resource `docs` under the domain `api`, or `docs:api`. The `get` action on `docs:api` is equivalent to the `GET /docs` request to the API server.
@@ -114,8 +120,8 @@ _root_user_at=$(./tools/athenz/fetch-access-token.sh \
 ```
 
 ```sh
-# Fetching Access Token for scope: api:role.docs-getter...
-# ✅ [SUCCESS] Issued the following access token:
+#   ·  Fetching Access Token for scope: api:role.docs-getter...
+#   ✔  Access token issued for scope: api:role.docs-getter
 # {
 #   "kid": "athenz-zts-server-6966ff7f66-4j67d",
 #   "typ": "at+jwt",

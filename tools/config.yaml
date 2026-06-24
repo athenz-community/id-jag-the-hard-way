@@ -9,3 +9,9 @@ ports:
   keycloak: 34443
   ai-client-gateway: 44443
   open-webui: 54443
+
+keycloak:
+  realm: master
+  admin: admin
+  admin-password: admin
+  user-password: password

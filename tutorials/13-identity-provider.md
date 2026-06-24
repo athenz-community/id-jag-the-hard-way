@@ -23,6 +23,21 @@ In this tutorial, we will deploy [Keycloak](https://www.keycloak.org/) as an Ide
 
 If you are using **kind**, do the following:
 
+> [!NOTE]
+> On **Apple Silicon (arm64)**, `kind load docker-image` fails with multi-platform manifest images. Build a single-platform image first:
+>
+> ```sh
+> docker buildx build --platform linux/arm64 --load --provenance=false \
+>   -t keycloak:kind-load - <<'EOF'
+> FROM quay.io/keycloak/keycloak:latest
+> EOF
+> kind load docker-image keycloak:kind-load
+> ```
+>
+> Then replace `quay.io/keycloak/keycloak:latest` with `keycloak:kind-load` in the `kubectl create deployment` command below.
+
+On **amd64** (or if unsure), the standard pull works:
+
 ```sh
 docker pull quay.io/keycloak/keycloak:latest
 kind load docker-image quay.io/keycloak/keycloak:latest
@@ -45,7 +60,10 @@ kubectl create deployment keycloak --image=quay.io/keycloak/keycloak:latest -n i
 Set the admin credentials and start in dev mode:
 
 ```sh
-kubectl patch deploy keycloak -n idp --patch "$(cat <<'EOF'
+_keycloak_admin=$(./tools/config.sh keycloak admin)
+_keycloak_admin_password=$(./tools/config.sh keycloak admin-password)
+
+kubectl patch deploy keycloak -n idp --patch "$(cat <<EOF
 spec:
   template:
     spec:
@@ -56,9 +74,9 @@ spec:
             - start-dev
           env:
             - name: KEYCLOAK_ADMIN
-              value: "admin"
+              value: "${_keycloak_admin}"
             - name: KEYCLOAK_ADMIN_PASSWORD
-              value: "admin"
+              value: "${_keycloak_admin_password}"
 EOF
 )"
 ```
@@ -130,87 +148,40 @@ _keycloak_port=$(./tools/port.sh keycloak)
 
 In Keycloak, a **Client** represents an application that requests authentication on behalf of a user. We use the default `master` realm.
 
-First, run the following command to get all the values you will need for each step:
+Register the AI client (`human.idjag-learner.claude`) with Keycloak:
 
 ```sh
-./tools/keycloak-client-settings.sh
+_acg_port=$(./tools/port.sh ai-client-gateway)
+./tools/keycloak/create-client.sh \
+  human.idjag-learner.claude \
+  "http://localhost:${_acg_port}/oauth/callback" \
+  "http://localhost:${_acg_port}"
 ```
-
-```sh
-# Step 1: General Settings
-# +-------------+-------------------------------------------+
-# | Field       | Value                                     |
-# +-------------+-------------------------------------------+
-# | Client type | OpenID Connect (no change)                |
-# | Client ID   | human.idjag-learner.claude                |
-# ...
-```
-
-Then open the add-client page:
-
-```sh
-_keycloak_port=$(./tools/port.sh keycloak)
-./tools/open.sh "http://localhost:${_keycloak_port}/admin/master/console/#/master/clients/add-client"
-```
-
-Fill in the **Step 1** values and click **Next**.
-
-![13_client_name_and_type](./assets/13_client_name_and_type.png)
-
-Fill in the **Step 2** values and click **Next**.
-
-Fill in the **Step 3** values and click **Save**.
-
-> [!NOTE]
-> The redirect URI must exactly match `PUBLIC_BASE_URL/oauth/callback` of the human gateway. Port `44443` is the default from `tools/config.yaml`. If you changed it via `config.local.yaml`, update the URI accordingly.
 
 ![Keycloak client added](./assets/13_keycloak_client_added.png)
 
 ## Setup User
 
-Create a human user account to represent a learner.
-
-Open the add-user page:
+Create a human user account to represent a learner:
 
 ```sh
-_keycloak_port=$(./tools/port.sh keycloak)
-./tools/open.sh "http://localhost:${_keycloak_port}/admin/master/console/#/master/users/add-user"
+./tools/keycloak/create-user.sh \
+  idjag-learner \
+  idjag-learner@athenz.io \
+  ID-JAG \
+  Learner
 ```
 
-Fill in:
-
-- **Username**: `idjag-learner`
-- **Email**: `idjag-learner@athenz.io`
-- **First Name**: `ID-JAG`
-- **Last Name**: `Learner`
-
 ![13_user_created_idjag_learner](./assets/13_user_created_idjag_learner.png)
-
-Click **Create**.
-
-Go to the **Credentials** tab, click **Set password**, and configure:
-
-- **Password**: `password`
-- **Temporary**: `off`
-
-Click **Save**.
 
 ## Setup id_token Expiration
 
 > [!TIP]
 > For this tutorial, setting the `id_token` lifespan to `4 hours` is fine. In production, set it based on your security requirements.
 
-Navigate to `Realm settings`:
-
-![13_navigate_to_realm_setting](./assets/13_navigate_to_realm_setting.png)
-
-Then go to `Tokens`:
-
-![13_navigate_to_token_setting](./assets/13_navigate_to_token_setting.png)
-
-Find `Access Token Lifespan` and set it to `4 hours`.
-
-![id_token expiration setting](./assets/13_idp_id_token_expiration.png)
+```sh
+./tools/keycloak/set-token-lifespan.sh 14400
+```
 
 ## What's done?
 

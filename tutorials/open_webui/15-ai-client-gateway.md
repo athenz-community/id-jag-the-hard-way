@@ -111,8 +111,8 @@ mkdir -p ./ai_client_gateway/certs
 ```
 
 ```sh
-# Generating RSA key pair for: ./ai_client_gateway/certs/ai-client-gateway...
-# Done! Keys generated: ./ai_client_gateway/certs/ai-client-gateway.key, ./ai_client_gateway/certs/ai-client-gateway.public.key
+#   ·  Generating RSA key pair for: ./ai_client_gateway/certs/ai-client-gateway...
+#   ✔  Keys generated: ./ai_client_gateway/certs/ai-client-gateway.key, ./ai_client_gateway/certs/ai-client-gateway.public.key
 ```
 
 Next, we will create a Top-Level Domain (TLD) named `ai` since we haven't created it yet:
@@ -122,9 +122,8 @@ Next, we will create a Top-Level Domain (TLD) named `ai` since we haven't create
 ```
 
 ```sh
-# Creating TLD: ai...
-# {"description":"TLD for ai","org":"ajkimkim","auditEnabled":false,"ypmId":0,"autoDeleteTenantAssumeRoleAssertions":false,"name":"ai","modified":"2026-05-16T07:44:39.295Z","id":"17e2d0f0-50fb-11f1-8af4-88f84977247b"}
-# Done!
+#   ·  Creating TLD: ai...
+#   ✔  TLD created: ai
 ```
 
 Now, register the service open-webui under the `ai` domain using the public key we just generated:
@@ -134,7 +133,8 @@ Now, register the service open-webui under the `ai` domain using the public key 
 ```
 
 ```sh
-# Registering Service: ai.open-webui...
+#   ·  Registering Service: ai.open-webui...
+#   ✔  Service registered: ai.open-webui
 ```
 
 Enable the certificate provider for this service:
@@ -144,7 +144,8 @@ Enable the certificate provider for this service:
 ```
 
 ```sh
-# [Template(s) successfully applied to domain]
+#   ·  Enabling ZTS Certificate Provider for ai.open-webui...
+#   ✔  ZTS Certificate Provider enabled for ai.open-webui
 ```
 
 Generate the X.509 Certificate:
@@ -154,8 +155,8 @@ Generate the X.509 Certificate:
 ```
 
 ```sh
-# Fetching X.509 Certificate for ai.open-webui...
-# Done! Certificate saved to: ./ai_client_gateway/certs/ai-client-gateway.crt
+#   ·  Fetching X.509 Certificate for ai.open-webui...
+#   ✔  Certificate saved to: ./ai_client_gateway/certs/ai-client-gateway.crt
 ```
 
 Finally, the `ai_client_gateway` requires the Athenz CA certificate. Copy it from the `athenz_dist/certs` directory:
@@ -193,7 +194,7 @@ kubectl -n ai create secret generic ai-client-gateway-cert \
 ```
 
 ```sh
-# secret/ai-client-gateway-cert created
+#   ✔  Secret created: ai/ai-client-gateway-cert
 ```
 
 Mount the Secret to the Deployment:

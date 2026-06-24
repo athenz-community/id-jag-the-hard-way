@@ -2,11 +2,11 @@
 set -euo pipefail
 
 TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${TOOLS_DIR}/color.sh"
 _zms_port=$("$TOOLS_DIR/port.sh" zms)
 
 if [ $# -lt 4 ]; then
-  echo "Usage: $0 <domain> <role_name> <resource> <action>"
-  exit 1
+  fatal "Usage: $0 <domain> <role_name> <action> <resource>"
 fi
 
 domain=$1
@@ -34,9 +34,9 @@ sanitize_policy_name() {
 raw_policy_name="${role_name}_${action}_${resource}"
 policy_name="$(sanitize_policy_name "$raw_policy_name")"
 
-echo "Creating Policy: ${domain}:policy.${policy_name}..."
+info "Creating Policy: ${domain}:policy.${policy_name}..."
 
-curl -s -k -X PUT "https://localhost:${_zms_port}/zms/v1/domain/${domain}/policy/${policy_name}" \
+response=$(curl -s -k -X PUT "https://localhost:${_zms_port}/zms/v1/domain/${domain}/policy/${policy_name}" \
   --cert ./athenz_dist/certs/athenz_admin.cert.pem \
   --key ./athenz_dist/keys/athenz_admin.private.pem \
   -H "Content-Type: application/json" \
@@ -49,4 +49,12 @@ curl -s -k -X PUT "https://localhost:${_zms_port}/zms/v1/domain/${domain}/policy
         "action": "'"${action}"'"
       }
     ]
-  }'
+  }')
+
+if echo "${response}" | grep -q '"code"'; then
+  err "ZMS error response:"
+  echo "${response}" >&2
+  fatal "Failed to create policy ${domain}:policy.${policy_name}"
+fi
+
+ok "Policy created: ${domain}:policy.${policy_name}"

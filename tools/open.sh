@@ -2,27 +2,14 @@
 set -euo pipefail
 
 TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG="$TOOLS_DIR/config.yaml"
-LOCAL_CONFIG="$TOOLS_DIR/config.local.yaml"
-
-get_port() {
-  local name="$1"
-  local local_val=""
-  [ -f "$LOCAL_CONFIG" ] && local_val=$(grep "  ${name}:" "$LOCAL_CONFIG" 2>/dev/null | awk '{print $2}' || true)
-  if [ -n "$local_val" ]; then
-    echo "$local_val"
-  else
-    grep "  ${name}:" "$CONFIG" | awk '{print $2}'
-  fi
-}
+source "${TOOLS_DIR}/color.sh"
 
 URL="${1:-}"
 _raw_incognito="${2:-false}"
 INCOGNITO="${_raw_incognito#incognito=}"
 
 if [ -z "$URL" ]; then
-  echo "Usage: $0 <url> [incognito=true|false]"
-  exit 1
+  fatal "Usage: $0 <url> [incognito=true|false]"
 fi
 
 open_browser() {
@@ -64,8 +51,7 @@ open_browser() {
         elif command -v firefox &>/dev/null; then
           firefox "$url" &
         else
-          echo "No browser found. Please open manually: $url"
-          exit 1
+          fatal "No browser found. Please open manually: $url"
         fi
       fi
       ;;
@@ -80,10 +66,10 @@ open_browser() {
       fi
       ;;
     *)
-      echo "Unsupported OS: $os. Please open manually: $url"
-      exit 1
+      fatal "Unsupported OS: $os. Please open manually: $url"
       ;;
   esac
 }
 
 open_browser "$URL" "$INCOGNITO"
+ok "Opened: $URL"

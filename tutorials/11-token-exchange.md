@@ -79,7 +79,7 @@ EOF
 Reload your MCP server in Claude Code:
 
 ```sh
-/reload-plugin
+/reload-plugins
 ```
 
 Then ask:

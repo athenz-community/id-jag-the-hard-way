@@ -31,6 +31,15 @@ Run the following:
 ./tools/athenz/enable-cert-provider.sh "api" "api-mcp"
 ```
 
+```sh
+#   ·  Generating RSA key pair for: ./keys/api-mcp...
+#   ✔  Keys generated: ./keys/api-mcp.key, ./keys/api-mcp.public.key
+#   ·  Registering Service: api.api-mcp...
+#   ✔  Service registered: api.api-mcp
+#   ·  Enabling ZTS Certificate Provider for api.api-mcp...
+#   ✔  ZTS Certificate Provider enabled for api.api-mcp
+```
+
 ## Create K8s Secret
 
 Create a secret based on the generated certificates:

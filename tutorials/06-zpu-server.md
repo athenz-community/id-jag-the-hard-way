@@ -73,8 +73,8 @@ Create a key
 ```
 
 ```sh
-# Generating RSA key pair for: ./keys/idjag-learner...
-# Done! Keys generated: ./keys/idjag-learner.key, ./keys/idjag-learner.public.key
+#   ·  Generating RSA key pair for: ./keys/api-zpu...
+#   ✔  Keys generated: ./keys/api-zpu.key, ./keys/api-zpu.public.key
 ```
 
 ## Create Service Identity
@@ -89,7 +89,8 @@ Execute the script to register the service:
 ```
 
 ```sh
-# Registering Service: api.zpu...
+#   ·  Registering Service: api.zpu...
+#   ✔  Service registered: api.zpu
 ```
 
 This successfully creates the `api.zpu` service identity. You can verify the result in the Athenz UI:
@@ -123,8 +124,8 @@ Then, execute the following:
 ```
 
 ```sh
-# Enabling ZTS Certificate Provider for api.zpu...
-# [Template(s) successfully applied to domain]
+#   ·  Enabling ZTS Certificate Provider for api.zpu...
+#   ✔  ZTS Certificate Provider enabled for api.zpu
 ```
 
 ## Fetch X.509 Certificate for `api.zpu`
@@ -141,8 +142,8 @@ Then:
 ```
 
 ```sh
-# Fetching X.509 Certificate for api.zpu...
-# Done! Certificate saved to: ./keys/api-zpu.crt
+#   ·  Fetching X.509 Certificate for api.zpu...
+#   ✔  Certificate saved to: ./keys/api-zpu.crt
 ```
 
 ## Create a TLS Secret for `api.zpu` as K8s Secret
@@ -154,6 +155,10 @@ kubectl -n api create secret generic api-zpu-cert \
   --from-file=cert=./keys/api-zpu.crt \
   --from-file=key=./keys/api-zpu.key \
   --from-file=ca=./athenz_dist/certs/ca.cert.pem
+```
+
+```sh
+#   ✔  Secret created: api/api-zpu-cert
 ```
 
 ## Deploy ZPU Sidecar

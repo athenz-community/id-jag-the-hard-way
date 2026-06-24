@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${TOOLS_DIR}/color.sh"
+
 if [ $# -lt 2 ]; then
-  echo "Usage: $0 <domain> <service_name>"
-  exit 1
+  fatal "Usage: $0 <domain> <service_name>"
 fi
 
 domain=$1
 service_name=$2
 
-echo "Enabling ZTS Certificate Provider for ${domain}.${service_name}..."
+info "Enabling ZTS Certificate Provider for ${domain}.${service_name}..."
 
 kubectl -n athenz exec -i deploy/athenz-cli -- \
   zms-cli \
@@ -20,3 +22,4 @@ kubectl -n athenz exec -i deploy/athenz-cli -- \
     -d "${domain}" \
     set-domain-template zts_instance_launch_provider service="${service_name}"
 
+ok "ZTS Certificate Provider enabled for ${domain}.${service_name}"

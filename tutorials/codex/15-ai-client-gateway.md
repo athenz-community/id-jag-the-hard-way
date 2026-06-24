@@ -81,8 +81,8 @@ The gateway authenticates to Athenz ZTS as the service identity `human.idjag-lea
 ```
 
 ```sh
-# Generating RSA key pair for: ./keys/human-idjag-learner-codex...
-# Done! Keys generated: ./keys/human-idjag-learner-codex.key, ./keys/human-idjag-learner-codex.public.key
+#   ·  Generating RSA key pair for: ./keys/human-idjag-learner-codex...
+#   ✔  Keys generated: ./keys/human-idjag-learner-codex.key, ./keys/human-idjag-learner-codex.public.key
 ```
 
 Create the `idjag-learner` subdomain under `human` (skip if already exists):

@@ -33,7 +33,8 @@ In Athenz, the `zts.jag_exchange` action controls whether a principal can exchan
 ```
 
 ```sh
-# Creating Policy: api:policy.zts.jag_exchange...
+#   ·  Creating Policy: api:policy.zts.jag_exchange...
+#   ✔  Policy created: api:policy.zts.jag_exchange
 ```
 
 Now add `human.idjag-learner.claude` as a member of this role:
@@ -43,7 +44,8 @@ Now add `human.idjag-learner.claude` as a member of this role:
 ```
 
 ```sh
-# Adding Member human.idjag-learner.claude to Role: api:role.token-exchangable-ai-agents...
+#   ·  Adding Member human.idjag-learner.claude to Role: api:role.token-exchangable-ai-agents...
+#   ✔  human.idjag-learner.claude  →  api:role.token-exchangable-ai-agents
 ```
 
 > [!NOTE]

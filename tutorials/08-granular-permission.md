@@ -53,8 +53,8 @@ Generate a private key that represents `idjag-learner`:
 ```
 
 ```sh
-# Generating RSA key pair for: ./keys/idjag-learner...
-# Done! Keys generated: ./keys/idjag-learner.key, ./keys/idjag-learner.public.key
+#   ·  Generating RSA key pair for: ./keys/idjag-learner...
+#   ✔  Keys generated: ./keys/idjag-learner.key, ./keys/idjag-learner.public.key
 ```
 
 ## Create TLD for your future Service Identity
@@ -97,8 +97,8 @@ Execute the script to authorize the `idjag-learner` service to fetch certificate
 ```
 
 ```sh
-# Enabling ZTS Certificate Provider for human.idjag-learner...
-# [Template(s) successfully applied to domain]
+#   ·  Enabling ZTS Certificate Provider for human.idjag-learner...
+#   ✔  ZTS Certificate Provider enabled for human.idjag-learner
 ```
 
 ## Fetch the Service Certificate
@@ -110,8 +110,8 @@ Execute the script using the parameters we configured earlier:
 ```
 
 ```sh
-# Fetching X.509 Certificate for human.idjag-learner...
-# Done! Certificate saved to: ./keys/idjag-learner.crt
+#   ·  Fetching X.509 Certificate for human.idjag-learner...
+#   ✔  Certificate saved to: ./keys/idjag-learner.crt
 ```
 
 ## Fetch Access Token (JWT)
@@ -133,11 +133,14 @@ _my_access_token=$(./tools/athenz/fetch-access-token.sh \
 ```
 
 ```sh
-# 🔥 [ERROR] Failed to issue an access token. ZTS Response:
+#   ·  Fetching Access Token for scope: api:role.docs-getter...
+#   ✘  Failed to issue an access token. ZTS Response:
 # {
 #   "code": 403,
 #   "message": "postaccesstokenrequest: principal human.idjag-learner is not included in the requested role(s) in domain api"
 # }
+#
+# ✘ Token issuance failed for scope: api:role.docs-getter
 ```
 
 ## Troubleshoot Missing Role Membership
@@ -178,7 +181,8 @@ _my_access_token=$(./tools/athenz/fetch-access-token.sh \
 ```
 
 ```sh
-# ✅ [SUCCESS] Issued the following access token:
+#   ·  Fetching Access Token for scope: api:role.docs-getter...
+#   ✔  Access token issued for scope: api:role.docs-getter
 # {
 #   "kid": "athenz-zts-server-6966ff7f66-4j67d",
 #   "typ": "at+jwt",

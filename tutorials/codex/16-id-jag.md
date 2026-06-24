@@ -39,7 +39,8 @@ Now add `human.idjag-learner.codex` as a member of this role:
 ```
 
 ```sh
-# Adding Member human.idjag-learner.codex to Role: api:role.token-exchangable-ai-agents...
+#   ·  Adding Member human.idjag-learner.codex to Role: api:role.token-exchangable-ai-agents...
+#   ✔  human.idjag-learner.codex  →  api:role.token-exchangable-ai-agents
 ```
 
 > [!NOTE]

@@ -35,7 +35,8 @@ The `ai.open-webui` (AI Agent) also needs permission to perform a token exchange
 ```
 
 ```sh
-# Creating Policy: api:policy.zts.jag_exchange...
+#   ·  Creating Policy: api:policy.zts.jag_exchange...
+#   ✔  Policy created: api:policy.zts.jag_exchange
 ```
 
 
@@ -50,7 +51,8 @@ Next, add the `ai.open-webui` as a member of this new token exchange role:
 ```
 
 ```sh
-# Adding Member ai.open-webui to Role: api:role.token-exchangable-ai-agents...
+#   ·  Adding Member ai.open-webui to Role: api:role.token-exchangable-ai-agents...
+#   ✔  ai.open-webui  →  api:role.token-exchangable-ai-agents
 ```
 
 > [!NOTE]

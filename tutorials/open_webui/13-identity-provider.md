@@ -36,10 +36,13 @@ Then deploy the keycloak:
 kubectl create deployment keycloak --image=quay.io/keycloak/keycloak:latest -n idp
 ```
 
-Then, make sure that the keycloak has the correct ENV so that you can login as `admin` with password `admin`:
+Then, make sure that the keycloak has the correct ENV so that you can login as admin:
 
 ```sh
-kubectl patch deploy keycloak -n idp --patch "$(cat <<'EOF'
+_keycloak_admin=$(./tools/config.sh keycloak admin)
+_keycloak_admin_password=$(./tools/config.sh keycloak admin-password)
+
+kubectl patch deploy keycloak -n idp --patch "$(cat <<EOF
 spec:
   template:
     spec:
@@ -50,9 +53,9 @@ spec:
             - start-dev
           env:
             - name: KEYCLOAK_ADMIN
-              value: "admin"
+              value: "${_keycloak_admin}"
             - name: KEYCLOAK_ADMIN_PASSWORD
-              value: "admin"
+              value: "${_keycloak_admin_password}"
 EOF
 )"
 ```
@@ -105,12 +108,24 @@ kubectl expose deployment keycloak --port=8080 -n idp
 ## Open Keycloak on Browser
 
 > [!NOTE]
-> If you are using `kind` and facing `ImagePullBackOff` error, you can do:
+> If you are using `kind` and facing `ImagePullBackOff`, load the image manually:
 >
 > ```sh
 > docker pull quay.io/keycloak/keycloak:latest
 > kind load docker-image quay.io/keycloak/keycloak:latest
 > ```
+>
+> On **Apple Silicon (arm64)** this may still fail with a content digest error. Use a single-platform build instead:
+>
+> ```sh
+> docker buildx build --platform linux/arm64 --load --provenance=false \
+>   -t keycloak:kind-load - <<'EOF'
+> FROM quay.io/keycloak/keycloak:latest
+> EOF
+> kind load docker-image keycloak:kind-load
+> ```
+>
+> Then patch the deployment to use `keycloak:kind-load` as the image.
 
 Make sure the Keycloak pod is running before opening the browser:
 
@@ -124,35 +139,28 @@ kubectl wait -n idp \
 Open your browser and log in using admin for both the username `admin` and password `admin`:
 
 ```sh
-_keycloak_running_port=$(./tools/port.sh keycloak)
-./tools/open.sh "http://localhost:${_keycloak_running_port}"
+_keycloak_port=$(./tools/port.sh keycloak)
+./tools/open.sh "http://localhost:${_keycloak_port}"
 ```
 
 ![13_keycloak_running](./assets/13_keycloak_running.png)
 
 ## Setup Client
 
-In Keycloak, a `Client` represents an application that requests authentication on behalf of a user, in this case, our AI Client Agent. Since the service identity name of the AI client will be `ai.open-webui`, we will use that as the client name.
+In Keycloak, a `Client` represents an application that requests authentication on behalf of a user. Since the service identity name of the AI client will be `ai.open-webui`, we will use that as the client name.
 
 > [!NOTE]
 > We use the default `master` realm for this tutorial.
 
-Go to `http://localhost:34443/admin/master/console/#/master/clients/add-client` and configure the following:
+Register the client with Keycloak:
 
-- Client type: `OpenID Connect`
-- Client ID: `ai.open-webui`
-- Name: `AI Open WebUI`
-- Description: `AI Client Agent`
-
-Click **Next**, then set:
-
-- Client authentication: `ON`
-
-Click **Next**, then set:
-
-- Valid redirect URIs: `http://localhost:54443/oauth/oidc/callback`
-
-Click **Save**.
+```sh
+_open_webui_port=$(./tools/port.sh open-webui)
+./tools/keycloak/create-client.sh \
+  ai.open-webui \
+  "http://localhost:${_open_webui_port}/oauth/oidc/callback" \
+  "http://localhost:${_open_webui_port}"
+```
 
 You should see a confirmation screen similar to this:
 
@@ -160,48 +168,33 @@ You should see a confirmation screen similar to this:
 
 ## Setup User
 
-Let's create a human user account to represent you.
+Let's create a human user account to represent you:
 
-Go to `http://localhost:34443/admin/master/console/#/master/users/add-user` and fill in the following:
-
-- Username: `idjag-learner`
-- Email: `idjag-learner@athenz.io`
-- First Name: `ID-JAG`
-- Last Name: `Learner`
-
-Click **Create**.
-
-Next, navigate to the **Credentials** tab and click **Set password**, then configure the following:
-
-- Password: `password` (It is only for test purpose)
-- Temporary: `off`
-
-Click **Save**.
+```sh
+./tools/keycloak/create-user.sh \
+  idjag-learner \
+  idjag-learner@athenz.io \
+  ID-JAG \
+  Learner
+```
 
 ## Setup id_token expiration date
 
 > [!TIP]
 > For this tutorial, it is okay to set the `id_token` lifespan to `4 hours`. In production, you must consider the appropriate lifespan based on your security requirements.
 
-Go to `Keycloak` > `Realm settings` > `Tokens` > `Access Token Lifespan` and set it to `4 hours`.
-
-![13_idp_id_token_expiration](./assets/13_idp_id_token_expiration.png)
-
+```sh
+./tools/keycloak/set-token-lifespan.sh 14400
+```
 
 ## Add Keycloak Settings to Open WebUI
 
 The Open WebUI deployed in K8s does not yet have Keycloak configured. We need to patch the deployment with the required environment variables.
 
-In Keycloak, navigate to `Clients` > `ai.open-webui` > `credentials` > `Copy Client Secret`, then create the secret:
+First, store the client secret as a K8s secret:
 
 ```sh
-_open_webui_secret="🟡TODO: Please put your secret here"
-```
-
-```sh
-kubectl create secret generic keycloak-client-secret -n ai \
-  --from-literal=OAUTH_CLIENT_ID="ai.open-webui" \
-  --from-literal=OAUTH_CLIENT_SECRET="${_open_webui_secret}"
+./tools/keycloak/create-client-k8s-secret.sh ai.open-webui ai keycloak-client-secret
 ```
 
 Patch the Open WebUI deployment with Keycloak settings:
@@ -223,14 +216,14 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: keycloak-client-secret
-                  key: OAUTH_CLIENT_ID
+                  key: client-id
             - name: OAUTH_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: keycloak-client-secret
-                  key: OAUTH_CLIENT_SECRET
+                  key: client-secret
             - name: OPENID_PROVIDER_URL
-              value: "http://localhost:${_keycloak_port}/realms/master/.well-known/openid-configuration"
+              value: "http://keycloak.idp:8080/realms/master/.well-known/openid-configuration"
             - name: OAUTH_PROVIDER_NAME
               value: "Keycloak"
             - name: OAUTH_SCOPES

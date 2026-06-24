@@ -2,6 +2,8 @@
 set -euo pipefail
 
 TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${TOOLS_DIR}/color.sh"
+
 LOCAL_CONFIG="$TOOLS_DIR/config.local.yaml"
 PID_FILE="$TOOLS_DIR/.port-forward.pid"
 
@@ -38,19 +40,18 @@ is_port_in_use() {
 if [ -f "$PID_FILE" ]; then
   old_pid=$(cat "$PID_FILE")
   if kill -0 "$old_pid" 2>/dev/null; then
-    echo "keep-k8s-port-forward.sh is already running (PID $old_pid)."
-    read -rp "Stop it and start a new one? [y/N]: " _answer
+    warn "keep-k8s-port-forward.sh is already running (PID $old_pid)."
+    read -rp "  Stop it and start a new one? [y/N]: " _answer
     case "$_answer" in
       [yY]*)
-        # Kill the entire process group so kubectl children also die
         kill -- "-${old_pid}" 2>/dev/null || kill "$old_pid" 2>/dev/null || true
-        echo "Waiting for old port-forwards to close..."
+        info "Waiting for old port-forwards to close..."
         for _i in $(seq 1 15); do
           kill -0 "$old_pid" 2>/dev/null || break
           sleep 1
         done
         ;;
-      *) echo "Exiting."; exit 0 ;;
+      *) info "Exiting."; exit 0 ;;
     esac
   fi
   rm -f "$PID_FILE"
@@ -65,7 +66,7 @@ resolve_port() {
   local port _waited=0
   port=$(get_port "$key")
   while is_port_in_use "$port"; do
-    echo "⚠️  Port $port (for $key) is already in use." >&2
+    warn "Port $port (for $key) is already in use."
     read -rp "  Enter a different port (or press Enter to wait and retry): " _new_port </dev/tty || true
     if [ -n "$_new_port" ]; then
       port="$_new_port"
@@ -107,14 +108,14 @@ _pf() {
   done
 }
 
-echo "Port-forwarding started. Press Ctrl+C to stop."
-_pf athenz deployment/athenz-zms-server   "${_zms_port}"              4443 &
-_pf athenz deployment/athenz-zts-server   "${_zts_port}"              4443 &
-_pf athenz deployment/athenz-ui           "${_athenz_ui_port}"        3000 &
-_pf api   deployment/api-server           "${_api_port}"              8080 &
-_pf api   service/mcp                     "${_mcp_port}"              8081 &
-_pf idp   deployment/keycloak             "${_idp_port}"              8080 &
+ok "Port-forwarding started. Press Ctrl+C to stop."
+_pf athenz deployment/athenz-zms-server   "${_zms_port}"               4443 &
+_pf athenz deployment/athenz-zts-server   "${_zts_port}"               4443 &
+_pf athenz deployment/athenz-ui           "${_athenz_ui_port}"         3000 &
+_pf api   deployment/api-server           "${_api_port}"               8080 &
+_pf api   service/mcp                     "${_mcp_port}"               8081 &
+_pf idp   deployment/keycloak             "${_idp_port}"               8080 &
 _pf human service/ai-client-gateway       "${_ai_client_gateway_port}" 3101 &
-_pf ai    service/open-webui              "${_open_webui_port}"       8080 &
+_pf ai    service/open-webui              "${_open_webui_port}"        8080 &
 
 wait
