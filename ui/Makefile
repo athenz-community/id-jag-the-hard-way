@@ -9,7 +9,7 @@ kill-local:
 	npx kill-port $(PORT)
 
 setup-permissions:
-	../tools/setup-permissions.sh ../tools/config/org.yaml
+	# ../tools/setup-permissions.sh ../tools/config/org.yaml
 	../tools/setup-permissions.sh ../tools/config/init.yaml
 
 register-client:

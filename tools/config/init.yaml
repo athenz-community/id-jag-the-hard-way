@@ -81,6 +81,8 @@ roles:
   - name: jag-exchanging-ai-agents
     members:
       - human.idjag-learner.claude
+      - human.idjag-learner.codex
+      - ai.open-webui
     policies:
       - allow: zts.jag_exchange
         on: role.mcp-accessor
