@@ -61,9 +61,9 @@ ID-JAG The Hard Way is listed on the [OAuth.net Cross-App Access (XAA) page](htt
 
 If this tutorial helped you, a ⭐ on GitHub means a lot — it helps others find it too!
 
-[![GitHub Stars](https://img.shields.io/github/stars/mlajkim/id-jag-the-hard-way?style=social)](https://github.com/mlajkim/id-jag-the-hard-way)
+[![GitHub Stars](https://img.shields.io/github/stars/athenz-community/id-jag-the-hard-way?style=social)](https://github.com/athenz-community/id-jag-the-hard-way)
 
-Have questions or ran into a problem? [Open an issue](https://github.com/mlajkim/id-jag-the-hard-way/issues).
+Have questions or ran into a problem? [Open an issue](https://github.com/athenz-community/id-jag-the-hard-way/issues).
 
 If not:
 
