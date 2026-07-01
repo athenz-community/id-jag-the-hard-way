@@ -98,6 +98,6 @@ You have seen the full ID-JAG flow end-to-end: a human signs in, an AI agent act
 
 If you found this tutorial useful, please consider giving the repository a ⭐ on GitHub!
 
-[![GitHub Stars](https://img.shields.io/github/stars/mlajkim/id-jag-the-hard-way?style=social)](https://github.com/mlajkim/id-jag-the-hard-way)
+[![GitHub Stars](https://img.shields.io/github/stars/athenz-community/id-jag-the-hard-way?style=social)](https://github.com/athenz-community/id-jag-the-hard-way)
 
 If you run into any issues or have questions, feel free to [open an issue](https://github.com/mlajkim/id-jag-the-hard-way/issues).
