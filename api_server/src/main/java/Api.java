@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -14,8 +15,10 @@ import java.time.format.DateTimeFormatter;
 public class Api {
     static final JSONArray docs = new JSONArray("""
         [
-            {"id": 1, "name": "first default doc", "content": "hello world"},
-            {"id": 2, "name": "second default doc", "content": "how are you?"}
+            {"id": 1, "name": "Hi, Tech Verse 2026!👋", "content": "Today we're demonstrating how ID-JAG enables seamless delegation of human authority to AI agents — no consent screens, full enterprise control."},
+            {"id": 2, "name": "こんにちは、Tech Verse 2026 🙇‍♂️", "content": "ID-JAGがどのようにユーザーに負担をかけることなく、企業の統制を保ちながら人間の権限をAIエージェントへ安全に委譲するかをご紹介します。"},
+            {"id": 3, "name": "Tech Verse 2026에 오신 것을 환영합니다! 😄", "content": "ID-JAG가 동의 화면 없이도 기업 통제를 유지하며 AI 에이전트에게 권한을 안전하게 위임하는 방법을 소개합니다."},
+            {"id": 4, "name": "嗨，Tech Verse 2026！👋", "content": "今天我們將為您展示，ID-JAG 如何在免除同意畫面的情況下，將人類權限無縫委派給 AI 代理程式，同時維持完整的企業控管。"}
         ]
     """);
 
@@ -24,7 +27,7 @@ public class Api {
 
     static Authorizer authorizer;
     
-    static int docIdSequence = docs.length();
+    static int docIdSequence = 4;
 
     public static void main(String[] args) throws Exception {
         authorizer = new Authorizer();
@@ -61,18 +64,16 @@ public class Api {
                     sendResponse(exchange, 201, new JSONObject().put("success", true).put("doc", newDoc).toString());
                     
                 } else if ("DELETE".equalsIgnoreCase(method)) {
-                    String[] pathParts = path.split("/");
-                    
-                    if (pathParts.length != 4) {
-                        sendResponse(exchange, 400, new JSONObject()
-                                .put("error", "Bad Request")
-                                .put("message", "Document ID is required in the path (e.g., /api/docs/{doc_id}).")
-                                .toString());
-                        return;
-                    }
-
                     try {
-                        int targetId = Integer.parseInt(pathParts[3]);
+                        Integer targetId = parseDocumentId(exchange.getRequestURI().getRawPath());
+                        if (targetId == null) {
+                            sendResponse(exchange, 400, new JSONObject()
+                                    .put("error", "Bad Request")
+                                    .put("message", "Document ID is required in the path (e.g., /api/docs/{doc_id}).")
+                                    .toString());
+                            return;
+                        }
+
                         boolean foundAndDeleted = false;
                         
                         for (int i = 0; i < docs.length(); i++) {
@@ -150,6 +151,35 @@ public class Api {
         }
         System.out.println("📄 Docs endpoint: http://0.0.0.0:" + PORT + "/api/docs");
         System.out.println("=========================================================\n");
+    }
+
+    private static Integer parseDocumentId(String rawPath) {
+        String docsPath = "/api/docs";
+        String docsPathWithSlash = docsPath + "/";
+
+        if (rawPath.equals(docsPath) || rawPath.equals(docsPathWithSlash)) {
+            return null;
+        }
+
+        if (!rawPath.startsWith(docsPathWithSlash)) {
+            throw new NumberFormatException("Path must match /api/docs/{doc_id}");
+        }
+
+        String rawId = rawPath.substring(docsPathWithSlash.length());
+        if (rawId.endsWith("/")) {
+            rawId = rawId.substring(0, rawId.length() - 1);
+        }
+
+        if (rawId.isEmpty() || rawId.contains("/")) {
+            throw new NumberFormatException("Document ID must be a single path segment");
+        }
+
+        String id = URLDecoder.decode(rawId, StandardCharsets.UTF_8);
+        if (id.isEmpty() || !id.chars().allMatch(Character::isDigit)) {
+            throw new NumberFormatException("Document ID must be an integer");
+        }
+
+        return Integer.parseInt(id);
     }
 
     private static void sendResponse(HttpExchange exchange, int code, String res) throws IOException {

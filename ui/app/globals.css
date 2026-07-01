@@ -100,6 +100,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+button, [role="button"], a {
+  cursor: pointer;
+}
+
+@keyframes permission-card-pop {
+  0% {
+    transform: translateY(4px) scale(0.985);
+  }
+  58% {
+    transform: translateY(-2px) scale(1.012);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.permission-card-pop {
+  animation: permission-card-pop 220ms cubic-bezier(0.2, 0.85, 0.28, 1.25);
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
