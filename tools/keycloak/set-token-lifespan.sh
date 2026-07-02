@@ -5,8 +5,6 @@ TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${TOOLS_DIR}/color.sh"
 _keycloak_port=$("$TOOLS_DIR/port.sh" keycloak)
 _realm=$("$TOOLS_DIR/config.sh" keycloak realm)
-_admin=$("$TOOLS_DIR/config.sh" keycloak admin)
-_admin_password=$("$TOOLS_DIR/config.sh" keycloak admin-password)
 
 if [ $# -lt 1 ]; then
   fatal "Usage: $0 <lifespan_seconds>"
@@ -16,17 +14,7 @@ lifespan_seconds=$1
 
 info "Fetching Keycloak admin token..."
 
-token=$(curl -s -X POST \
-  "http://localhost:${_keycloak_port}/realms/master/protocol/openid-connect/token" \
-  -d "client_id=admin-cli" \
-  -d "username=${_admin}" \
-  -d "password=${_admin_password}" \
-  -d "grant_type=password" \
-  | sed 's/.*"access_token":"\([^"]*\)".*/\1/')
-
-if [ -z "$token" ] || [ "$token" = "null" ]; then
-  fatal "Failed to obtain admin token — check keycloak.admin / keycloak.admin-password in tools/config.yaml"
-fi
+token=$("${TOOLS_DIR}/keycloak/get-admin-token.sh")
 
 info "Setting access token lifespan to ${lifespan_seconds}s in realm ${_realm}..."
 

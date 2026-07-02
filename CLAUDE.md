@@ -35,6 +35,7 @@ Five microservices implement the full authorization flow:
 | MCP Server        | —          | `24443`          | `8081`             |
 | MCP Auth Proxy    | —          | —                | —                  |
 | Keycloak (IdP)    | —          | `34443`          | `8080`             |
+| Keycloak HTTPS    | —          | `34444`          | `8443`             |
 | AI Client Gateway | —          | `44443`          | `3101`             |
 | Open WebUI        | —          | `54443`          | `8080`             |
 | Ollama Server     | `11434`    | —                | —                  |

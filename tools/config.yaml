@@ -7,6 +7,7 @@ ports:
   api-server: 14443
   mcp: 24443
   keycloak: 34443
+  keycloak-https: 34444
   ai-client-gateway: 44443
   open-webui: 54443
 
