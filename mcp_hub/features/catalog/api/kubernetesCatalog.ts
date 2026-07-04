@@ -34,7 +34,10 @@ type Deployment = {
 
 export async function listMcpServersFromKubernetes(): Promise<McpServer[]> {
   const deployments = await readDeployments()
-  return deployments.map(deploymentToMcpServer).sort((a, b) => a.name.localeCompare(b.name))
+  return deployments
+    .map(deploymentToMcpServer)
+    .filter((server): server is McpServer => server !== null)
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 async function readDeployments(): Promise<Deployment[]> {
@@ -86,14 +89,16 @@ async function readNamespace(): Promise<string> {
   }
 }
 
-function deploymentToMcpServer(deployment: Deployment): McpServer {
+function deploymentToMcpServer(deployment: Deployment): McpServer | null {
   const metadata = deployment.metadata ?? {}
   const labels = metadata.labels ?? {}
   const annotations = metadata.annotations ?? {}
   const name = metadata.name ?? "unknown"
   const alias = annotations[ANNOTATION_ALIAS] ?? labels[LABEL_ALIAS] ?? annotations[LEGACY_ANNOTATION_SERVER] ?? labels[LEGACY_LABEL_SERVER]
   const displayName = alias ?? name
-  const project = annotations[ANNOTATION_PROJECT] ?? labels[LABEL_PROJECT] ?? metadata.namespace ?? DEFAULT_NAMESPACE
+  const project = annotations[ANNOTATION_PROJECT] ?? labels[LABEL_PROJECT]
+  if (!project) return null
+
   const tools = splitCsv(annotations[ANNOTATION_TOOLS])
 
   return {

@@ -64,7 +64,7 @@ Initial Kubernetes metadata can be modeled with labels and annotations such as:
 
 - `app.kubernetes.io/part-of=mcp-hub`
 - `mcp.idthw.dev/alias=<optional-display-alias>` as an annotation when the alias contains spaces.
-- `mcp.idthw.dev/project=<project-name>`
+- `mcp.idthw.dev/project=<project-name>` is required for catalog listing.
 - `mcp.idthw.dev/description=<description>`
 - `mcp.idthw.dev/transport=<transport>`
 - `mcp.idthw.dev/tools=<comma-separated-actions>`

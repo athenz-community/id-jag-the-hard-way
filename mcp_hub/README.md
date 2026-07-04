@@ -62,19 +62,20 @@ This lets local development use the current `kubectl` context while the deployed
 
 ## Required Label
 
-Every MCP server deployment must have this label:
+Every MCP server deployment must have these labels:
 
 ```yaml
 metadata:
   labels:
     app.kubernetes.io/part-of: mcp-hub
+    mcp.idthw.dev/project: k8s-docs-server
 ```
 
-Without this label, the deployment is ignored by the catalog.
+Without both labels, the deployment is ignored by the catalog.
 
 ## Recommended Labels
 
-Use labels for stable, selector-friendly metadata.
+Use labels for stable, selector-friendly metadata. The required labels are:
 
 ```yaml
 metadata:
