@@ -227,7 +227,7 @@ spec:
         app.kubernetes.io/part-of: mcp-hub
     spec:
       containers:
-        - name: mcp
+        - name: k8s-doc-server
           image: ghcr.io/mlajkim/mcp:latest
           ports:
             - containerPort: 8081
@@ -235,17 +235,23 @@ spec:
             - name: UPSTREAM_BASE_URL
               value: "http://api-server.api:8080"
             - name: PUBLIC_BASE_URL
-              value: "http://mcp.mcp-hub:8081"
+              value: "http://k8s-doc-server.mcp-hub:8081"
             - name: MCP_CERT_DIR
               value: "/app/certs"
+            - name: ATHENZ_CERT_PATH
+              value: "/app/certs/k8s-doc-server.crt"
+            - name: ATHENZ_KEY_PATH
+              value: "/app/certs/k8s-doc-server.key"
+            - name: ATHENZ_CA_PATH
+              value: "/app/certs/ca.crt"
           volumeMounts:
-            - name: mcp-certs
+            - name: k8s-doc-server-certs
               mountPath: /app/certs
               readOnly: true
       volumes:
-        - name: mcp-certs
+        - name: k8s-doc-server-certs
           secret:
-            secretName: api-mcp-cert
+            secretName: k8s-doc-server-cert
 ```
 
 ## Example Service
@@ -254,7 +260,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mcp
+  name: k8s-doc-server
   namespace: mcp-hub
   labels:
     app: k8s-doc-server

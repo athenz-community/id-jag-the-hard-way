@@ -9,9 +9,10 @@ import { AUTHORIZATION_SERVER_URL, DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN } from "../
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CERT_PATH = path.join(__dirname, "../../certs/api-mcp.crt");
-const KEY_PATH = path.join(__dirname, "../../certs/api-mcp.key");
-const CA_PATH = path.join(__dirname, "../../certs/ca.crt");
+const CERT_DIR = process.env.MCP_CERT_DIR || path.join(__dirname, "../../certs");
+const CERT_PATH = process.env.ATHENZ_CERT_PATH || path.join(CERT_DIR, "k8s-doc-server.crt");
+const KEY_PATH = process.env.ATHENZ_KEY_PATH || path.join(CERT_DIR, "k8s-doc-server.key");
+const CA_PATH = process.env.ATHENZ_CA_PATH || path.join(CERT_DIR, "ca.crt");
 
 const cert = fs.readFileSync(CERT_PATH);
 const key = fs.readFileSync(KEY_PATH);
@@ -26,7 +27,7 @@ export async function exchangeAthenzAT(req: Request, scope: string): Promise<str
   }
 
   const tokenDisplay = DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN ? `${receivedToken} (⚠️ Visible because DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN=${DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN})` : receivedToken.substring(0, 16) + "..."
-  console.log(`[INFO] [Token Exchange] Initiating for scope: "${scope}" using api-mcp cert, token: ${tokenDisplay}`);
+  console.log(`[INFO] [Token Exchange] Initiating for scope: "${scope}" using ${CERT_PATH} cert, token: ${tokenDisplay}`);
 
   return new Promise((resolve, reject) => {
     const params = new URLSearchParams({

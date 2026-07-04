@@ -36,10 +36,10 @@ In Athenz, you must explicitly define both the **source** and the **target** of 
 > [!NOTE]
 > The MCP server does not need direct access to the target resource. It only needs permission to perform the exchange itself.
 
-Add the `api.api-mcp` service principal as a member of this role:
+Add the `mcp-hub.k8s-doc-server` service principal as a member of this role:
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "api.api-mcp"
+./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "mcp-hub.k8s-doc-server"
 ```
 
 ## Verify
@@ -94,7 +94,7 @@ get docs from k8s doc server!
 
 ## What's happened?
 
-By creating the `token-exchanging-mcp` role and assigning both source and target exchange policies, the MCP server (`api.api-mcp`) can now exchange the incoming Access Token for a narrower-scoped token before calling the API server.
+By creating the `token-exchanging-mcp` role and assigning both source and target exchange policies, the MCP server (`mcp-hub.k8s-doc-server`) can now exchange the incoming Access Token for a narrower-scoped token before calling the API server.
 
 Our API server is so far fully protected by Athenz Access Tokens. However, the MCP server itself has no authentication layer — anyone who can reach it can use it. In the next tutorial, we will deploy an Authorization Proxy in front of the MCP server.
 

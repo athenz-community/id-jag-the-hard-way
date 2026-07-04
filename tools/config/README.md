@@ -13,10 +13,12 @@ The **full reset config**. Apply it when:
 It declares every service identity, role, member, and policy needed for the complete tutorial flow. Running it is fully destructive — it deletes the `api` domain and rebuilds it from scratch.
 
 ```sh
-make -C ui setup-permissions
+make -C ui setup-permissions-api
 # or directly:
 ./tools/setup-permissions.sh tools/config/init.yaml
 ```
+
+> **Order note:** run this after the `api` namespace and `api-server` deployment exist. The setup script creates cert secrets and restarts configured deployments.
 
 ### What's inside
 
@@ -25,10 +27,9 @@ make -C ui setup-permissions
 | `docs-getter`              | `human.idjag-learner`        | GET /docs                                                          |
 | `docs-poster`              | `human.idjag-learner`        | POST /docs                                                         |
 | `docs-deleter`             | `human.idjag-learner`        | DELETE /docs                                                       |
-| `mcp-accessor`             | `human.idjag-learner`        | access the MCP auth proxy                                          |
-| `jag-exchanging-ai-agents` | `human.idjag-learner.claude` | JAG-exchange into `docs-getter`, `mcp-accessor`                    |
+| `jag-exchanging-ai-agents` | `human.idjag-learner.claude` | JAG-exchange into `docs-getter`, `docs-poster`                     |
 | `jag-exchanging-uis`       | `org.idjag-ui`               | JAG-exchange into `docs-getter`, `docs-poster`, `docs-deleter`     |
-| `token-exchanging-mcp`     | `api.api-mcp`                | RFC 8693 exchange from any `api` token into `docs-*` scoped tokens |
+| `token-exchanging-mcp`     | `mcp-hub.k8s-doc-server`     | RFC 8693 exchange from any `api` token into `docs-*` scoped tokens |
 
 > **Note:** `jag-exchanging-ai-agents` intentionally does **not** grant `docs-deleter` exchange — AI agents cannot delete docs on behalf of users by design.
 
@@ -37,6 +38,8 @@ make -C ui setup-permissions
 The config for the `org` domain, which owns the ID-JAG UI service identity. Apply it when setting up or resetting the UI deployment:
 
 ```sh
+make -C ui setup-permissions-org
+# or directly:
 ./tools/setup-permissions.sh tools/config/org.yaml
 ```
 
@@ -47,3 +50,27 @@ The config for the `org` domain, which owns the ID-JAG UI service identity. Appl
 | `idjag-ui` | `org` | `idjag-ui-cert` | `org.idjag-ui.crt` / `org.idjag-ui.key` |
 
 The cert is mounted into the `idjag-ui` deployment at `/app/certs` so the UI can authenticate to Athenz ZTS for JAG token exchange.
+
+## mcp-hub.yaml
+
+The config for the `mcp-hub` domain, which owns the MCP server identity, the MCP Hub ZPU identity, and the MCP access policy:
+
+```sh
+make -C ui setup-permissions-mcp-hub
+# or directly:
+./tools/setup-permissions.sh tools/config/mcp-hub.yaml
+```
+
+> **Order note:** run this after the `mcp-hub` namespace and `k8s-doc-server` deployment exist. The setup script creates `k8s-doc-server-cert` and `mcp-hub-zpu-cert`, then restarts `k8s-doc-server`.
+
+### What's inside
+
+| Role | Who | What they can do |
+|---|---|---|
+| `mcp-accessor` | `human.idjag-learner` | access `mcp-hub:k8s-doc-server` |
+| `token-exchangable-ai-agents` | `human.idjag-learner.claude`, `human.idjag-learner.codex`, `ai.open-webui` | JAG-exchange into `mcp-accessor` |
+
+| Service | K8s namespace | K8s secret | Cert files |
+|---|---|---|---|
+| `k8s-doc-server` | `mcp-hub` | `k8s-doc-server-cert` | `k8s-doc-server.crt` / `k8s-doc-server.key` |
+| `mcp-zpu` | `mcp-hub` | `mcp-hub-zpu-cert` | `cert` / `key` |

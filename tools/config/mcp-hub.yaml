@@ -1,0 +1,64 @@
+# Athenz permission model for the mcp-hub domain.
+# Edit this file to change MCP Hub services, roles, members, and policies.
+# Apply with: ./tools/setup-permissions.sh tools/config/mcp-hub.yaml
+
+domain: mcp-hub
+
+# Service identities in this domain
+services:
+  - name: k8s-doc-server
+    key_version: v1
+    local_keys_dir: ./keys
+    k8s:
+      ns: mcp-hub
+      deployment: k8s-doc-server
+      secret:
+        name: k8s-doc-server-cert
+        files:
+          cert:
+            k8s_name: k8s-doc-server.crt
+            local_name: k8s-doc-server.crt
+          key:
+            k8s_name: k8s-doc-server.key
+            local_name: k8s-doc-server.key
+          ca:
+            k8s_name: ca.crt
+            import_from: ./athenz_dist/certs/ca.cert.pem
+
+  - name: mcp-zpu
+    key_version: v1
+    local_keys_dir: ./keys
+    k8s:
+      ns: mcp-hub
+      deployment: k8s-doc-server
+      secret:
+        name: mcp-hub-zpu-cert
+        files:
+          cert:
+            k8s_name: cert
+            local_name: mcp-zpu.crt
+          key:
+            k8s_name: key
+            local_name: mcp-zpu.key
+          ca:
+            k8s_name: ca
+            import_from: ./athenz_dist/certs/ca.cert.pem
+
+roles:
+  # mcp-accessor: human user => access the k8s-doc-server MCP auth proxy
+  - name: mcp-accessor
+    members:
+      - human.idjag-learner
+    policies:
+      - allow: access
+        on: k8s-doc-server
+
+  # token-exchangable-ai-agents: AI client gateways => exchange into mcp-accessor on the user's behalf
+  - name: token-exchangable-ai-agents
+    members:
+      - human.idjag-learner.claude
+      - human.idjag-learner.codex
+      - ai.open-webui
+    policies:
+      - allow: zts.jag_exchange
+        on: role.mcp-accessor

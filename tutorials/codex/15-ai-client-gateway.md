@@ -28,7 +28,7 @@ Codex CLI supports OAuth2-protected MCP servers. The first time it connects to a
 The gateway itself acts as a thin OAuth2 Authorization Server that delegates the actual authentication to Keycloak. After you log in, the gateway stores your Keycloak ID token in a server-side session and hands Codex a short-lived session token. From that point on, every MCP request from Codex carries that session token as a `Bearer` credential. The gateway resolves it back to your ID token and performs the same ID-JAG exchange chain you have seen in earlier tutorials.
 
 ```
-[human ns]                       [ai ns]          [api ns]
+[human ns]                       [ai ns]          [mcp-hub ns]      [api ns]
 Codex CLI
     │ Bearer (session token)
     ▼
@@ -141,7 +141,7 @@ kubectl logs deploy/codex-idjag-learner-ai-client-gateway -n human
 
 ```sh
 # 🚀 OpenWebUI OpenAPI Gateway listening on 0.0.0.0:3101
-# 🔗 Upstream API: http://mcp.api:8081
+# 🔗 Upstream API: http://k8s-doc-server.mcp-hub:8081
 # 🌍 Public Base URL: http://localhost:44443
 # 🔑 Athenz ZTS Endpoint: https://athenz-zts-server.athenz:4443/zts/v1
 ```
@@ -203,7 +203,7 @@ spec:
           imagePullPolicy: Always
           env:
             - name: UPSTREAM_BASE_URL
-              value: "http://mcp.api:8081"
+              value: "http://k8s-doc-server.mcp-hub:8081"
             - name: ZTS_URL
               value: "https://athenz-zts-server.athenz:4443/zts/v1"
             - name: KEYCLOAK_URL

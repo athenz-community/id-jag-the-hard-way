@@ -173,7 +173,7 @@ There is an apparent bug where it does not update the jwks_uri, so please run th
 
 ```sh
 kubectl -n api rollout restart deployment api-server
-kubectl -n api rollout restart deployment mcp
+kubectl -n mcp-hub rollout restart deployment k8s-doc-server
 ```
 
 ## What's next?

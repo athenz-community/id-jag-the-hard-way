@@ -17,46 +17,45 @@ In this tutorial, we will finally resolve the authorization issues encountered i
 
 ## Grant Permissions to `ai.open-webui`
 
-Because `ai.open-webui` acts on behalf of our user (`human.idjag-learner`), we need to explicitly authorize it to exchange the login ID Token for an ID-JAG token. We must also grant it the necessary access within the `api` domain.
+Because `ai.open-webui` acts on behalf of our user (`human.idjag-learner`), we need to explicitly authorize it to exchange the login ID Token for an ID-JAG token. We must grant it exchange permission for the API role and the MCP Hub role.
 
-First, create a role under domain `api`:
+First, create roles under the `api` and `mcp-hub` domains:
 
 ```sh
 ./tools/athenz/create-role.sh "api" "token-exchangable-ai-agents"
+./tools/athenz/create-role.sh "mcp-hub" "token-exchangable-ai-agents"
 ```
 
-In Athenz, you must allow the `zts.jag_exchange` action on the target roles. First, attach this policy for `role.docs-getter`:
-The `ai.open-webui` (AI Agent) also needs permission to perform a token exchange into the `api:role.mcp-accessor` role. Add that policy as well:
-
+In Athenz, you must allow the `zts.jag_exchange` action on the target roles:
 
 ```sh
 ./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
-./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
+./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
 ```
 
 ```sh
 #   ·  Creating Policy: api:policy.zts.jag_exchange...
 #   ✔  Policy created: api:policy.zts.jag_exchange
+#   ·  Creating Policy: mcp-hub:policy.zts.jag_exchange...
+#   ✔  Policy created: mcp-hub:policy.zts.jag_exchange
 ```
 
-
-```sh
-./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
-```
-
-Next, add the `ai.open-webui` as a member of this new token exchange role:
+Next, add the `ai.open-webui` as a member of both token exchange roles:
 
 ```sh
 ./tools/athenz/add-role-member.sh "api" "token-exchangable-ai-agents" "ai.open-webui"
+./tools/athenz/add-role-member.sh "mcp-hub" "token-exchangable-ai-agents" "ai.open-webui"
 ```
 
 ```sh
 #   ·  Adding Member ai.open-webui to Role: api:role.token-exchangable-ai-agents...
 #   ✔  ai.open-webui  →  api:role.token-exchangable-ai-agents
+#   ·  Adding Member ai.open-webui to Role: mcp-hub:role.token-exchangable-ai-agents...
+#   ✔  ai.open-webui  →  mcp-hub:role.token-exchangable-ai-agents
 ```
 
 > [!NOTE]
-> Notice that the `ai.open-webui` client agent does not require direct permissions to fetch an Access Token against `api:role.docs-getter` or `api:role.mcp-accessor`. It only needs the `zts.jag_exchange` permission to perform the token exchange on the user's behalf.
+> Notice that the `ai.open-webui` client agent does not require direct permissions to fetch an Access Token against `api:role.docs-getter` or `mcp-hub:role.mcp-accessor`. It only needs the `zts.jag_exchange` permission to perform the token exchange on the user's behalf.
 
 ## Verify
 

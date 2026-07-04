@@ -25,25 +25,6 @@ services:
             k8s_name: ca
             import_from: ./athenz_dist/certs/ca.cert.pem
 
-  - name: api-mcp
-    key_version: v1
-    local_keys_dir: ./keys
-    k8s:
-      ns: api
-      deployment: mcp
-      secret:
-        name: api-mcp-cert
-        files:
-          cert:
-            k8s_name: api-mcp.crt
-            local_name: api-mcp.crt
-          key:
-            k8s_name: api-mcp.key
-            local_name: api-mcp.key
-          ca:
-            k8s_name: ca.crt
-            import_from: ./athenz_dist/certs/ca.cert.pem
-
 roles:
   # docs-getter: human user => GET /docs on the API server
   - name: docs-getter
@@ -69,23 +50,13 @@ roles:
       - allow: delete
         on: docs
 
-  # mcp-accessor: human user => access the MCP auth proxy
-  - name: mcp-accessor
-    members:
-      - human.idjag-learner
-    policies:
-      - allow: access
-        on: mcp
-
-  # jag-exchanging-ai-agents: Claude (ID-JAG token) => exchange into docs-getter or mcp-accessor on the user's behalf
+  # jag-exchanging-ai-agents: Claude (ID-JAG token) => exchange into docs roles on the user's behalf
   - name: jag-exchanging-ai-agents
     members:
       - human.idjag-learner.claude
       - human.idjag-learner.codex
       - ai.open-webui
     policies:
-      - allow: zts.jag_exchange
-        on: role.mcp-accessor
       - allow: zts.jag_exchange
         on: role.docs-getter
       - allow: zts.jag_exchange
@@ -109,7 +80,7 @@ roles:
   # token-exchanging-mcp: MCP server => narrow inbound token to docs-getter scope before calling the API server
   - name: token-exchanging-mcp
     members:
-      - api.api-mcp
+      - mcp-hub.k8s-doc-server
     policies:
       - allow: zts.token_source_exchange
         on: api

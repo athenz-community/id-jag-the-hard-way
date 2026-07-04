@@ -34,7 +34,7 @@ _athenz_ui_port=$(./tools/port.sh athenz-ui)
 ./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/token-exchanging-mcp/members"
 ```
 
-In Athenz, you must explicitly define both the **source** and **target** of the token exchange. Since the MCP server operates within the `api` domain, we can apply both policies as follows:
+In Athenz, you must explicitly define both the **source** and **target** of the token exchange. The MCP server is managed by `mcp-hub`, but this exchange grants it permission to exchange incoming API-scoped tokens into the API role it needs:
 
 ```sh
 ./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_source_exchange" "api"
@@ -44,10 +44,10 @@ In Athenz, you must explicitly define both the **source** and **target** of the 
 > [!NOTE]
 > Note that the MCP server itself doesn't need direct access to the target resource; it only needs permission to perform the exchange.
 
-Finally, add the member you want to authorize for the token exchange (in this case, the `api.api-mcp` service principal):
+Finally, add the member you want to authorize for the token exchange (in this case, the `mcp-hub.k8s-doc-server` service principal):
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "api.api-mcp"
+./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "mcp-hub.k8s-doc-server"
 ```
 
 ## Verify
@@ -92,7 +92,7 @@ get docs!
 
 ## What's happened?
 
-By introducing a specific role `token-exchanging-mcp` that authorizes its members to perform token exchanges for a target scope, the MCP server can successfully exchange the provided Access Token for a new one.
+By introducing a specific role `token-exchanging-mcp` that authorizes `mcp-hub.k8s-doc-server` to perform token exchanges for a target scope, the MCP server can successfully exchange the provided Access Token for a new one.
 
 ## What's next?
 

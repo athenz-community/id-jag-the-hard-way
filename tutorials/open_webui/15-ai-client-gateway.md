@@ -68,7 +68,7 @@ spec:
           imagePullPolicy: Always
           env:
             - name: UPSTREAM_BASE_URL
-              value: "http://mcp.api:8081"
+              value: "http://k8s-doc-server.mcp-hub:8081"
             - name: ZTS_URL
               value: "https://athenz-zts-server.athenz:4443/zts/v1"
 EOF
@@ -226,7 +226,7 @@ kubectl logs deploy/ai-client-gateway -n ai
 
 ```sh
 # 🚀 OpenWebUI OpenAPI Gateway listening on 0.0.0.0:3101
-# 🔗 Upstream API: http://mcp.api:8081
+# 🔗 Upstream API: http://k8s-doc-server.mcp-hub:8081
 # 🌍 Public Base URL: http://ai-client-gateway.ai:3101
 # 🔑 Athenz ZTS Endpoint: https://athenz-zts-server.athenz:4443/zts/v1
 ```

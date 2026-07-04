@@ -19,37 +19,43 @@ In this tutorial, we will resolve the authorization failure from the previous st
 
 The `human.idjag-learner.claude` service needs two things: permission to perform a JAG exchange on a user's behalf, and membership in the role that grants that permission.
 
-First, create a role under the `api` domain to represent AI agents that are allowed to perform token exchanges:
+First, create roles under the `api` and `mcp-hub` domains to represent AI agents that are allowed to perform token exchanges:
 
 ```sh
 ./tools/athenz/create-role.sh "api" "token-exchangable-ai-agents"
+./tools/athenz/create-role.sh "mcp-hub" "token-exchangable-ai-agents"
 ```
 
-In Athenz, the `zts.jag_exchange` action controls whether a principal can exchange an ID token for an ID-JAG token scoped to a given role. Grant it for `role.docs-getter` and `role.mcp-accessor`:
+In Athenz, the `zts.jag_exchange` action controls whether a principal can exchange an ID token for an ID-JAG token scoped to a given role. Grant it for `api:role.docs-getter` and `mcp-hub:role.mcp-accessor`:
 
 ```sh
 ./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
-./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
+./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
 ```
 
 ```sh
 #   ·  Creating Policy: api:policy.zts.jag_exchange...
 #   ✔  Policy created: api:policy.zts.jag_exchange
+#   ·  Creating Policy: mcp-hub:policy.zts.jag_exchange...
+#   ✔  Policy created: mcp-hub:policy.zts.jag_exchange
 ```
 
-Now add `human.idjag-learner.claude` as a member of this role:
+Now add `human.idjag-learner.claude` as a member of both roles:
 
 ```sh
 ./tools/athenz/add-role-member.sh "api" "token-exchangable-ai-agents" "human.idjag-learner.claude"
+./tools/athenz/add-role-member.sh "mcp-hub" "token-exchangable-ai-agents" "human.idjag-learner.claude"
 ```
 
 ```sh
 #   ·  Adding Member human.idjag-learner.claude to Role: api:role.token-exchangable-ai-agents...
 #   ✔  human.idjag-learner.claude  →  api:role.token-exchangable-ai-agents
+#   ·  Adding Member human.idjag-learner.claude to Role: mcp-hub:role.token-exchangable-ai-agents...
+#   ✔  human.idjag-learner.claude  →  mcp-hub:role.token-exchangable-ai-agents
 ```
 
 > [!NOTE]
-> Notice that `human.idjag-learner.claude` does not need direct permission to fetch an Access Token for `api:role.docs-getter` or `api:role.mcp-accessor`. It only needs `zts.jag_exchange` — the right to perform the token exchange on behalf of the user. The resulting scoped Access Token is what grants downstream access.
+> Notice that `human.idjag-learner.claude` does not need direct permission to fetch an Access Token for `api:role.docs-getter` or `mcp-hub:role.mcp-accessor`. It only needs `zts.jag_exchange` — the right to perform the token exchange on behalf of the user. The resulting scoped Access Token is what grants downstream access.
 
 ## Verify
 
