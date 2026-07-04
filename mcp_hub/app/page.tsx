@@ -14,55 +14,36 @@ import {
   TerminalSquare,
 } from "lucide-react"
 import Image from "next/image"
+import { headers } from "next/headers"
+import type { CatalogResponse } from "@/features/catalog/types/catalog"
 
-type McpServer = {
-  id: string
-  name: string
-  description: string
-  project: string
-  totalToolCalls: string
-  iconSrc?: string
-  logoText: string
-  logoBg: string
-  logoFg: string
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+async function fetchCatalog(): Promise<CatalogResponse> {
+  const requestHeaders = await headers()
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host")
+
+  if (!host) {
+    return { servers: [], error: "Missing host header for MCP Hub API request" }
+  }
+
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http"
+  const response = await fetch(`${protocol}://${host}/api/mcp-servers`, {
+    cache: "no-store",
+  })
+
+  if (!response.ok) {
+    return { servers: [], error: `MCP Hub API returned ${response.status}` }
+  }
+
+  return response.json() as Promise<CatalogResponse>
 }
 
-const servers: McpServer[] = [
-  {
-    id: "confluence",
-    name: "confluence",
-    description: "The MCP server for Confluence",
-    project: "confluence",
-    totalToolCalls: "N/A",
-    iconSrc: "/icons/confluence.png",
-    logoText: "CF",
-    logoBg: "#2d7ff9",
-    logoFg: "#ffffff",
-  },
-  {
-    id: "doc-server",
-    name: "doc-server",
-    description: "The MCP server for ID-JAG tutorial documents",
-    project: "k8s-docs-server",
-    totalToolCalls: "N/A",
-    logoText: "DS",
-    logoBg: "#ffffff",
-    logoFg: "#111111",
-  },
-  {
-    id: "athenz",
-    name: "athenz",
-    description: "The MCP server for Athenz",
-    project: "athenz",
-    totalToolCalls: "N/A",
-    iconSrc: "/icons/athenz.png",
-    logoText: "AZ",
-    logoBg: "#111111",
-    logoFg: "#ffffff",
-  },
-]
+export default async function McpHubPage() {
+  const catalog = await fetchCatalog()
+  const servers = catalog.servers
 
-export default function McpHubPage() {
   return (
     <main className="console-shell">
       <header className="top-header">
@@ -197,6 +178,12 @@ export default function McpHubPage() {
             </button>
           </div>
 
+          {catalog.error && (
+            <p className="catalog-error" role="status">
+              Catalog API could not load Kubernetes deployments: {catalog.error}
+            </p>
+          )}
+
           <div className="catalog-table-wrap">
             <table className="catalog-table">
               <thead>
@@ -213,38 +200,46 @@ export default function McpHubPage() {
                 </tr>
               </thead>
               <tbody>
-                {servers.map((server) => (
-                  <tr key={server.id}>
-                    <td>
-                      <div className="server-cell">
-                        <div
-                          className={`server-logo ${server.iconSrc ? "image-logo" : "text-logo"}`}
-                          style={{
-                            "--logo-bg": server.logoBg,
-                            "--logo-fg": server.logoFg,
-                          } as React.CSSProperties}
-                        >
-                          {server.iconSrc ? (
-                            <Image src={server.iconSrc} alt="" width={24} height={24} className="server-logo-image" />
-                          ) : (
-                            server.logoText
-                          )}
+                {servers.length > 0 ? (
+                  servers.map((server) => (
+                    <tr key={server.id}>
+                      <td>
+                        <div className="server-cell">
+                          <div
+                            className={`server-logo ${server.iconSrc ? "image-logo" : "text-logo"}`}
+                            style={{
+                              "--logo-bg": server.logoBg,
+                              "--logo-fg": server.logoFg,
+                            } as React.CSSProperties}
+                          >
+                            {server.iconSrc ? (
+                              <Image src={server.iconSrc} alt="" width={24} height={24} className="server-logo-image" />
+                            ) : (
+                              server.logoText
+                            )}
+                          </div>
+                          <a className="server-name" href="#">
+                            {server.alias ?? server.name}
+                          </a>
                         </div>
-                        <a className="server-name" href="#">
-                          {server.name}
-                        </a>
-                      </div>
-                    </td>
-                    <td>{server.description}</td>
-                    <td>{server.project}</td>
-                    <td>{server.totalToolCalls}</td>
-                    <td>
-                      <button className="table-action" aria-label={`Open actions for ${server.name}`} type="button" disabled>
-                        <MoreHorizontal size={16} aria-hidden="true" />
-                      </button>
+                      </td>
+                      <td>{server.description}</td>
+                      <td>{server.project}</td>
+                      <td>{server.totalToolCalls}</td>
+                      <td>
+                        <button className="table-action" aria-label={`Open actions for ${server.name}`} type="button" disabled>
+                          <MoreHorizontal size={16} aria-hidden="true" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="empty-cell" colSpan={5}>
+                      No MCP server deployments found.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

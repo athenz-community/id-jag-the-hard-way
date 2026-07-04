@@ -462,6 +462,13 @@ input:disabled {
   background: var(--surface);
 }
 
+.catalog-error {
+  margin: 0 0 10px;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .catalog-table {
   width: 100%;
   border-collapse: collapse;
@@ -486,6 +493,12 @@ input:disabled {
   font-size: 13px;
   font-weight: 700;
   vertical-align: middle;
+}
+
+.empty-cell {
+  height: 72px;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 .catalog-table th:first-child,
@@ -525,6 +538,11 @@ input:disabled {
   align-items: center;
   gap: 12px;
   min-width: 180px;
+}
+
+.server-cell a,
+.server-cell span {
+  min-width: 0;
 }
 
 .server-logo {
