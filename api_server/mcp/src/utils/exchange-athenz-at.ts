@@ -10,8 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const CERT_DIR = process.env.MCP_CERT_DIR || path.join(__dirname, "../../certs");
-const CERT_PATH = process.env.ATHENZ_CERT_PATH || path.join(CERT_DIR, "k8s-doc-server.crt");
-const KEY_PATH = process.env.ATHENZ_KEY_PATH || path.join(CERT_DIR, "k8s-doc-server.key");
+const CERT_PATH = process.env.ATHENZ_CERT_PATH || path.join(CERT_DIR, "api-mcp.crt");
+const KEY_PATH = process.env.ATHENZ_KEY_PATH || path.join(CERT_DIR, "api-mcp.key");
 const CA_PATH = process.env.ATHENZ_CA_PATH || path.join(CERT_DIR, "ca.crt");
 
 const cert = fs.readFileSync(CERT_PATH);

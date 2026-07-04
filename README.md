@@ -4,7 +4,7 @@
 
 This tutorial walks you through building an ID-JAG-based AI agent authorization architecture from scratch. It is not for someone looking for a fully automated demo or a one-command installer. It is optimized for learning — taking the long route to understand the identities, tokens, policies, and trust boundaries required to let an AI agent access protected APIs on behalf of a signed-in human user, as defined in the [ID-JAG specification](https://techblog.lycorp.co.jp/en/20260417a).
 
-[![Start Tutorial](./assets/start-tutorial-glow.svg)](./tutorials/01-prerequisites.md)
+[![Start Tutorial](./assets/start-tutorial-glow.svg)](./tutorials/01-working-directory.md)
 
 ## What You Will Get
 
@@ -67,4 +67,4 @@ Have questions or ran into a problem? [Open an issue](https://github.com/mlajkim
 
 If not:
 
-[![Start Tutorial](./assets/start-tutorial-glow.svg)](./tutorials/01-prerequisites.md)
+[![Start Tutorial](./assets/start-tutorial-glow.svg)](./tutorials/01-working-directory.md)

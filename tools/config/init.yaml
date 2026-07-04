@@ -6,7 +6,7 @@ domain: api
 
 # Service identities in this domain
 services:
-  - name: api-zpu
+  - name: zpu
     key_version: v1
     local_keys_dir: ./keys
     k8s:
@@ -80,7 +80,7 @@ roles:
   # token-exchanging-mcp: MCP server => narrow inbound token to docs-getter scope before calling the API server
   - name: token-exchanging-mcp
     members:
-      - mcp-hub.k8s-doc-server
+      - mcp-hub.api-mcp
     policies:
       - allow: zts.token_source_exchange
         on: api
@@ -90,3 +90,5 @@ roles:
         on: api:role.docs-poster
       - allow: zts.token_target_exchange
         on: api:role.docs-deleter
+      - allow: zts.token_target_exchange
+        on: mcp-hub:role.docs-getter

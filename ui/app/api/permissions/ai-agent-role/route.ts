@@ -23,8 +23,8 @@ const POLICY_BY_PERMISSION = {
     resource: "role.docs-deleter",
   },
   mcp: {
-    policyName: "jag-exchanging-ai-agents_zts_jag_exchange_role_mcp-accessor",
-    resource: "role.mcp-accessor",
+    policyName: "jag-exchanging-ai-agents_zts_jag_exchange_role_api-mcp-accessor",
+    resource: "role.api-mcp-accessor",
   },
 } as const;
 

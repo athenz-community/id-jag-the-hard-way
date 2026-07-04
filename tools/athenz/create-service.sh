@@ -4,7 +4,7 @@ set -euo pipefail
 TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${TOOLS_DIR}/color.sh"
 _zms_port=$("$TOOLS_DIR/port.sh" zms)
-_athenz_ui_port=$("$TOOLS_DIR/port.sh" athenz-ui)
+UI_OPEN="${UI_OPEN:-false}"
 
 if [ $# -lt 2 ]; then
   fatal "Usage: $0 <domain> <service_name> [public_key_path]"
@@ -22,7 +22,13 @@ fi
 info "Registering Service: ${domain}.${service_name}..."
 
 open_service_page() {
-  "${TOOLS_DIR}/open.sh" "http://localhost:${_athenz_ui_port}/domain/${domain}/service"
+  if [ "${UI_OPEN}" != "true" ]; then
+    return 0
+  fi
+
+  local athenz_ui_port
+  athenz_ui_port=$("$TOOLS_DIR/port.sh" athenz-ui)
+  "${TOOLS_DIR}/open.sh" "http://localhost:${athenz_ui_port}/domain/${domain}/service"
 }
 
 if [ -z "${pub_key_path}" ]; then

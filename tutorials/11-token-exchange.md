@@ -26,20 +26,41 @@ Create the `token-exchanging-mcp` role:
 ./tools/athenz/create-role.sh "api" "token-exchanging-mcp"
 ```
 
-In Athenz, you must explicitly define both the **source** and the **target** of the exchange. Add both policies:
+```sh
+#   ·  Creating Role: api:role.token-exchanging-mcp...
+#   ✔  Role created: api:role.token-exchanging-mcp
+```
+
+In Athenz, you must explicitly define both the **source** and the **target** of the exchange.
+
+For this step, the source is also `api`. That is okay because the MCP server is exchanging an Access Token that was already issued by the `api` domain. In other words, the `api` domain is trusting its own token as the source token. The target policy still keeps the result narrow: the exchanged token can only target `api:role.docs-getter`.
+
+Add both policies:
 
 ```sh
 ./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_source_exchange" "api"
 ./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_target_exchange" "api:role.docs-getter"
 ```
 
+```sh
+#   ·  Creating Policy: api:policy.token-exchanging-mcp_zts_token_source_exchange_api...
+#   ✔  Policy created: api:policy.token-exchanging-mcp_zts_token_source_exchange_api
+#   ·  Creating Policy: api:policy.token-exchanging-mcp_zts_token_target_exchange_api_role_docs-getter...
+#   ✔  Policy created: api:policy.token-exchanging-mcp_zts_token_target_exchange_api_role_docs-getter
+```
+
 > [!NOTE]
 > The MCP server does not need direct access to the target resource. It only needs permission to perform the exchange itself.
 
-Add the `mcp-hub.k8s-doc-server` service principal as a member of this role:
+Add the `mcp-hub.api-mcp` service principal as a member of this role:
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "mcp-hub.k8s-doc-server"
+./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "mcp-hub.api-mcp"
+```
+
+```sh
+#   ·  Adding Member mcp-hub.api-mcp to Role: api:role.token-exchanging-mcp...
+#   ✔  mcp-hub.api-mcp  →  api:role.token-exchanging-mcp
 ```
 
 ## Verify
@@ -94,7 +115,7 @@ get docs from k8s doc server!
 
 ## What's happened?
 
-By creating the `token-exchanging-mcp` role and assigning both source and target exchange policies, the MCP server (`mcp-hub.k8s-doc-server`) can now exchange the incoming Access Token for a narrower-scoped token before calling the API server.
+By creating the `token-exchanging-mcp` role and assigning both source and target exchange policies, the MCP server (`mcp-hub.api-mcp`) can now exchange the incoming Access Token for a narrower-scoped token before calling the API server.
 
 Our API server is so far fully protected by Athenz Access Tokens. However, the MCP server itself has no authentication layer — anyone who can reach it can use it. In the next tutorial, we will deploy an Authorization Proxy in front of the MCP server.
 

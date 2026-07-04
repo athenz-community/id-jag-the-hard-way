@@ -30,7 +30,7 @@ In Athenz, you must allow the `zts.jag_exchange` action on the target roles:
 
 ```sh
 ./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
-./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
+./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.api-mcp-accessor"
 ```
 
 ```sh
@@ -55,7 +55,7 @@ Next, add the `ai.open-webui` as a member of both token exchange roles:
 ```
 
 > [!NOTE]
-> Notice that the `ai.open-webui` client agent does not require direct permissions to fetch an Access Token against `api:role.docs-getter` or `mcp-hub:role.mcp-accessor`. It only needs the `zts.jag_exchange` permission to perform the token exchange on the user's behalf.
+> Notice that the `ai.open-webui` client agent does not require direct permissions to fetch an Access Token against `api:role.docs-getter` or `mcp-hub:role.api-mcp-accessor`. It only needs the `zts.jag_exchange` permission to perform the token exchange on the user's behalf.
 
 ## Verify
 

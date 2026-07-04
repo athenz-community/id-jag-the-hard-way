@@ -26,11 +26,11 @@ First, create roles under the `api` and `mcp-hub` domains to represent AI agents
 ./tools/athenz/create-role.sh "mcp-hub" "token-exchangable-ai-agents"
 ```
 
-In Athenz, the `zts.jag_exchange` action controls whether a principal can exchange an ID token for an ID-JAG token scoped to a given role. Grant it for `api:role.docs-getter` and `mcp-hub:role.mcp-accessor`:
+In Athenz, the `zts.jag_exchange` action controls whether a principal can exchange an ID token for an ID-JAG token scoped to a given role. Grant it for `api:role.docs-getter` and `mcp-hub:role.api-mcp-accessor`:
 
 ```sh
 ./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
-./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
+./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.api-mcp-accessor"
 ```
 
 ```sh
@@ -55,7 +55,7 @@ Now add `human.idjag-learner.claude` as a member of both roles:
 ```
 
 > [!NOTE]
-> Notice that `human.idjag-learner.claude` does not need direct permission to fetch an Access Token for `api:role.docs-getter` or `mcp-hub:role.mcp-accessor`. It only needs `zts.jag_exchange` — the right to perform the token exchange on behalf of the user. The resulting scoped Access Token is what grants downstream access.
+> Notice that `human.idjag-learner.claude` does not need direct permission to fetch an Access Token for `api:role.docs-getter` or `mcp-hub:role.api-mcp-accessor`. It only needs `zts.jag_exchange` — the right to perform the token exchange on behalf of the user. The resulting scoped Access Token is what grants downstream access.
 
 ## Verify
 

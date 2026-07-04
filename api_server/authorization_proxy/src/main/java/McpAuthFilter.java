@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter;
 
 @Component
 public class McpAuthFilter implements Filter {
-    @Value("${mcp.resource:k8s-doc-server}")
+    @Value("${mcp.resource:api-mcp}")
     private String mcpResource;
 
     @Value("${athenz.at.required:true}")

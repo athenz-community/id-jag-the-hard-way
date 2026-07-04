@@ -1,127 +1,82 @@
-|                      Previous                       |         Current         |                       Next                       |
-|:---------------------------------------------------:|:-----------------------:|:------------------------------------------------:|
-| [Authorization Server](./07-athenz-access-token.md) | **Granular Permission** | [MCP Server for API](./09-mcp-server-for-api.md) |
+|                      Previous                      |         Current         |                       Next                       |
+|:--------------------------------------------------:|:-----------------------:|:------------------------------------------------:|
+| [Athenz Access Token](./07-athenz-access-token.md) | **Granular Permission** | [MCP Server for API](./09-mcp-server-for-api.md) |
 
 # Granular Permission
 
-In the previous tutorial, you used the admin certificate — which has unrestricted power — to mint an Access Token. This tutorial replaces that with a dedicated identity representing you, scoped to exactly the permissions you need.
-
-<details>
-<summary>Why does dedicated identity matter?</summary>
-<br>
-
-### Why a separate identity instead of admin?
-
-Admin credentials can do anything in Athenz: create domains, register services, modify policies. Using them for routine API calls is like handing someone a master key every time they need to open one specific door. If those credentials are ever leaked or misused, the blast radius is unlimited.
-
-Instead, you create a dedicated identity — `human.idjag-learner` — that exists solely to call the API as you, the learner. In Athenz, access control is always evaluated against a **principal**: a named entity that can be placed into roles and granted policies. By giving yourself a distinct principal, you can apply fine-grained policies to it without touching anything admin-level.
-
-> [!NOTE]
-> Athenz has a feature called **UserCert**, which represents an actual human being rather than a service account. For simplicity, this tutorial skips that feature and uses a service identity to represent you instead.
-
-### Why generate a private key?
-
-In Athenz, **identity is cryptographic — holding the private key is what makes you that identity.** There is no username or password. The public key is registered with Athenz under your service name. When you authenticate to ZTS (the token server), you present a certificate signed with your private key. ZTS verifies the signature against the registered public key and, if they match, issues you an Access Token as `human.idjag-learner`.
-
-If you hold the key, you are that principal. If you don't, you cannot claim to be.
-
-### Why does scoping the token matter?
-
-The token you fetch is not a general-purpose credential — it is scoped to a specific role (`api:role.docs-getter`). Even if the token is leaked, an attacker can only call the endpoints that role permits and nothing else. The private key stays on your machine; the short-lived, narrowly scoped token is what travels over the network. This is the foundation of **least-privilege access**.
-
-</details>
+In the previous tutorial, you used the admin certificate to mint an Access Token. In this tutorial, you will replace that admin credential with a dedicated learner identity and prove that it can only access what `api:role.docs-getter` allows with the following steps:
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
-- [Create Service Identity that represents you](#create-service-identity-that-represents-you)
-- [Create TLD for your future Service Identity](#create-tld-for-your-future-service-identity)
-- [Create Service Identity](#create-service-identity)
-- [Fetch X.509 Cert for idjag-learner](#fetch-x509-cert-for-idjag-learner)
-- [Fetch the Service Certificate](#fetch-the-service-certificate)
-- [Fetch Access Token (JWT)](#fetch-access-token-jwt)
-- [Troubleshoot Missing Role Membership](#troubleshoot-missing-role-membership)
+- [Create a learner identity](#create-a-learner-identity)
+- [Fetch an Access Token as the learner](#fetch-an-access-token-as-the-learner)
+- [Troubleshoot missing role membership](#troubleshoot-missing-role-membership)
+- [Grant the learner access to `docs-getter`](#grant-the-learner-access-to-docs-getter)
+- [Fetch the Access Token again](#fetch-the-access-token-again)
+- [Send request to the protected server](#send-request-to-the-protected-server)
 - [Review Architecture](#review-architecture)
 
 <!-- /TOC -->
 
-## Create Service Identity that represents you
+<details>
+<summary>Why does a dedicated identity matter?</summary>
+<br>
 
-Generate a private key that represents `idjag-learner`:
+Admin credentials can create domains, register services, and modify policies. Using them for routine API calls gives far more power than the request needs.
 
-```sh
-./tools/athenz/create-private-key.sh "./keys/idjag-learner"
-```
+Instead, you will create a dedicated identity, `human.idjag-learner`, to represent you as the learner. Athenz evaluates access against a principal, so placing this principal into only the needed role gives it only the permissions attached to that role.
 
-```sh
-#   ·  Generating RSA key pair for: ./keys/idjag-learner...
-#   ✔  Keys generated: ./keys/idjag-learner.key, ./keys/idjag-learner.public.key
-```
+The token you fetch is also scoped to `api:role.docs-getter`. Even if the token is leaked, it can only call endpoints allowed by that role.
 
-## Create TLD for your future Service Identity
+> [!NOTE]
+> Athenz also supports UserCerts for real human users. This tutorial uses a service identity to keep the local setup focused on authorization flow rather than user certificate enrollment.
+</details>
 
-In Athenz, every service identity—even those representing human users—must reside within a domain. To keep things organized, let's create a new Top-Level Domain (TLD) named `human`.
+## Create a learner identity
 
-Run the following command to create the TLD:
+You already used these identity and certificate helper scripts for ZPU. Run the same flow for a new learner identity, `human.idjag-learner`:
 
 ```sh
 ./tools/athenz/create-tld.sh "human"
-```
-
-This creates the `human` domain, represented by the purple section in the following diagram:
-
-![08_create_tld_human](./assets/08_create_tld_human.png)
-
-## Create Service Identity
-
-Execute the script to register your identity `human.idjag-learner`:
-
-```sh
+./tools/athenz/create-private-key.sh "./keys/idjag-learner"
 ./tools/athenz/create-service.sh "human" "idjag-learner" "./keys/idjag-learner.public.key"
-```
-
-This successfully creates the `idjag-learner` service under the `human` domain. You can verify the result in the Athenz UI:
-
-```sh
-_athenz_ui_port=$(./tools/port.sh athenz-ui)
-./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/human/service"
-```
-
-![08_new_service](./assets/08_new_service.png)
-
-## Fetch X.509 Cert for idjag-learner
-
-Execute the script to authorize the `idjag-learner` service to fetch certificates:
-
-```sh
 ./tools/athenz/enable-cert-provider.sh "human" "idjag-learner"
-```
-
-```sh
-#   ·  Enabling ZTS Certificate Provider for human.idjag-learner...
-#   ✔  ZTS Certificate Provider enabled for human.idjag-learner
-```
-
-## Fetch the Service Certificate
-
-Execute the script using the parameters we configured earlier:
-
-```sh
 ./tools/athenz/fetch-cert.sh "human" "idjag-learner" "./keys/idjag-learner.key" "v1"
 ```
 
 ```sh
+#   ·  Creating TLD: human...
+#   ✔  TLD created: human
+#   ·  Generating RSA key pair for: ./keys/idjag-learner...
+#   ✔  Keys generated: ./keys/idjag-learner.key, ./keys/idjag-learner.public.key
+#   ·  Registering Service: human.idjag-learner...
+#   ✔  Service registered: human.idjag-learner
+#   ·  Enabling ZTS Certificate Provider for human.idjag-learner...
+# [Template(s) successfully applied to domain]
+#   ✔  ZTS Certificate Provider enabled for human.idjag-learner
+#   ·  Fetching X.509 Certificate for human.idjag-learner..
 #   ·  Fetching X.509 Certificate for human.idjag-learner...
 #   ✔  Certificate saved to: ./keys/idjag-learner.crt
 ```
 
-## Fetch Access Token (JWT)
+The new `human` domain and `human.idjag-learner` service identity are represented below:
 
-Now that you possess your Mutual TLS (mTLS) credentials (`idjag-learner.crt` and `idjag-learner.key`), you can use them to authenticate against the ZTS server and request an Athenz Access Token (JWT).
+![08_create_tld_human](./assets/08_create_tld_human.png)
 
-To enforce the principle of least privilege, we will specifically request a token scoped only to the `docs-getter` role within the `api` domain (`api:role.docs-getter`):
+Open the service page to double-check the learner identity:
+
+```sh
+./tools/open.sh "http://localhost:$(./tools/port.sh athenz-ui)/domain/human/service"
+```
+
+![08_new_service](./assets/08_new_service.png)
+
+## Fetch an Access Token as the learner
+
+Now request the same `api:role.docs-getter` scope, but authenticate as `human.idjag-learner` instead of the admin user.
 
 > [!WARNING]
-> This command will fail — that is intentional and you will fix it in the next section.
+> This command will fail. That is intentional.
 
 ```sh
 _scope="api:role.docs-getter"
@@ -143,33 +98,42 @@ _my_access_token=$(./tools/athenz/fetch-access-token.sh \
 # ✘ Token issuance failed for scope: api:role.docs-getter
 ```
 
-## Troubleshoot Missing Role Membership
+## Troubleshoot missing role membership
 
-Why did this request fail? Because the `human.idjag-learner` service identity is not explicitly authorized to assume the `api:role.docs-getter` role. Athenz defaults to deny. You can confirm this by checking the role members in the UI:
+The learner identity exists, but it is not a member of `api:role.docs-getter` yet. Athenz defaults to deny, so ZTS refuses to issue a token for that role.
+
+Open the role members page to confirm:
 
 ```sh
-_athenz_ui_port=$(./tools/port.sh athenz-ui)
-./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
+./tools/open.sh "http://localhost:$(./tools/port.sh athenz-ui)/domain/api/role/docs-getter/members"
 ```
 
 ![08_id_jag_learner_not_in_role_yet](./assets/08_id_jag_learner_not_in_role_yet.png)
 
-To fix this, simply run the member addition script we created earlier:
+## Grant the learner access to `docs-getter`
+
+Add `human.idjag-learner` to `api:role.docs-getter`:
 
 ```sh
 ./tools/athenz/add-role-member.sh "api" "docs-getter" "human.idjag-learner"
 ```
 
-Open once again your Athenz UI to verify that `human.idjag-learner` has been successfully added to the role:
+```sh
+#   ·  Adding Member human.idjag-learner to Role: api:role.docs-getter...
+#   ✔  human.idjag-learner  →  api:role.docs-getter
+```
+
+Open the role members page again:
 
 ```sh
-_athenz_ui_port=$(./tools/port.sh athenz-ui)
-./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/docs-getter/members"
+./tools/open.sh "http://localhost:$(./tools/port.sh athenz-ui)/domain/api/role/docs-getter/members"
 ```
 
 ![08_human_id_jag_learner_now_added_as_member](./assets/08_human_id_jag_learner_now_added_as_member.png)
 
-Now that your service identity is a recognized member of the role, fetch the access token again:
+## Fetch the Access Token again
+
+Now that the learner identity is a member of the role, request the token again:
 
 ```sh
 _scope="api:role.docs-getter"
@@ -209,10 +173,12 @@ _my_access_token=$(./tools/athenz/fetch-access-token.sh \
 # }
 ```
 
-Finally, send a request to the protected API server with the newly minted access token attached to the Authorization header:
+## Send request to the protected server
+
+Finally, send a request to the protected API server with the learner token:
 
 ```sh
-curl -s -k -H "Authorization: Bearer $_my_access_token" http://localhost:14443/api/docs | jq .
+curl -sS -k -H "Authorization: Bearer $_my_access_token" http://localhost:14443/api/docs | jq .
 ```
 
 ```sh
@@ -232,9 +198,12 @@ curl -s -k -H "Authorization: Bearer $_my_access_token" http://localhost:14443/a
 # }
 ```
 
+> [!TIP]
+> If the request fails immediately after changing role membership, wait a few seconds and retry. ZPU and ZPE load policy changes on a short sync interval.
+
 ## Review Architecture
 
-You successfully fetched an X.509 certificate for the non-admin service identity (`human.idjag-learner`) — instead of the admin certificate — and exchanged it for an Athenz Access Token scoped specifically to `api:role.docs-getter`:
+You successfully fetched an X.509 certificate for the non-admin service identity (`human.idjag-learner`) and exchanged it for an Athenz Access Token scoped specifically to `api:role.docs-getter`:
 
 ![08_arc_fetch_at_with_non_admin_certificiate](./assets/08_arc_fetch_at_with_non_admin_certificiate.png)
 

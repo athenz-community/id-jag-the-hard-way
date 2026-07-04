@@ -1,10 +1,10 @@
-|       Previous       |      Current      |                      Next                      |
-|:--------------------:|:-----------------:|:----------------------------------------------:|
-| [Home](../README.md) | **Prerequisites** | [Working Directory](./02-working-directory.md) |
+|                    Previous                    |      Current      |                       Next                       |
+|:----------------------------------------------:|:-----------------:|:------------------------------------------------:|
+| [Working Directory](./01-working-directory.md) | **Prerequisites** | [Kubernetes Cluster](./03-kubernetes-cluster.md) |
 
 # Prerequisites
 
-Before starting, make sure you have the following installed on your machine.
+Before continuing, make sure you have the following installed on your machine.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
@@ -60,4 +60,4 @@ This is because you will be switching back and forth between the tutorial and th
 
 The results of this tutorial should not be considered production-ready. The goal is to learn the architecture, not to ship a hardened production platform.
 
-Next: [Working Directory](./02-working-directory.md)
+Next: [Kubernetes Cluster](./03-kubernetes-cluster.md)

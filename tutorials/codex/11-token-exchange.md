@@ -34,7 +34,9 @@ _athenz_ui_port=$(./tools/port.sh athenz-ui)
 ./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role/token-exchanging-mcp/members"
 ```
 
-In Athenz, you must explicitly define both the **source** and **target** of the token exchange. The MCP server is managed by `mcp-hub`, but this exchange grants it permission to exchange incoming API-scoped tokens into the API role it needs:
+In Athenz, you must explicitly define both the **source** and **target** of the token exchange.
+
+For this step, the source is also `api`. That is okay because the MCP server is exchanging an Access Token that was already issued by the `api` domain. In other words, the `api` domain is trusting its own token as the source token. The target policy still keeps the result narrow: the exchanged token can only target `api:role.docs-getter`.
 
 ```sh
 ./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_source_exchange" "api"
@@ -44,10 +46,10 @@ In Athenz, you must explicitly define both the **source** and **target** of the 
 > [!NOTE]
 > Note that the MCP server itself doesn't need direct access to the target resource; it only needs permission to perform the exchange.
 
-Finally, add the member you want to authorize for the token exchange (in this case, the `mcp-hub.k8s-doc-server` service principal):
+Finally, add the member you want to authorize for the token exchange (in this case, the `mcp-hub.api-mcp` service principal):
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "mcp-hub.k8s-doc-server"
+./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "mcp-hub.api-mcp"
 ```
 
 ## Verify
@@ -92,7 +94,7 @@ get docs!
 
 ## What's happened?
 
-By introducing a specific role `token-exchanging-mcp` that authorizes `mcp-hub.k8s-doc-server` to perform token exchanges for a target scope, the MCP server can successfully exchange the provided Access Token for a new one.
+By introducing a specific role `token-exchanging-mcp` that authorizes `mcp-hub.api-mcp` to perform token exchanges for a target scope, the MCP server can successfully exchange the provided Access Token for a new one.
 
 ## What's next?
 

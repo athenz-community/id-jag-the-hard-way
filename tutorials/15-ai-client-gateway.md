@@ -139,7 +139,7 @@ kubectl logs deploy/claude-idjag-learner-ai-client-gateway -n human
 
 ```sh
 # 🚀 OpenWebUI OpenAPI Gateway listening on 0.0.0.0:3101
-# 🔗 Upstream API: http://k8s-doc-server.mcp-hub:8081
+# 🔗 Upstream API: http://api-mcp.mcp-hub:8081
 # 🌍 Public Base URL: http://localhost:44443
 # 🔑 Athenz ZTS Endpoint: https://athenz-zts-server.athenz:4443/zts/v1
 ```
@@ -210,7 +210,7 @@ spec:
           imagePullPolicy: Always
           env:
             - name: UPSTREAM_BASE_URL
-              value: "http://k8s-doc-server.mcp-hub:8081"
+              value: "http://api-mcp.mcp-hub:8081"
             - name: ZTS_URL
               value: "https://athenz-zts-server.athenz:4443/zts/v1"
             - name: KEYCLOAK_URL
@@ -248,7 +248,7 @@ kubectl logs deploy/claude-idjag-learner-ai-client-gateway -n human --tail=5
 
 ```sh
 # 🚀 OpenWebUI OpenAPI Gateway listening on 0.0.0.0:3101
-# 🔗 Upstream API: http://k8s-doc-server.mcp-hub:8081
+# 🔗 Upstream API: http://api-mcp.mcp-hub:8081
 # 🌍 Public Base URL: http://localhost:44443
 # 🔑 Athenz ZTS Endpoint: https://athenz-zts-server.athenz:4443/zts/v1
 ```

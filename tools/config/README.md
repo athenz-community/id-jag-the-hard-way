@@ -22,14 +22,14 @@ make -C ui setup-permissions-api
 
 ### What's inside
 
-| Role                       | Who                          | What they can do                                                   |
-|----------------------------|------------------------------|--------------------------------------------------------------------|
-| `docs-getter`              | `human.idjag-learner`        | GET /docs                                                          |
-| `docs-poster`              | `human.idjag-learner`        | POST /docs                                                         |
-| `docs-deleter`             | `human.idjag-learner`        | DELETE /docs                                                       |
-| `jag-exchanging-ai-agents` | `human.idjag-learner.claude` | JAG-exchange into `docs-getter`, `docs-poster`                     |
-| `jag-exchanging-uis`       | `org.idjag-ui`               | JAG-exchange into `docs-getter`, `docs-poster`, `docs-deleter`     |
-| `token-exchanging-mcp`     | `mcp-hub.k8s-doc-server`     | RFC 8693 exchange from any `api` token into `docs-*` scoped tokens |
+| Role                       | Who                          | What they can do                                               |
+|----------------------------|------------------------------|----------------------------------------------------------------|
+| `docs-getter`              | `human.idjag-learner`        | GET /docs                                                      |
+| `docs-poster`              | `human.idjag-learner`        | POST /docs                                                     |
+| `docs-deleter`             | `human.idjag-learner`        | DELETE /docs                                                   |
+| `jag-exchanging-ai-agents` | `human.idjag-learner.claude` | JAG-exchange into `docs-getter`, `docs-poster`                 |
+| `jag-exchanging-uis`       | `org.idjag-ui`               | JAG-exchange into `docs-getter`, `docs-poster`, `docs-deleter` |
+| `token-exchanging-mcp`     | `mcp-hub.api-mcp`            | RFC 8693 target exchange into `api` docs roles                 |
 
 > **Note:** `jag-exchanging-ai-agents` intentionally does **not** grant `docs-deleter` exchange — AI agents cannot delete docs on behalf of users by design.
 
@@ -45,9 +45,9 @@ make -C ui setup-permissions-org
 
 ### What's inside
 
-| Service | K8s namespace | K8s secret | Cert files |
-|---|---|---|---|
-| `idjag-ui` | `org` | `idjag-ui-cert` | `org.idjag-ui.crt` / `org.idjag-ui.key` |
+| Service    | K8s namespace | K8s secret      | Cert files                              |
+|------------|---------------|-----------------|-----------------------------------------|
+| `idjag-ui` | `org`         | `idjag-ui-cert` | `org.idjag-ui.crt` / `org.idjag-ui.key` |
 
 The cert is mounted into the `idjag-ui` deployment at `/app/certs` so the UI can authenticate to Athenz ZTS for JAG token exchange.
 
@@ -61,16 +61,18 @@ make -C ui setup-permissions-mcp-hub
 ./tools/setup-permissions.sh tools/config/mcp-hub.yaml
 ```
 
-> **Order note:** run this after the `mcp-hub` namespace and `k8s-doc-server` deployment exist. The setup script creates `k8s-doc-server-cert` and `mcp-hub-zpu-cert`, then restarts `k8s-doc-server`.
+> **Order note:** run this after the `mcp-hub` namespace and `api-mcp` deployment exist. The setup script creates `api-mcp-cert` and `mcp-hub-zpu-cert`, then restarts `api-mcp`.
 
 ### What's inside
 
-| Role | Who | What they can do |
-|---|---|---|
-| `mcp-accessor` | `human.idjag-learner` | access `mcp-hub:k8s-doc-server` |
-| `token-exchangable-ai-agents` | `human.idjag-learner.claude`, `human.idjag-learner.codex`, `ai.open-webui` | JAG-exchange into `mcp-accessor` |
+| Role                          | Who                                                                        | What they can do                                                              |
+|-------------------------------|----------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| `api-mcp-accessor`            | `human.idjag-learner`                                                      | access `mcp-hub:api-mcp`                                                      |
+| `docs-getter`                 | `human.idjag-learner`                                                      | temporary same-domain docs scope until Athenz supports multi-domain AT scopes |
+| `token-exchanging-mcp`        | `mcp-hub.api-mcp`                                                          | RFC 8693 source exchange from `mcp-hub` tokens into the `api` domain          |
+| `token-exchangable-ai-agents` | `human.idjag-learner.claude`, `human.idjag-learner.codex`, `ai.open-webui` | JAG-exchange into `api-mcp-accessor`                                          |
 
-| Service | K8s namespace | K8s secret | Cert files |
-|---|---|---|---|
-| `k8s-doc-server` | `mcp-hub` | `k8s-doc-server-cert` | `k8s-doc-server.crt` / `k8s-doc-server.key` |
-| `mcp-zpu` | `mcp-hub` | `mcp-hub-zpu-cert` | `cert` / `key` |
+| Service   | K8s namespace | K8s secret         | Cert files                    |
+|-----------|---------------|--------------------|-------------------------------|
+| `api-mcp` | `mcp-hub`     | `api-mcp-cert`     | `api-mcp.crt` / `api-mcp.key` |
+| `zpu`     | `mcp-hub`     | `mcp-hub-zpu-cert` | `cert` / `key`                |

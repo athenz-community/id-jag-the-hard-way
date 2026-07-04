@@ -26,11 +26,11 @@ First, create roles under the `api` and `mcp-hub` domains to represent AI agents
 ./tools/athenz/create-role.sh "mcp-hub" "token-exchangable-ai-agents"
 ```
 
-Grant the `zts.jag_exchange` action for `api:role.docs-getter` and `mcp-hub:role.mcp-accessor`:
+Grant the `zts.jag_exchange` action for `api:role.docs-getter` and `mcp-hub:role.api-mcp-accessor`:
 
 ```sh
 ./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
-./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
+./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.api-mcp-accessor"
 ```
 
 Now add `human.idjag-learner.codex` as a member of both roles:
@@ -48,7 +48,7 @@ Now add `human.idjag-learner.codex` as a member of both roles:
 ```
 
 > [!NOTE]
-> Notice that `human.idjag-learner.codex` does not need direct permission to fetch an Access Token for `api:role.docs-getter` or `mcp-hub:role.mcp-accessor`. It only needs `zts.jag_exchange` — the right to perform the token exchange on behalf of the user.
+> Notice that `human.idjag-learner.codex` does not need direct permission to fetch an Access Token for `api:role.docs-getter` or `mcp-hub:role.api-mcp-accessor`. It only needs `zts.jag_exchange` — the right to perform the token exchange on behalf of the user.
 
 ## Verify
 

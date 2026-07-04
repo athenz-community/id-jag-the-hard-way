@@ -4,7 +4,7 @@
 
 # Athenz Access Token
 
-In this tutorial, you will get Access Token that the API server requests.
+In this tutorial, you will get the Access Token that the API server requests with the following steps:
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
@@ -30,20 +30,16 @@ Earlier, in our API server, we needed a way to check if a client has permission 
 Now, execute the script to create the `docs-getter` role inside the `api` domain:
 
 ```sh
-./tools/athenz/create-role.sh "api" "docs-getter"
+UI_OPEN=true ./tools/athenz/create-role.sh "api" "docs-getter"
 ```
 
 ```sh
 #   ·  Creating Role: api:role.docs-getter...
 #   ✔  Role created: api:role.docs-getter
+#   ✔  Opened: http://localhost:3000/domain/api/role
 ```
 
-You can verify the new role by navigating to the `api` domain in the **Athenz UI**:
-
-```sh
-_athenz_ui_port=$(./tools/port.sh athenz-ui)
-./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/role"
-```
+This creates the role and opens the role page in the Athenz UI.
 
 ![07_create_api_domain_role](./assets/07_create_api_domain_role.png)
 
@@ -153,7 +149,7 @@ _root_user_at=$(./tools/athenz/fetch-access-token.sh \
 Last time we tried to access the `docs` resource of the API server, but we got a 401 Unauthorized error:
 
 ```sh
-curl -s -k http://localhost:14443/api/docs | jq .
+curl -sS -k http://localhost:14443/api/docs | jq .
 ```
 
 ```sh
@@ -168,7 +164,7 @@ curl -s -k http://localhost:14443/api/docs | jq .
 With the Access Token, let's see if we can access it now. Pass it as `Authorization: Bearer <token>`:
 
 ```sh
-curl -s -k -H "Authorization: Bearer $_root_user_at" http://localhost:14443/api/docs | jq .
+curl -sS -k -H "Authorization: Bearer $_root_user_at" http://localhost:14443/api/docs | jq .
 ```
 
 ```sh

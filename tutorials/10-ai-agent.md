@@ -33,25 +33,17 @@ Check if Claude is already installed:
 claude --version
 ```
 
+```sh
+# X.X.XXX (Claude Code)
+```
+
 If you don't see a version (e.g. `X.X.XXX (Claude Code)`), install it:
 
-macOS / Linux / WSL:
-
-```sh
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
-Windows PowerShell:
-
-```sh
-irm https://claude.ai/install.ps1 | iex
-```
-
-Windows CMD:
-
-```sh
-curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del install.cmd
-```
+| Platform            | Command                                                                                     |
+|:--------------------|:--------------------------------------------------------------------------------------------|
+| macOS / Linux / WSL | ```curl -fsSL https://claude.ai/install.sh \| bash```                                       |
+| Windows PowerShell  | `irm https://claude.ai/install.ps1 \| iex`                                                  |
+| Windows CMD         | `curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del install.cmd` |
 
 > [!NOTE]
 > Official Claude installation guide: [Claude Code Quickstart](https://code.claude.com/docs/en/quickstart#native-install-recommended)

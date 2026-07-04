@@ -26,7 +26,7 @@ In this tutorial, we will secure the MCP server using an Authorization Server (A
 We will deploy an authorization proxy for the MCP server managed by MCP Hub. The proxy checks the access token before forwarding requests to the MCP server:
 
 ```yaml
-kubectl patch deploy k8s-doc-server -n mcp-hub --patch "$(cat <<'EOF'
+kubectl patch deploy api-mcp -n mcp-hub --patch "$(cat <<'EOF'
 spec:
   template:
     spec:
@@ -40,7 +40,7 @@ spec:
             - name: MCP_TARGET_URL
               value: "http://localhost:8081"
             - name: MCP_RESOURCE
-              value: "k8s-doc-server"
+              value: "api-mcp"
           ports:
             - containerPort: 8082
 EOF
@@ -52,22 +52,22 @@ EOF
 The ZPU sidecar needs a service identity in the `mcp-hub` domain so it can fetch and evaluate the MCP Hub policies locally.
 
 ```sh
-./tools/athenz/create-private-key.sh "./keys/mcp-zpu"
-./tools/athenz/create-service.sh "mcp-hub" "mcp-zpu" "./keys/mcp-zpu.public.key"
-./tools/athenz/enable-cert-provider.sh "mcp-hub" "mcp-zpu"
-./tools/athenz/fetch-cert.sh "mcp-hub" "mcp-zpu" "./keys/mcp-zpu.key" "v1"
+./tools/athenz/create-private-key.sh "./keys/zpu"
+./tools/athenz/create-service.sh "mcp-hub" "zpu" "./keys/zpu.public.key"
+./tools/athenz/enable-cert-provider.sh "mcp-hub" "zpu"
+./tools/athenz/fetch-cert.sh "mcp-hub" "zpu" "./keys/zpu.key" "v1"
 
 kubectl -n mcp-hub delete secret mcp-hub-zpu-cert --ignore-not-found
 kubectl -n mcp-hub create secret generic mcp-hub-zpu-cert \
-  --from-file=cert=./keys/mcp-zpu.crt \
-  --from-file=key=./keys/mcp-zpu.key \
+  --from-file=cert=./keys/zpu.crt \
+  --from-file=key=./keys/zpu.key \
   --from-file=ca=./athenz_dist/certs/ca.cert.pem
 ```
 
 Attach the ZPU sidecar so the proxy can evaluate policies locally:
 
 ```yaml
-kubectl patch deploy k8s-doc-server -n mcp-hub --patch "$(cat <<'EOF'
+kubectl patch deploy api-mcp -n mcp-hub --patch "$(cat <<'EOF'
 spec:
   template:
     spec:
@@ -108,17 +108,17 @@ EOF
 
 ## Update the MCP Service to Point to the Proxy
 
-We have a service `k8s-doc-server` that watches the `k8s-doc-server` server right now, with selector: `Selector: app=k8s-doc-server`:
+We have a service `api-mcp` that watches the `api-mcp` server right now, with selector: `Selector: app=api-mcp`:
 
 ```sh
-kubectl describe svc k8s-doc-server -n mcp-hub
+kubectl describe svc api-mcp -n mcp-hub
 ```
 
-We are going to change the service `k8s-doc-server` to watch the authorization proxy instead, but with the same port and name:
+We are going to change the service `api-mcp` to watch the authorization proxy instead, but with the same port and name:
 
 ```sh
-kubectl delete svc k8s-doc-server -n mcp-hub
-kubectl expose deploy k8s-doc-server -n mcp-hub --port 8081 --target-port 8082 --name k8s-doc-server
+kubectl delete svc api-mcp -n mcp-hub
+kubectl expose deploy api-mcp -n mcp-hub --port 8081 --target-port 8082 --name api-mcp
 ```
 
 ## Verify
@@ -135,7 +135,7 @@ It will fail with an error similar to the following:
 
 ![12_open_webui_says_no_permission_against_mcp_server](./assets/12_open_webui_says_no_permission_against_mcp_server.png)
 
-This happens because the Authorization Proxy server we just configured requires the `access` action on the `mcp-hub:k8s-doc-server` resource, which we haven't granted yet. This permission check is illustrated in the architecture diagram below:
+This happens because the Authorization Proxy server we just configured requires the `access` action on the `mcp-hub:api-mcp` resource, which we haven't granted yet. This permission check is illustrated in the architecture diagram below:
 
 ![12_failed_to_go_through_authorization_server](./assets/12_failed_to_go_through_authorization_server.png)
 
@@ -143,56 +143,102 @@ This happens because the Authorization Proxy server we just configured requires 
 
 To authorize access to the authorization server, our identity service (`human.idjag-learner`) must have the following permissions:
 
-- resource: `k8s-doc-server` on domain `mcp-hub`
+- resource: `api-mcp` on domain `mcp-hub`
 - action: `access`
 
-Since we haven't prepared any roles or policies yet, let's create an explicit role named `mcp-accessor` and attach an access policy for the `k8s-doc-server` resource.
+Since we haven't prepared any roles or policies yet, let's create an explicit role named `api-mcp-accessor` and attach an access policy for the `api-mcp` resource.
+
+For now, also create a temporary `docs-getter` role in `mcp-hub`. This keeps the client-facing Access Token in a single Athenz domain while the current Athenz server does not support multi-domain scopes in one token. The real API permission remains `api:role.docs-getter`; the MCP server will exchange into that API-domain role before calling the API server.
 
 ```sh
-./tools/athenz/create-role.sh "mcp-hub" "mcp-accessor"
+./tools/athenz/create-role.sh "mcp-hub" "api-mcp-accessor"
+./tools/athenz/create-role.sh "mcp-hub" "docs-getter"
+./tools/athenz/create-role.sh "mcp-hub" "token-exchanging-mcp"
+```
+
+```sh
+#   ·  Creating Role: mcp-hub:role.api-mcp-accessor...
+#   ✔  Role created: mcp-hub:role.api-mcp-accessor
+#   ·  Creating Role: mcp-hub:role.docs-getter...
+#   ✔  Role created: mcp-hub:role.docs-getter
+#   ·  Creating Role: mcp-hub:role.token-exchanging-mcp...
+#   ✔  Role created: mcp-hub:role.token-exchanging-mcp
 ```
 
 Next, attach the policy to the role:
 
 ```sh
-./tools/athenz/add-policy.sh "mcp-hub" "mcp-accessor" "access" "k8s-doc-server"
+./tools/athenz/add-policy.sh "mcp-hub" "api-mcp-accessor" "access" "api-mcp"
 ```
 
-Finally, add you `human.idjag-learner` principal to the role:
+```sh
+#   ·  Creating Policy: mcp-hub:policy.api-mcp-accessor_access_api-mcp...
+#   ✔  Policy created: mcp-hub:policy.api-mcp-accessor_access_api-mcp
+```
+
+Finally, add your `human.idjag-learner` principal to both client-facing roles, and add the MCP server service identity to the source exchange role:
 
 ```sh
-./tools/athenz/add-role-member.sh "mcp-hub" "mcp-accessor" "human.idjag-learner"
+./tools/athenz/add-role-member.sh "mcp-hub" "api-mcp-accessor" "human.idjag-learner"
+./tools/athenz/add-role-member.sh "mcp-hub" "docs-getter" "human.idjag-learner"
+./tools/athenz/add-role-member.sh "mcp-hub" "token-exchanging-mcp" "mcp-hub.api-mcp"
+```
+
+```sh
+#   ·  Adding Member human.idjag-learner to Role: mcp-hub:role.api-mcp-accessor...
+#   ✔  human.idjag-learner  →  mcp-hub:role.api-mcp-accessor
+#   ·  Adding Member human.idjag-learner to Role: mcp-hub:role.docs-getter...
+#   ✔  human.idjag-learner  →  mcp-hub:role.docs-getter
+#   ·  Adding Member mcp-hub.api-mcp to Role: mcp-hub:role.token-exchanging-mcp...
+#   ✔  mcp-hub.api-mcp  →  mcp-hub:role.token-exchanging-mcp
+```
+
+Allow the MCP server to exchange from an `mcp-hub` token into an `api` token. ZTS checks source exchange in the source domain (`mcp-hub:api`) and target exchange in the target domain (`api:mcp-hub:role.docs-getter`):
+
+```sh
+./tools/athenz/add-policy.sh "mcp-hub" "token-exchanging-mcp" "zts.token_source_exchange" "api"
+./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_target_exchange" "mcp-hub:role.docs-getter"
+```
+
+```sh
+#   ·  Creating Policy: mcp-hub:policy.token-exchanging-mcp_zts_token_source_exchange_api...
+#   ✔  Policy created: mcp-hub:policy.token-exchanging-mcp_zts_token_source_exchange_api
+#   ·  Creating Policy: api:policy.token-exchanging-mcp_zts_token_target_exchange_mcp-hub_role_docs-getter...
+#   ✔  Policy created: api:policy.token-exchanging-mcp_zts_token_target_exchange_mcp-hub_role_docs-getter
 ```
 
 ## Fetch a New Access Token for the New Role
 
-Now, let's generate a new Access Token containing both scopes (space-separated values):
+> [!NOTE]
+> 🟡 TODO: The current Athenz Server does NOT support multi-domain scopes. The temporary `mcp-hub:role.docs-getter` role can be removed once that is fixed.
 
-- `mcp-hub:role.mcp-accessor`: to access the MCP Authorization Server
-- `api:role.docs-getter`: to access `get /docs` endpoint
+Now, let's generate a new Access Token containing both `mcp-hub` scopes:
+
+- `mcp-hub:role.api-mcp-accessor`: to access the MCP Authorization Server
+- `mcp-hub:role.docs-getter`: temporary docs permission marker until Athenz supports multi-domain scopes
 
 ```sh
-_scope="mcp-hub:role.mcp-accessor api:role.docs-getter"
+_scope="mcp-hub:role.api-mcp-accessor mcp-hub:role.docs-getter"
 _my_access_token=$(./tools/athenz/fetch-access-token.sh \
   "./keys/idjag-learner.crt" \
   "./keys/idjag-learner.key" \
   "${_scope}" \
-  "./keys/mcp-hub_mcp-accessor_api_docs-getter.jwt")
+  "./keys/mcp-hub_api-mcp-accessor_docs-getter.jwt")
 
-cat "./keys/mcp-hub_mcp-accessor_api_docs-getter.jwt"
+cat "./keys/mcp-hub_api-mcp-accessor_docs-getter.jwt"
 ```
 
 Note that the scope now includes both roles. This is because we need an Access Token that passes both authorization layer:
 
-- Able to call `GET /api/docs` (Or `get` on `api:docs`)
-- Able to access MCP Server (Or `access` on `mcp-hub:k8s-doc-server`)
+- Able to access MCP Server (Or `access` on `mcp-hub:api-mcp`)
+- Able to carry the temporary `mcp-hub:role.docs-getter` scope before the MCP server exchanges into the real `api:role.docs-getter`
 
 Check your access token with `scp` including both scopes:
 
 ```json
 "scp": [
   "docs-getter",
-  "mcp-accessor"
+  "api-mcp-accessor"
 ],
 ...
 ```
@@ -222,7 +268,7 @@ And we successfully get the docs from the API MCP Server!
 Check the MCP server logs to see what happened:
 
 ```sh
-kubectl logs deploy/k8s-doc-server -n mcp-hub -c k8s-doc-server
+kubectl logs deploy/api-mcp -n mcp-hub -c api-mcp
 ```
 
 The permission check is illustrated in the architecture diagram below:
@@ -231,7 +277,7 @@ The permission check is illustrated in the architecture diagram below:
 
 ## Review Summary of Changes
 
-First, we deployed the Authorization Proxy Server (indicated by the red dotted box), which checks for `access` to the `mcp-hub:k8s-doc-server` resource. To grant this access, we created a new `mcp-accessor` role under the `mcp-hub` domain and attached a policy matching the authorization server's requirements. As a result, the MCP server can only be accessed by an authenticated user holding an access token with the `mcp-accessor` scope—a key application of the Principle of Least Privilege.
+First, we deployed the Authorization Proxy Server (indicated by the red dotted box), which checks for `access` to the `mcp-hub:api-mcp` resource. To grant this access, we created a new `api-mcp-accessor` role under the `mcp-hub` domain and attached a policy matching the authorization server's requirements. As a result, the MCP server can only be accessed by an authenticated user holding an access token with the `api-mcp-accessor` scope—a key application of the Principle of Least Privilege.
 
 ![12_arch_architecture_of_mcp_server_with_authorization_proxy](./assets/12_arch_architecture_of_mcp_server_with_authorization_proxy.png)
 

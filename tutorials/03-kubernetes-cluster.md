@@ -1,6 +1,6 @@
-|                    Previous                    |        Current         |               Next               |
-|:----------------------------------------------:|:----------------------:|:--------------------------------:|
-| [Working Directory](./02-working-directory.md) | **Kubernetes Cluster** | [API Server](./04-api-server.md) |
+|                Previous                |        Current         |               Next               |
+|:--------------------------------------:|:----------------------:|:--------------------------------:|
+| [Prerequisites](./02-prerequisites.md) | **Kubernetes Cluster** | [API Server](./04-api-server.md) |
 
 # Kubernetes Cluster
 

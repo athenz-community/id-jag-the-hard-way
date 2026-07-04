@@ -103,7 +103,7 @@ Use annotations for display metadata and richer values.
 ```yaml
 metadata:
   annotations:
-    mcp.idthw.dev/alias: "K8s Doc Server"
+    mcp.idthw.dev/alias: "K8s Docs Server"
     mcp.idthw.dev/description: "The MCP server for ID-JAG tutorial documents"
     mcp.idthw.dev/transport: "streamable-http"
     mcp.idthw.dev/tools: "search_docs,read_doc,list_tutorials"
@@ -118,7 +118,7 @@ The deployment name remains the real MCP server name. The UI shows the alias if 
 Use an annotation, not a label, when the alias contains spaces:
 
 ```yaml
-mcp.idthw.dev/alias: "K8s Doc Server"
+mcp.idthw.dev/alias: "K8s Docs Server"
 ```
 
 ### `mcp.idthw.dev/description`
@@ -179,7 +179,7 @@ The deployment name is the MCP server's real name:
 
 ```yaml
 metadata:
-  name: k8s-doc-server
+  name: api-mcp
 ```
 
 The alias is optional display text:
@@ -187,7 +187,7 @@ The alias is optional display text:
 ```yaml
 metadata:
   annotations:
-    mcp.idthw.dev/alias: "K8s Doc Server"
+    mcp.idthw.dev/alias: "K8s Docs Server"
 ```
 
 The catalog display rule is:
@@ -204,14 +204,14 @@ This keeps Kubernetes identity stable while allowing friendly UI names.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: k8s-doc-server
+  name: api-mcp
   namespace: mcp-hub
   labels:
-    app: k8s-doc-server
+    app: api-mcp
     app.kubernetes.io/part-of: mcp-hub
     mcp.idthw.dev/project: k8s-docs-server
   annotations:
-    mcp.idthw.dev/alias: "K8s Doc Server"
+    mcp.idthw.dev/alias: "K8s Docs Server"
     mcp.idthw.dev/description: "The MCP server for ID-JAG tutorial documents"
     mcp.idthw.dev/transport: "streamable-http"
     mcp.idthw.dev/tools: "search_docs,read_doc,list_tutorials"
@@ -219,15 +219,15 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: k8s-doc-server
+      app: api-mcp
   template:
     metadata:
       labels:
-        app: k8s-doc-server
+        app: api-mcp
         app.kubernetes.io/part-of: mcp-hub
     spec:
       containers:
-        - name: k8s-doc-server
+        - name: api-mcp
           image: ghcr.io/mlajkim/mcp:latest
           ports:
             - containerPort: 8081
@@ -235,23 +235,23 @@ spec:
             - name: UPSTREAM_BASE_URL
               value: "http://api-server.api:8080"
             - name: PUBLIC_BASE_URL
-              value: "http://k8s-doc-server.mcp-hub:8081"
+              value: "http://api-mcp.mcp-hub:8081"
             - name: MCP_CERT_DIR
               value: "/app/certs"
             - name: ATHENZ_CERT_PATH
-              value: "/app/certs/k8s-doc-server.crt"
+              value: "/app/certs/api-mcp.crt"
             - name: ATHENZ_KEY_PATH
-              value: "/app/certs/k8s-doc-server.key"
+              value: "/app/certs/api-mcp.key"
             - name: ATHENZ_CA_PATH
               value: "/app/certs/ca.crt"
           volumeMounts:
-            - name: k8s-doc-server-certs
+            - name: api-mcp-certs
               mountPath: /app/certs
               readOnly: true
       volumes:
-        - name: k8s-doc-server-certs
+        - name: api-mcp-certs
           secret:
-            secretName: k8s-doc-server-cert
+            secretName: api-mcp-cert
 ```
 
 ## Example Service
@@ -260,14 +260,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: k8s-doc-server
+  name: api-mcp
   namespace: mcp-hub
   labels:
-    app: k8s-doc-server
+    app: api-mcp
     app.kubernetes.io/part-of: mcp-hub
 spec:
   selector:
-    app: k8s-doc-server
+    app: api-mcp
   ports:
     - name: http
       port: 8081
@@ -286,7 +286,7 @@ kubectl -n mcp-hub get deploy \
 Check metadata:
 
 ```bash
-kubectl -n mcp-hub get deploy/k8s-doc-server \
+kubectl -n mcp-hub get deploy/api-mcp \
   -o jsonpath='{.metadata.name}{"\t"}{.metadata.annotations.mcp\.idthw\.dev/alias}{"\t"}{.metadata.labels.mcp\.idthw\.dev/project}{"\n"}'
 ```
 
@@ -302,7 +302,7 @@ Open:
 http://localhost:3102
 ```
 
-The catalog should show `K8s Doc Server` if the alias annotation is set.
+The catalog should show `K8s Docs Server` if the alias annotation is set.
 
 ## Future Registration Flow
 
