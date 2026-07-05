@@ -29,7 +29,7 @@ export default async function McpServerClientConfigurationRoute({
 
   return (
     <ConsoleTemplate>
-      <McpServerDetailBreadcrumb project={project} product={product} displayName={displayName} />
+      <McpServerDetailBreadcrumb project={project} product={product} displayName={displayName} currentView="Client configuration" />
       <McpServerDetailHeader project={project} product={product} server={server} displayName={displayName} />
       <McpServerDetailTabs project={project} product={product} serverId={server.id} active="client-configuration" />
       <McpServerUrlSection mcpServerUrl={mcpServerUrl} />

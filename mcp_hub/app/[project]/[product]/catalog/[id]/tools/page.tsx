@@ -24,7 +24,7 @@ export default async function McpServerToolsRoute({ params }: { params: Promise<
 
   return (
     <ConsoleTemplate>
-      <McpServerDetailBreadcrumb project={project} product={product} displayName={displayName} />
+      <McpServerDetailBreadcrumb project={project} product={product} displayName={displayName} currentView="Tools" />
       <McpServerDetailHeader project={project} product={product} server={server} displayName={displayName} />
       <McpServerDetailTabs project={project} product={product} serverId={server.id} active="tools" />
       <ToolsFilter />

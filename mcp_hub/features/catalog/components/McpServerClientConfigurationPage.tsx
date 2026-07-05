@@ -10,10 +10,12 @@ export function McpServerDetailBreadcrumb({
   project,
   product,
   displayName,
+  currentView,
 }: {
   project: string
   product: string
   displayName: string
+  currentView: string
 }) {
   const catalogHref = consoleHref({ project, product, section: "catalog" })
 
@@ -32,7 +34,7 @@ export function McpServerDetailBreadcrumb({
       <ChevronRight size={14} aria-hidden="true" />
       <span>{displayName}</span>
       <ChevronRight size={14} aria-hidden="true" />
-      <strong>Client configuration</strong>
+      <strong>{currentView}</strong>
     </nav>
   )
 }
