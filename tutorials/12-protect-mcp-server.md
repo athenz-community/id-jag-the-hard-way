@@ -13,7 +13,7 @@ In this tutorial, we will secure the MCP server using an Authorization Proxy —
 - [Update the MCP Service to Point to the Proxy](#update-the-mcp-service-to-point-to-the-proxy)
 - [Verify (Expected Failure)](#verify-expected-failure)
 - [Fix Insufficient Permission](#fix-insufficient-permission)
-- [Fetch a New Access Token for the New Role](#fetch-a-new-access-token-for-the-new-role)
+- [Fetch a New Access Token for MCP Access](#fetch-a-new-access-token-for-mcp-access)
 - [Update .mcp.json with the New Token](#update-mcpjson-with-the-new-token)
 - [Verify](#verify)
 - [Review Summary of Changes](#review-summary-of-changes)
@@ -137,11 +137,13 @@ kubectl expose deploy api-mcp -n mcp-hub --port 8081 --target-port 8082 --name a
 > [!WARNING]
 > This step will intentionally fail — that is the point, and you will fix it in the next section.
 
-Reload the plugin in Claude Code, then ask:
+Reload the plugin in Claude Code:
 
 ```sh
 /reload-plugins
 ```
+
+Then ask:
 
 ```sh
 get docs from k8s doc server!
@@ -170,63 +172,35 @@ kubectl logs deploy/api-mcp -n mcp-hub -c auth-proxy
 
 ## Fix Insufficient Permission
 
-Create the `api-mcp-accessor` role and attach the required policy.
-
-For now, also create a temporary `docs-getter` role in `mcp-hub`. This keeps the client-facing Access Token in a single Athenz domain while the current Athenz server does not support multi-domain scopes in one token. The real API permission remains `api:role.docs-getter`; the MCP server will exchange into that API-domain role before calling the API server.
+Create the MCP access role and attach the required access policy.
 
 ```sh
 ./tools/athenz/create-role.sh "mcp-hub" "api-mcp-accessor"
-./tools/athenz/create-role.sh "mcp-hub" "docs-getter"
-./tools/athenz/create-role.sh "mcp-hub" "token-exchanging-mcp"
 ./tools/athenz/add-policy.sh "mcp-hub" "api-mcp-accessor" "access" "api-mcp"
 ```
 
 ```sh
 #   ·  Creating Role: mcp-hub:role.api-mcp-accessor...
 #   ✔  Role created: mcp-hub:role.api-mcp-accessor
-#   ·  Creating Role: mcp-hub:role.docs-getter...
-#   ✔  Role created: mcp-hub:role.docs-getter
-#   ·  Creating Role: mcp-hub:role.token-exchanging-mcp...
-#   ✔  Role created: mcp-hub:role.token-exchanging-mcp
 #   ·  Creating Policy: mcp-hub:policy.api-mcp-accessor_access_api-mcp...
 #   ✔  Policy created: mcp-hub:policy.api-mcp-accessor_access_api-mcp
 ```
 
-Add `human.idjag-learner` (the identity whose token we are using) as a member of both client-facing roles, and add the MCP server service identity to the source exchange role:
+Add `human.idjag-learner` (the identity whose token we are using) to the MCP access role:
 
 ```sh
 ./tools/athenz/add-role-member.sh "mcp-hub" "api-mcp-accessor" "human.idjag-learner"
-./tools/athenz/add-role-member.sh "mcp-hub" "docs-getter" "human.idjag-learner"
-./tools/athenz/add-role-member.sh "mcp-hub" "token-exchanging-mcp" "mcp-hub.api-mcp"
 ```
 
 ```sh
 #   ·  Adding Member human.idjag-learner to Role: mcp-hub:role.api-mcp-accessor...
 #   ✔  human.idjag-learner  →  mcp-hub:role.api-mcp-accessor
-#   ·  Adding Member human.idjag-learner to Role: mcp-hub:role.docs-getter...
-#   ✔  human.idjag-learner  →  mcp-hub:role.docs-getter
-#   ·  Adding Member mcp-hub.api-mcp to Role: mcp-hub:role.token-exchanging-mcp...
-#   ✔  mcp-hub.api-mcp  →  mcp-hub:role.token-exchanging-mcp
 ```
 
-Allow the MCP server to exchange from an `mcp-hub` token into an `api` token. ZTS checks source exchange in the source domain (`mcp-hub:api`) and target exchange in the target domain (`api:mcp-hub:role.docs-getter`):
-
-```sh
-./tools/athenz/add-policy.sh "mcp-hub" "token-exchanging-mcp" "zts.token_source_exchange" "api"
-./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_target_exchange" "mcp-hub:role.docs-getter"
-```
-
-```sh
-#   ·  Creating Policy: mcp-hub:policy.token-exchanging-mcp_zts_token_source_exchange_api...
-#   ✔  Policy created: mcp-hub:policy.token-exchanging-mcp_zts_token_source_exchange_api
-#   ·  Creating Policy: api:policy.token-exchanging-mcp_zts_token_target_exchange_mcp-hub_role_docs-getter...
-#   ✔  Policy created: api:policy.token-exchanging-mcp_zts_token_target_exchange_mcp-hub_role_docs-getter
-```
-
-## Fetch a New Access Token for the New Role
+## Fetch a New Access Token for MCP Access
 
 > [!NOTE]
-> 🟡 TODO: The current Athenz Server does NOT support multi-domain scopes. The temporary `mcp-hub:role.docs-getter` role can be removed once that is fixed.
+> The `mcp-hub:role.docs-getter` marker was prepared in the temporary same-domain marker section of the token-exchange tutorial. The real API permission remains `api:role.docs-getter`; the MCP server exchanges into that API-domain role before calling the API server.
 
 The Access Token must now include both `mcp-hub` scopes — one to pass through the MCP proxy, and one to represent the downstream docs permission before token exchange:
 

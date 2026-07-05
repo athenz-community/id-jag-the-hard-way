@@ -54,7 +54,13 @@ If you don't see a version (e.g. `X.X.XXX (Claude Code)`), install it:
 Claude Code reads `.mcp.json` only on startup, so create this file before launching Claude.
 
 > [!NOTE]
-> You need two terminals open: one to keep the port-forwarder running (`./tools/keep-k8s-port-forward.sh`), and one to run the commands below.
+> The MCP URL below points at `localhost` because `./tools/keep-k8s-port-forward.sh` forwards your local machine to the Kubernetes service. Keep the port-forwarder running in one terminal, then run this in another terminal before launching Claude:
+>
+> ```sh
+> ./tools/wait-readiness.sh mcp
+> ```
+>
+> If Claude says the port-forward connection dropped, restart `./tools/keep-k8s-port-forward.sh`, wait for `mcp` again, and retry.
 
 Get the Access Token:
 
@@ -96,15 +102,18 @@ Check the created `.mcp.json` file:
 cat .mcp.json
 ```
 
-```sh
-# {
-#   "mcpServers": {
-#     "id-jag-the-hard-way-mcp": {
-#       "type": "http",
-#       "url": "http://localhost:<your_port>/mcp"
-#     }
-#   }
-# }
+```json
+// {
+//   "mcpServers": {
+//     "id-jag-the-hard-way-mcp": {
+//       "type": "http",
+//       "url": "http://localhost:<your_port>/mcp",
+//       "headers": {
+//         "Authorization": "Bearer <redacted-access-token>"
+//       }
+//     }
+//   }
+// }
 ```
 
 > [!TIP]

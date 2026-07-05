@@ -58,8 +58,8 @@ roles:
     members:
       - human.idjag-learner
 
-  # token-exchanging-mcp: MCP server => use mcp-hub tokens as the source for api token exchange
-  - name: token-exchanging-mcp
+  # to-api-exchanger: MCP server => use mcp-hub tokens as the source for api token exchange
+  - name: to-api-exchanger
     members:
       - mcp-hub.api-mcp
     policies:

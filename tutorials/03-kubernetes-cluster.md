@@ -22,6 +22,20 @@ go install sigs.k8s.io/kind@latest
 kind create cluster
 ```
 
+```sh
+# Creating cluster "kind" ...
+#  ✓ Ensuring node image (kindest/node:v1.XX.X) 🖼 
+#  ✓ Preparing nodes 📦
+#  ✓ Writing configuration 📜
+#  ✓ Starting control-plane 🕹️
+#  ✓ Installing CNI 🔌
+#  ✓ Installing StorageClass 💾
+# Set kubectl context to "kind-kind"
+# You can now use your cluster with:
+
+# kubectl cluster-info --context kind-kind
+```
+
 > [!NOTE]
 > The Single Source of Truth (SSOT) guide for downloading and installing Kind can be found [here](https://kind.sigs.k8s.io/)
 

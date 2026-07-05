@@ -51,7 +51,7 @@ Create a domain `api` that represents the API server domain:
 You can verify that this domain is created successfully by refreshing the **Athenz UI** (`http://localhost:3000`). You can open it with:
 
 ```sh
-tools/open.sh http://localhost:$(tools/port.sh athenz-ui)/api
+tools/open.sh http://localhost:$(tools/port.sh athenz-ui)/api/role
 ```
 
 ![06_create_api_tld](./assets/06_create_api_tld.png)
@@ -156,7 +156,7 @@ kubectl -n api create secret generic api-zpu-cert \
 ```
 
 ```sh
-secret/api-zpu-cert created
+# secret/api-zpu-cert created
 ```
 
 ## Deploy ZPU Sidecar
@@ -225,9 +225,9 @@ kubectl rollout status deploy/api-server -n api
 ```
 
 ```sh
-Waiting for deployment "api-server" rollout to finish: 1 old replicas are pending termination...
-Waiting for deployment "api-server" rollout to finish: 1 old replicas are pending termination...
-deployment "api-server" successfully rolled out
+# Waiting for deployment "api-server" rollout to finish: 1 old replicas are pending termination...
+# Waiting for deployment "api-server" rollout to finish: 1 old replicas are pending termination...
+# deployment "api-server" successfully rolled out
 ```
 
 Verify that the policies have been successfully downloaded:
@@ -244,7 +244,7 @@ kubectl exec deploy/api-server -n api \
 #       "domain": "api",
 #       "policies": [
 #         {
-#           "name": "api:policy.token-exchanging-mcp_zts_token_target_exchange_api_role_docs-getter",
+#           "name": "api:policy.docs-getter-exchanger_zts_token_target_exchange_api_role_docs-getter",
 #           "modified": "2026-05-17T21:41:12.752Z",
 # ...
 ```

@@ -29,7 +29,7 @@ make -C ui setup-permissions-api
 | `docs-deleter`             | `human.idjag-learner`        | DELETE /docs                                                   |
 | `jag-exchanging-ai-agents` | `human.idjag-learner.claude` | JAG-exchange into `docs-getter`, `docs-poster`                 |
 | `jag-exchanging-uis`       | `org.idjag-ui`               | JAG-exchange into `docs-getter`, `docs-poster`, `docs-deleter` |
-| `token-exchanging-mcp`     | `mcp-hub.api-mcp`            | RFC 8693 target exchange into `api` docs roles                 |
+| `docs-getter-exchanger`    | `mcp-hub.api-mcp`            | RFC 8693 target exchange into `api:role.docs-getter`           |
 
 > **Note:** `jag-exchanging-ai-agents` intentionally does **not** grant `docs-deleter` exchange — AI agents cannot delete docs on behalf of users by design.
 
@@ -69,7 +69,7 @@ make -C ui setup-permissions-mcp-hub
 |-------------------------------|----------------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | `api-mcp-accessor`            | `human.idjag-learner`                                                      | access `mcp-hub:api-mcp`                                                      |
 | `docs-getter`                 | `human.idjag-learner`                                                      | temporary same-domain docs scope until Athenz supports multi-domain AT scopes |
-| `token-exchanging-mcp`        | `mcp-hub.api-mcp`                                                          | RFC 8693 source exchange from `mcp-hub` tokens into the `api` domain          |
+| `to-api-exchanger`            | `mcp-hub.api-mcp`                                                          | RFC 8693 source exchange from `mcp-hub` tokens into the `api` domain          |
 | `token-exchangable-ai-agents` | `human.idjag-learner.claude`, `human.idjag-learner.codex`, `ai.open-webui` | JAG-exchange into `api-mcp-accessor`                                          |
 
 | Service   | K8s namespace | K8s secret         | Cert files                    |

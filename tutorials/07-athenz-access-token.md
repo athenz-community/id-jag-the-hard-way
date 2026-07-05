@@ -152,6 +152,9 @@ Last time we tried to access the `docs` resource of the API server, but we got a
 curl -sS -k http://localhost:14443/api/docs | jq .
 ```
 
+> [!NOTE]
+> If you see `curl: (52) Empty reply from server` or `curl: (7) Failed to connect to localhost port 14443`, wait a few seconds and try again. The port-forward or sidecar may still be settling. Do not panic; the 401 Unauthorized response below is the expected result at this point.
+
 ```sh
 # {
 #   "error": "Unauthorized",
