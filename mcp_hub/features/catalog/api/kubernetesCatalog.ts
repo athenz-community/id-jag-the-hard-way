@@ -124,8 +124,9 @@ function initialsFor(name: string): string {
 }
 
 function iconForServer(name: string): string | undefined {
-  if (name === "confluence") return "/icons/confluence.png"
-  if (name === "athenz") return "/icons/athenz.png"
+  const normalizedName = name.toLowerCase()
+  if (normalizedName.includes("confluence")) return "/icons/confluence.png"
+  if (normalizedName.includes("athenz")) return "/icons/athenz.png"
   return undefined
 }
 
