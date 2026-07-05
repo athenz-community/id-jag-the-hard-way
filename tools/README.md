@@ -69,6 +69,7 @@ ports:
   athenz-ui: 3000
   api-server: 14443
   mcp: 24443
+  confluence-mcp: 24444
   keycloak: 34443
   keycloak-https: 34444
   ai-client-gateway: 44443

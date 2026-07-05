@@ -39,7 +39,7 @@ export async function listLiveMcpTools(server: McpServer): Promise<McpToolsResul
       return { endpoint, tools: [], error: `MCP server returned ${response.status}` }
     }
 
-    const payload = (await response.json()) as JsonRpcToolsListResponse
+    const payload = await parseMcpJsonRpcResponse(response)
     if (payload.error) {
       return { endpoint, tools: [], error: payload.error.message ?? "MCP tools/list returned an error" }
     }
@@ -92,4 +92,36 @@ function normalizeMcpEndpoint(value: string) {
   } catch {
     return raw
   }
+}
+
+async function parseMcpJsonRpcResponse(response: Response): Promise<JsonRpcToolsListResponse> {
+  const body = await response.text()
+  const contentType = response.headers.get("content-type") ?? ""
+
+  if (contentType.includes("text/event-stream") || body.trimStart().startsWith("event:")) {
+    return parseSseJsonRpcResponse(body)
+  }
+
+  return JSON.parse(body) as JsonRpcToolsListResponse
+}
+
+function parseSseJsonRpcResponse(body: string): JsonRpcToolsListResponse {
+  for (const event of body.split(/\r?\n\r?\n/)) {
+    const data = event
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice("data:".length).trimStart())
+      .join("\n")
+
+    if (!data) {
+      continue
+    }
+
+    const payload = JSON.parse(data) as JsonRpcToolsListResponse
+    if (payload.result || payload.error) {
+      return payload
+    }
+  }
+
+  throw new Error("MCP server returned an SSE response without a JSON-RPC message")
 }

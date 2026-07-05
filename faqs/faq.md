@@ -6,6 +6,9 @@
 <!-- TOC -->
 
 - [FAQs for ID-JAG](#faqs-for-id-jag)
+- [Setup Tutorials](#setup-tutorials)
+  - [Run MCP Hub](#run-mcp-hub)
+  - [Confluence Vendor MCP Server](#confluence-vendor-mcp-server)
 - [Governance](#governance)
   - [What should we do if Resource Server](#what-should-we-do-if-resource-server)
   - [Can I simply make MCP pass down the received AT to the API Server?](#can-i-simply-make-mcp-pass-down-the-received-at-to-the-api-server)
@@ -65,6 +68,16 @@
   - [Revocation](#revocation)
 
 <!-- /TOC -->
+
+# Setup Tutorials
+
+## Run MCP Hub
+
+See [Run MCP Hub](./run-mcp-hub.md).
+
+## Confluence Vendor MCP Server
+
+See [Setup Confluence Vendor MCP Server](./setup-confluence-vendor-mcp.md).
 
 # Governance
 

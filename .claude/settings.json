@@ -1,5 +1,6 @@
 {
   "enabledMcpjsonServers": [
-    "id-jag-the-hard-way-mcp"
+    "id-jag-the-hard-way-mcp",
+    "confluence-mcp"
   ]
 }
