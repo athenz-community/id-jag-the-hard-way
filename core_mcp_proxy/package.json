@@ -1,0 +1,13 @@
+{
+  "name": "core-mcp-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-strip-types ./src/index.ts",
+    "check": "node --experimental-strip-types --check ./src/index.ts && node --experimental-strip-types --check ./src/kubernetes.ts && node --experimental-strip-types --check ./src/proxy.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

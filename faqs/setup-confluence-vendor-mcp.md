@@ -24,6 +24,7 @@ The goal of this tutorial is to connect a vendor MCP server to MCP Hub, using Co
 
 - Complete the main tutorial through [MCP Server for API](../tutorials/09-mcp-server-for-api.md).
 - Have the local Kubernetes cluster and MCP Hub namespace available.
+- Complete [Setup Core MCP Proxy](./setup-core-mcp-proxy.md).
 - Have a Confluence Cloud site. The free plan is enough for a local multi-user demo.
 - Make sure your Kubernetes cluster can pull `ghcr.io/sooperset/mcp-atlassian:latest`.
 
@@ -40,12 +41,12 @@ AI client
   -> Confluence Cloud REST API
 ```
 
-For the first demo, MCP Hub should be treated as the SSOT for:
+For the first demo, MCP Hub should be treated as the control point for:
 
 - which MCP servers are approved
 - where each MCP server endpoint is
-- which tools each MCP server exposes
-- what resource model each tool should eventually map to
+- how users get MCP client configuration
+- live tool discovery from each MCP server
 
 The vendor MCP server still owns the actual Confluence API call.
 
@@ -211,10 +212,10 @@ If the logs mention `Excluding Jira tool ... Jira configuration/authentication i
 
 MCP Hub discovers catalog entries from Kubernetes deployments labeled as part of `mcp-hub`. Add the MCP Hub labels and annotations after the deployment exists.
 
-This annotation value assumes MCP Hub is running locally. The standard local dev helper exposes the configured `confluence-mcp` port automatically.
+This annotation value assumes MCP Hub is running locally and `core-mcp-proxy` is exposed on the configured local port. The default is `24442`, but use `port.sh` so local overrides keep working.
 
 ```sh
-_confluence_mcp_port=$(./tools/port.sh confluence-mcp)
+_core_mcp_proxy_port=$(./tools/port.sh core-mcp-proxy)
 
 kubectl label deploy confluence-mcp -n mcp-hub \
   app.kubernetes.io/part-of=mcp-hub \
@@ -224,7 +225,8 @@ kubectl label deploy confluence-mcp -n mcp-hub \
 kubectl annotate deploy confluence-mcp -n mcp-hub \
   mcp.idthw.dev/alias="Confluence MCP" \
   mcp.idthw.dev/description="Vendor MCP server backed by Confluence Cloud" \
-  mcp.idthw.dev/public-url="http://127.0.0.1:${_confluence_mcp_port}/mcp" \
+  mcp.idthw.dev/public-url="http://127.0.0.1:${_core_mcp_proxy_port}/mcp/confluence-mcp" \
+  mcp.idthw.dev/upstream-url="http://confluence-mcp.mcp-hub:9000/mcp" \
   mcp.idthw.dev/transport="streamable-http" \
   --overwrite
 ```
@@ -233,12 +235,13 @@ If MCP Hub is running inside Kubernetes instead of through `make -C mcp_hub loca
 
 ```sh
 kubectl annotate deploy confluence-mcp -n mcp-hub \
-  mcp.idthw.dev/public-url="http://confluence-mcp.mcp-hub:9000/mcp" \
+  mcp.idthw.dev/public-url="http://core-mcp-proxy.mcp-hub:8080/mcp/confluence-mcp" \
+  mcp.idthw.dev/upstream-url="http://confluence-mcp.mcp-hub:9000/mcp" \
   --overwrite
 ```
 
 > [!IMPORTANT]
-> The vendor MCP server is now running inside Kubernetes. For local MCP Hub development, the standard local dev helper exposes `confluence-mcp` on local port `24444` by default.
+> The vendor MCP server is now running inside Kubernetes. For local MCP Hub development, MCP Hub should use `core-mcp-proxy` on the port returned by `./tools/port.sh core-mcp-proxy`.
 
 ## Step 6. Get MCP Client Settings from MCP Hub
 
@@ -258,8 +261,9 @@ Copy either the MCP server URL or the JSON block for your client, such as Codex 
 
 The MCP Hub page should show:
 
-```text
-http://127.0.0.1:24444/mcp
+```sh
+_core_mcp_proxy_port=$(./tools/port.sh core-mcp-proxy)
+echo "http://127.0.0.1:${_core_mcp_proxy_port}/mcp/confluence-mcp"
 ```
 
 Use the settings from MCP Hub instead of manually reconstructing the client config. Once the client has this MCP server entry, it can talk to the Confluence MCP server.

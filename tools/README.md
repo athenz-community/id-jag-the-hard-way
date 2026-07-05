@@ -68,6 +68,7 @@ ports:
   zts: 8443
   athenz-ui: 3000
   api-server: 14443
+  core-mcp-proxy: 24442
   mcp: 24443
   confluence-mcp: 24444
   keycloak: 34443
