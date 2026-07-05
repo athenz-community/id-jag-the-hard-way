@@ -46,8 +46,10 @@ Let's label and annotate it:
 kubectl label deploy api-mcp -n mcp-hub \
   app.kubernetes.io/part-of=mcp-hub \
   mcp.idthw.dev/project=k8s-docs-server
+_mcp_port=$(./tools/port.sh mcp)
 kubectl annotate deploy api-mcp -n mcp-hub \
-  mcp.idthw.dev/alias="K8s Docs Server"
+  mcp.idthw.dev/alias="K8s Docs Server" \
+  mcp.idthw.dev/public-url="http://localhost:${_mcp_port}/mcp"
 ```
 
 ```sh

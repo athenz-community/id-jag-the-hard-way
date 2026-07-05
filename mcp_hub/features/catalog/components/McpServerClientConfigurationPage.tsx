@@ -69,18 +69,34 @@ export function McpServerDetailHeader({
   )
 }
 
-export function McpServerDetailTabs() {
+export function McpServerDetailTabs({
+  project,
+  product,
+  serverId,
+  active,
+}: {
+  project: string
+  product: string
+  serverId: string
+  active: "client-configuration" | "tools"
+}) {
   return (
     <div className="tabs detail-tabs" aria-label="MCP server detail views">
-      <button className="tab active" type="button">
+      <Link
+        className={`tab ${active === "client-configuration" ? "active" : ""}`}
+        href={consoleHref({ project, product, section: "catalog", suffix: `${serverId}/client-configuration` })}
+      >
         Client configuration
-      </button>
+      </Link>
       <button className="tab" type="button" disabled>
         Overview
       </button>
-      <button className="tab" type="button" disabled>
+      <Link
+        className={`tab ${active === "tools" ? "active" : ""}`}
+        href={consoleHref({ project, product, section: "catalog", suffix: `${serverId}/tools` })}
+      >
         Tools
-      </button>
+      </Link>
     </div>
   )
 }

@@ -60,6 +60,36 @@ The catalog reader supports two execution modes:
 
 This lets local development use the current `kubectl` context while the deployed MCP Hub can use Kubernetes RBAC.
 
+## Live Tool Discovery
+
+The Tools page discovers tools from the running MCP server with JSON-RPC `tools/list`. Deployment annotations can provide the endpoint URL, but the tool definitions come from the live MCP server.
+
+For local development, port-forward the MCP service before opening the Tools page:
+
+```bash
+kubectl -n mcp-hub port-forward svc/api-mcp 24443:8081
+```
+
+The local default MCP endpoint is:
+
+```text
+MCP_HUB_LOCAL_MCP_URL=http://127.0.0.1:24443/mcp
+```
+
+For a specific MCP deployment, set the public MCP endpoint with:
+
+```yaml
+mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
+```
+
+The client configuration page and live tool discovery use this annotation when it is present. If the value is just a host and port, such as `http://localhost:24443`, MCP Hub normalizes it to `/mcp`.
+
+When MCP Hub runs in-cluster, the default endpoint is:
+
+```text
+MCP_HUB_IN_CLUSTER_MCP_URL=http://api-mcp.mcp-hub:8081/mcp
+```
+
 ## Required Label
 
 Every MCP server deployment must have these labels:
@@ -105,8 +135,8 @@ metadata:
   annotations:
     mcp.idthw.dev/alias: "K8s Docs Server"
     mcp.idthw.dev/description: "The MCP server for ID-JAG tutorial documents"
+    mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
     mcp.idthw.dev/transport: "streamable-http"
-    mcp.idthw.dev/tools: "search_docs,read_doc,list_tutorials"
 ```
 
 ### `mcp.idthw.dev/alias`
@@ -135,6 +165,20 @@ If omitted, the API uses:
 The MCP server for <name-or-alias>
 ```
 
+### `mcp.idthw.dev/public-url`
+
+Externally reachable MCP endpoint used for client configuration and live tool discovery.
+
+```yaml
+mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
+```
+
+If the value is only an origin, MCP Hub adds `/mcp` automatically:
+
+```yaml
+mcp.idthw.dev/public-url: "http://localhost:24443"
+```
+
 ### `mcp.idthw.dev/transport`
 
 Transport used by the MCP server.
@@ -148,16 +192,6 @@ mcp.idthw.dev/transport: "stdio"
 ```
 
 The current catalog does not display transport yet, but future detail pages should.
-
-### `mcp.idthw.dev/tools`
-
-Comma-separated action/tool names exposed by the MCP server.
-
-```yaml
-mcp.idthw.dev/tools: "search_docs,read_doc,list_tutorials"
-```
-
-The current catalog does not display tools yet. The next detail page should use this value to show actions available to users.
 
 ### `mcp.idthw.dev/icon`
 
@@ -213,8 +247,8 @@ metadata:
   annotations:
     mcp.idthw.dev/alias: "K8s Docs Server"
     mcp.idthw.dev/description: "The MCP server for ID-JAG tutorial documents"
+    mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
     mcp.idthw.dev/transport: "streamable-http"
-    mcp.idthw.dev/tools: "search_docs,read_doc,list_tutorials"
 spec:
   replicas: 1
   selector:

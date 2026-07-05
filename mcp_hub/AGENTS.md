@@ -36,6 +36,7 @@ Registration is a real product goal. Users/providers should eventually be able t
 - `make local` runs the app on port `3102`.
 - The catalog page fetches MCP server rows from the local Next API route `/api/mcp-servers`.
 - `/api/mcp-servers` reads Kubernetes Deployments with MCP Hub labels and maps labels/annotations into the catalog model.
+- The Tools page calls the running MCP server with JSON-RPC `tools/list`; Kubernetes annotations are not the source of truth for tools.
 - Most navigation and not-yet-implemented controls are disabled so missing surfaces are obvious.
 - Public images live in `public/icons/` and are referenced as `/icons/<file>`.
 - For the first real-data slice, prefer reading Kubernetes Deployments/Services with MCP Hub labels and annotations over adding a database.
@@ -66,8 +67,8 @@ Initial Kubernetes metadata can be modeled with labels and annotations such as:
 - `mcp.idthw.dev/alias=<optional-display-alias>` as an annotation when the alias contains spaces.
 - `mcp.idthw.dev/project=<project-name>` is required for catalog listing.
 - `mcp.idthw.dev/description=<description>`
+- `mcp.idthw.dev/public-url=<externally-reachable-mcp-url>` for client configuration and live tool discovery.
 - `mcp.idthw.dev/transport=<transport>`
-- `mcp.idthw.dev/tools=<comma-separated-actions>`
 
 ## UI Guidance
 

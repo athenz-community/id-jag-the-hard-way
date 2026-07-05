@@ -1,0 +1,95 @@
+import type { McpServer } from "@/features/catalog/types/catalog"
+import type { McpTool, McpToolsResult } from "@/features/catalog/types/tools"
+
+const DEFAULT_NAMESPACE = process.env.MCP_HUB_K8S_NAMESPACE ?? "mcp-hub"
+const DEFAULT_LOCAL_MCP_URL = process.env.MCP_HUB_LOCAL_MCP_URL ?? "http://127.0.0.1:24443/mcp"
+const DEFAULT_IN_CLUSTER_MCP_URL = process.env.MCP_HUB_IN_CLUSTER_MCP_URL ?? `http://api-mcp.${DEFAULT_NAMESPACE}:8081/mcp`
+
+type JsonRpcToolsListResponse = {
+  jsonrpc?: string
+  id?: string | number
+  result?: {
+    tools?: McpTool[]
+  }
+  error?: {
+    message?: string
+  }
+}
+
+export async function listLiveMcpTools(server: McpServer): Promise<McpToolsResult> {
+  const endpoint = resolveMcpToolsEndpoint(server)
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {},
+      }),
+    })
+
+    if (!response.ok) {
+      return { endpoint, tools: [], error: `MCP server returned ${response.status}` }
+    }
+
+    const payload = (await response.json()) as JsonRpcToolsListResponse
+    if (payload.error) {
+      return { endpoint, tools: [], error: payload.error.message ?? "MCP tools/list returned an error" }
+    }
+
+    return { endpoint, tools: payload.result?.tools ?? [] }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to call MCP tools/list"
+    return { endpoint, tools: [], error: message }
+  }
+}
+
+export function resolveMcpDisplayUrl(server?: McpServer) {
+  return normalizeMcpEndpoint(server?.publicUrl ?? process.env.MCP_HUB_PUBLIC_MCP_URL ?? DEFAULT_LOCAL_MCP_URL)
+}
+
+function resolveMcpToolsEndpoint(server: McpServer) {
+  const template = process.env.MCP_HUB_MCP_URL_TEMPLATE
+  if (template) {
+    return template
+      .replaceAll("{server}", encodeURIComponent(server.name))
+      .replaceAll("{name}", encodeURIComponent(server.name))
+      .replaceAll("{namespace}", encodeURIComponent(DEFAULT_NAMESPACE))
+  }
+
+  if (server.publicUrl) {
+    return normalizeMcpEndpoint(server.publicUrl)
+  }
+
+  if (process.env.MCP_HUB_PUBLIC_MCP_URL) {
+    return normalizeMcpEndpoint(process.env.MCP_HUB_PUBLIC_MCP_URL)
+  }
+
+  if (process.env.KUBERNETES_SERVICE_HOST) {
+    return DEFAULT_IN_CLUSTER_MCP_URL
+  }
+
+  return DEFAULT_LOCAL_MCP_URL
+}
+
+function normalizeMcpEndpoint(value: string) {
+  const raw = value.trim()
+  const withProtocol = /^https?:\/\//.test(raw) ? raw : `http://${raw}`
+
+  try {
+    const url = new URL(withProtocol)
+    if (url.pathname === "" || url.pathname === "/") {
+      url.pathname = "/mcp"
+    }
+    return url.toString()
+  } catch {
+    return raw
+  }
+}

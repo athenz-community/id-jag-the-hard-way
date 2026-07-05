@@ -13,8 +13,8 @@ const ANNOTATION_DESCRIPTION = "mcp.idthw.dev/description"
 const ANNOTATION_ICON = "mcp.idthw.dev/icon"
 const ANNOTATION_PROJECT = "mcp.idthw.dev/project"
 const ANNOTATION_ALIAS = "mcp.idthw.dev/alias"
+const ANNOTATION_PUBLIC_URL = "mcp.idthw.dev/public-url"
 const LEGACY_ANNOTATION_SERVER = "mcp.idthw.dev/server"
-const ANNOTATION_TOOLS = "mcp.idthw.dev/tools"
 const LABEL_PROJECT = "mcp.idthw.dev/project"
 const LABEL_ALIAS = "mcp.idthw.dev/alias"
 const LEGACY_LABEL_SERVER = "mcp.idthw.dev/server"
@@ -99,26 +99,19 @@ function deploymentToMcpServer(deployment: Deployment): McpServer | null {
   const project = annotations[ANNOTATION_PROJECT] ?? labels[LABEL_PROJECT]
   if (!project) return null
 
-  const tools = splitCsv(annotations[ANNOTATION_TOOLS])
-
   return {
     id: name,
     name,
     alias,
     description: annotations[ANNOTATION_DESCRIPTION] ?? `The MCP server for ${displayName}`,
     project,
+    publicUrl: annotations[ANNOTATION_PUBLIC_URL],
     totalToolCalls: "N/A",
-    tools,
     iconSrc: annotations[ANNOTATION_ICON] ?? iconForServer(displayName),
     logoText: initialsFor(displayName),
     logoBg: "#ffffff",
     logoFg: "#111111",
   }
-}
-
-function splitCsv(value?: string): string[] {
-  if (!value) return []
-  return value.split(",").map((item) => item.trim()).filter(Boolean)
 }
 
 function initialsFor(name: string): string {
