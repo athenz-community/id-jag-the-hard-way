@@ -151,7 +151,7 @@ In Keycloak, a **Client** represents an application that requests authentication
 Register the AI client (`human.idjag-learner.codex`) with Keycloak:
 
 ```sh
-_acg_port=$(./tools/port.sh ai-client-gateway)
+_acg_port=$(./tools/port.sh ai-client-gateway-codex)
 ./tools/keycloak/create-client.sh \
   human.idjag-learner.codex \
   "http://localhost:${_acg_port}/oauth/callback" \

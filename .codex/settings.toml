@@ -1,0 +1,8 @@
+[mcp_servers.id-jag-the-hard-way-mcp.tools.get_k8s_docs]
+approval_mode = "approve"
+
+[mcp_servers.id-jag-the-hard-way-mcp.tools.delete_k8s_doc]
+approval_mode = "approve"
+
+[mcp_servers.id-jag-the-hard-way-mcp.tools.post_k8s_doc]
+approval_mode = "approve"

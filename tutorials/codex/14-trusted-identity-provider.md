@@ -1,5 +1,5 @@
-|                    Previous                    |               Current                |                      Next                      |
-|:----------------------------------------------:|:------------------------------------:|:----------------------------------------------:|
+|                    Previous                    |                Current                |                      Next                      |
+|:----------------------------------------------:|:-------------------------------------:|:----------------------------------------------:|
 | [Identity Provider](./13-identity-provider.md) | **Trusted Identity Provider — Codex** | [AI Client Gateway](./15-ai-client-gateway.md) |
 
 # Trusted Identity Provider — Codex

@@ -66,7 +66,7 @@ get docs!
 
 ![16_successful_attrival_from_server](./assets/16_successful_attrival_from_server.png)
 
-You got the docs. Hooray.
+🎉 ID-JAG worked! You got the docs!
 
 ## What's happened?
 

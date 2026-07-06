@@ -1,5 +1,5 @@
-|                    Previous                    |      Current      |                      Next                      |
-|:----------------------------------------------:|:-----------------:|:----------------------------------------------:|
+|                    Previous                    |      Current       |                      Next                      |
+|:----------------------------------------------:|:------------------:|:----------------------------------------------:|
 | [AI Client Gateway](./15-ai-client-gateway.md) | **ID-JAG — Codex** | *None: You are at the end of the tutorial! 🎉* |
 
 # ID-JAG — Codex
@@ -49,14 +49,15 @@ Now add `human.idjag-learner.codex` as a member of both roles:
 
 ## Verify
 
-Restart Codex to reconnect with the new permissions:
+Start a new Codex chat to reconnect with the new permissions:
 
 ```sh
-codex
+/new
 ```
 
-> [!NOTE]
-> 🟡 TODO: Verify the exact reconnect flow for Codex CLI — whether it requires a re-authentication step or picks up the session automatically.
+The MCP startup warning from the previous tutorial is gone:
+
+![Codex MCP startup warning resolved](./assets/16_codex_mcp_startup_warning_gone.png)
 
 Then send the same prompt that failed in the previous tutorial:
 
@@ -64,10 +65,9 @@ Then send the same prompt that failed in the previous tutorial:
 get docs from k8s doc server!
 ```
 
-> [!NOTE]
-> 🟡 TODO: Add a screenshot of Codex successfully retrieving docs end-to-end via the ID-JAG flow.
+![Codex get Kubernetes docs success](./assets/16_codex_get_k8s_docs_success.png)
 
-You got the docs. Hooray.
+🎉 ID-JAG worked! You got the docs!
 
 ## What's happened?
 

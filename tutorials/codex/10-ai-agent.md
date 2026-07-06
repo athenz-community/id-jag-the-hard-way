@@ -72,22 +72,20 @@ _my_access_token=$(./tools/athenz/fetch-access-token.sh \
 cat "./keys/idjag-learner.jwt"
 ```
 
-Create a project-local `.codex/config.toml` at the root of this repository.
-
-> [!NOTE]
-> Codex merges config from two locations: the global `~/.codex/config.toml` and the project-local `.codex/config.toml` in the current directory. Settings in the project-local file are appended to the global config, so you only need to add the MCP server entry here — any existing global settings remain active.
+Create a local Codex config file and append the provided settings:
 
 ```sh
 _mcp_port=$(./tools/port.sh mcp)
 _at=$(cat ./keys/idjag-learner.jwt)
 
-mkdir -p .codex
 cat > .codex/config.toml <<EOF
 [mcp_servers.id-jag-the-hard-way-mcp]
 type = "http"
 url = "http://localhost:${_mcp_port}/mcp"
 http_headers = { Authorization = "Bearer ${_at}" }
 EOF
+
+cat .codex/settings.toml >> .codex/config.toml
 ```
 
 > [!IMPORTANT]
@@ -99,6 +97,22 @@ Check the created config file:
 cat .codex/config.toml
 ```
 
+```toml
+[mcp_servers.id-jag-the-hard-way-mcp]
+type = "http"
+url = "http://localhost:24443/mcp"
+http_headers = { Authorization = "Bearer <redacted-access-token>" }
+
+[mcp_servers.id-jag-the-hard-way-mcp.tools.get_k8s_docs]
+approval_mode = "approve"
+
+[mcp_servers.id-jag-the-hard-way-mcp.tools.delete_k8s_doc]
+approval_mode = "approve"
+
+[mcp_servers.id-jag-the-hard-way-mcp.tools.post_k8s_doc]
+approval_mode = "approve"
+```
+
 ## Connect to MCP Server
 
 Start Codex in this project directory:
@@ -107,8 +121,7 @@ Start Codex in this project directory:
 codex
 ```
 
-> [!NOTE]
-> 🟡 TODO: Add a screenshot of Codex CLI running with the MCP server connected successfully.
+![Codex MCP startup failed](./assets/10_codex_mcp_startup_failed.png)
 
 ## Verify
 
@@ -120,13 +133,9 @@ Type the following prompt in Codex:
 get docs from k8s doc server!
 ```
 
-> [!NOTE]
-> 🟡 TODO: Add a screenshot of Codex asking for permission to proceed.
-
 This will intentionally fail — the request will return a `No Permission to Token Exchange` error.
 
-> [!NOTE]
-> 🟡 TODO: Add a screenshot of the token exchange permission error in Codex.
+![Codex token exchange not authorized](./assets/10_codex_token_exchange_not_authorized.png)
 
 This is expected. The MCP server received your Access Token and tried to exchange it for a narrower-scoped token to call the API server — but it does not yet have permission to do that.
 

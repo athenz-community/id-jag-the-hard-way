@@ -11,6 +11,7 @@ ports:
   keycloak: 34443
   keycloak-https: 34444
   ai-client-gateway: 44443
+  ai-client-gateway-codex: 44444
   open-webui: 54443
 
 keycloak:
