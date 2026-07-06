@@ -55,45 +55,51 @@ EOF
 
 ## Allow MCP Server to Exchange the Given Access Token
 
-Even if the original requester has `get` access to the `api:docs` resource, that does not automatically mean anyone can exchange the Access Token on their behalf. We need to create a dedicated role that explicitly allows token exchange.
+Even if the original requester has `get` access to the `api:docs` resource, that does not automatically mean anyone can exchange the Access Token on their behalf. We need to create dedicated roles that explicitly allow token exchange.
 
-Create the `token-exchanging-mcp` role:
+Create the exchange roles:
 
 ```sh
-./tools/athenz/create-role.sh "api" "token-exchanging-mcp"
+./tools/athenz/create-role.sh "api" "to-api-exchanger"
+./tools/athenz/create-role.sh "api" "docs-getter-exchanger"
 ```
 
 ```sh
-#   ·  Creating Role: api:role.token-exchanging-mcp...
-#   ✔  Role created: api:role.token-exchanging-mcp
+#   ·  Creating Role: api:role.to-api-exchanger...
+#   ✔  Role created: api:role.to-api-exchanger
+#   ·  Creating Role: api:role.docs-getter-exchanger...
+#   ✔  Role created: api:role.docs-getter-exchanger
 ```
 
 In Athenz, you must explicitly define both the source and the target of the exchange. Add both policies:
 
 ```sh
-./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_source_exchange" "api"
-./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_target_exchange" "api:role.docs-getter"
+./tools/athenz/add-policy.sh "api" "to-api-exchanger" "zts.token_source_exchange" "api"
+./tools/athenz/add-policy.sh "api" "docs-getter-exchanger" "zts.token_target_exchange" "api:role.docs-getter"
 ```
 
 ```sh
-#   ·  Creating Policy: api:policy.token-exchanging-mcp_zts_token_source_exchange_api...
-#   ✔  Policy created: api:policy.token-exchanging-mcp_zts_token_source_exchange_api
-#   ·  Creating Policy: api:policy.token-exchanging-mcp_zts_token_target_exchange_api_role_docs-getter...
-#   ✔  Policy created: api:policy.token-exchanging-mcp_zts_token_target_exchange_api_role_docs-getter
+#   ·  Creating Policy: api:policy.to-api-exchanger_zts_token_source_exchange_api...
+#   ✔  Policy created: api:policy.to-api-exchanger_zts_token_source_exchange_api
+#   ·  Creating Policy: api:policy.docs-getter-exchanger_zts_token_target_exchange_api_role_docs-getter...
+#   ✔  Policy created: api:policy.docs-getter-exchanger_zts_token_target_exchange_api_role_docs-getter
 ```
 
 > [!NOTE]
 > The MCP server does not need direct access to the target resource. It only needs permission to perform the exchange itself.
 
-Add the `api.api-mcp` service principal as a member of this role:
+Add the `api.api-mcp` service principal as a member of both roles:
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "api.api-mcp"
+./tools/athenz/add-role-member.sh "api" "to-api-exchanger" "api.api-mcp"
+./tools/athenz/add-role-member.sh "api" "docs-getter-exchanger" "api.api-mcp"
 ```
 
 ```sh
-#   ·  Adding Member api.api-mcp to Role: api:role.token-exchanging-mcp...
-#   ✔  api.api-mcp  →  api:role.token-exchanging-mcp
+#   ·  Adding Member api.api-mcp to Role: api:role.to-api-exchanger...
+#   ✔  api.api-mcp  →  api:role.to-api-exchanger
+#   ·  Adding Member api.api-mcp to Role: api:role.docs-getter-exchanger...
+#   ✔  api.api-mcp  →  api:role.docs-getter-exchanger
 ```
 
 ## Verify
@@ -111,7 +117,7 @@ You just got the docs list through Codex.
 
 ## What's happened?
 
-By creating the `token-exchanging-mcp` role and assigning both source and target exchange policies in the `api` domain, the MCP server (`api.api-mcp`) can now exchange the incoming `api` Access Token for a narrower-scoped token before calling the API server.
+By creating the `to-api-exchanger` and `docs-getter-exchanger` roles, the MCP server (`api.api-mcp`) can now exchange the incoming `api` Access Token for a narrower-scoped token before calling the API server.
 
 Our API server is so far fully protected by Athenz Access Tokens. However, the MCP server itself has no authentication layer - anyone who can reach it can use it. In the next tutorial, we will deploy an Authorization Proxy in front of the MCP server.
 

@@ -28,6 +28,10 @@ Verify Docker is running:
 docker ps
 ```
 
+```sh
+# CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+```
+
 ## Install Packages
 
 > [!NOTE]

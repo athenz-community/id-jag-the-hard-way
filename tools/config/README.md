@@ -30,7 +30,8 @@ make -C ui setup-permissions-api
 | `mcp-accessor`             | `human.idjag-learner`        | access the MCP auth proxy                                       |
 | `jag-exchanging-ai-agents` | `human.idjag-learner.claude` | JAG-exchange into `docs-getter`, `docs-poster`, `mcp-accessor`  |
 | `jag-exchanging-uis`       | `org.idjag-ui`               | JAG-exchange into `docs-getter`, `docs-poster`, `docs-deleter`  |
-| `token-exchanging-mcp`     | `api.api-mcp`                | RFC 8693 exchange from `api` tokens into `docs-*` scoped tokens |
+| `to-api-exchanger`         | `api.api-mcp`                | RFC 8693 source exchange from `api` tokens                      |
+| `docs-getter-exchanger`    | `api.api-mcp`                | RFC 8693 target exchange into `docs-getter` scoped tokens       |
 
 > **Note:** `jag-exchanging-ai-agents` intentionally does **not** grant `docs-deleter` exchange — AI agents cannot delete docs on behalf of users by design.
 

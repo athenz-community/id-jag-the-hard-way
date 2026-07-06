@@ -166,6 +166,9 @@ curl -sS -k http://localhost:14443/api/docs | jq .
 
 With the Access Token, let's see if we can access it now. Pass it as `Authorization: Bearer <token>`:
 
+> [!NOTE]
+> If you see `curl: (52) Empty reply from server`, wait a few seconds and try again.
+
 ```sh
 curl -sS -k -H "Authorization: Bearer $_root_user_at" http://localhost:14443/api/docs | jq .
 ```

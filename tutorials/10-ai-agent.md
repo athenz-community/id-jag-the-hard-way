@@ -103,17 +103,17 @@ cat .mcp.json
 ```
 
 ```json
-// {
-//   "mcpServers": {
-//     "id-jag-the-hard-way-mcp": {
-//       "type": "http",
-//       "url": "http://localhost:<your_port>/mcp",
-//       "headers": {
-//         "Authorization": "Bearer <redacted-access-token>"
-//       }
-//     }
-//   }
-// }
+{
+  "mcpServers": {
+    "id-jag-the-hard-way-mcp": {
+      "type": "http",
+      "url": "http://localhost:<your_port>/mcp",
+      "headers": {
+        "Authorization": "Bearer <redacted-access-token>"
+      }
+    }
+  }
+}
 ```
 
 > [!TIP]
@@ -152,17 +152,13 @@ You can see that you are `✅ Connected` for the `id-jag-the-hard-way-mcp`:
 
 Let's see if we can really talk through the `id-jag-the-hard-way-mcp` MCP.
 
-Hit `Esc` one time to back to the prompt dialog:
+Hit `Esc` one time to go back to the prompt dialog, then type this prompt into Claude Code:
 
-```sh
+```text
 get docs from k8s doc server!
 ```
 
 ![ask_k8s_docs_server_in_claude](./assets/10_ask_k8s_docs_server_in_claude.png)
-
-You will be prompted `Do you want to proceed?`. select `2` (Or `1` if you want to get asked all the time):
-
-![10_claude_says_do_you_want_to_proceed](./assets/10_claude_says_do_you_want_to_proceed.png)
 
 
 This will intentionally fail — the request will return a `No Permission to Token Exchange` error, similar to:
