@@ -67,4 +67,6 @@ if [ "$http_code" != "204" ]; then
 fi
 
 ok "User created: ${username} (${email})"
-"${TOOLS_DIR}/open.sh" "http://localhost:${_keycloak_port}/admin/master/console/#/${_realm}/users/${user_uuid}"
+if [ "${OPEN_UI:-false}" = "true" ]; then
+  "${TOOLS_DIR}/open.sh" "http://localhost:${_keycloak_port}/admin/master/console/#/${_realm}/users/${user_uuid}/settings"
+fi
