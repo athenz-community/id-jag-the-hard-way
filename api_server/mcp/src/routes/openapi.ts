@@ -4,7 +4,7 @@ import { toolsRegistry } from "../config/registry";
 
 const router = Router();
 
-const ACCESS_MCP_REQUIRED_SCOPE = process.env.ACCESS_MCP_REQUIRED_SCOPE || "mcp-hub:role.api-mcp-accessor"
+const ACCESS_MCP_REQUIRED_SCOPE = process.env.ACCESS_MCP_REQUIRED_SCOPE || "api:role.mcp-accessor"
 const HEADER_ATHENZ_REQUIRED_SCOPE = "x-athenz-required-scope"
 
 router.get("/", (req, res) => {

@@ -14,6 +14,7 @@ AI client
 
 - [What should be the SSOT?](#what-should-be-the-ssot)
 - [What should the proxy do first?](#what-should-the-proxy-do-first)
+- [Create MCP Hub Namespace](#create-mcp-hub-namespace)
 - [Kubernetes RBAC](#kubernetes-rbac)
 - [Use the GHCR Image](#use-the-ghcr-image)
 - [Deploy the Proxy](#deploy-the-proxy)
@@ -52,7 +53,7 @@ Do not make the proxy call a local development URL like `http://127.0.0.1:24444/
 
 Keep the first version boring:
 
-1. Read MCP server deployments in namespace `mcp-hub`.
+1. Read MCP server deployments across namespaces.
 2. Filter to deployments labeled `app.kubernetes.io/part-of=mcp-hub`.
 3. Build a route table from deployment name to a same-name Service, or to `mcp.idthw.dev/upstream-url` when that override is present.
 4. Proxy:
@@ -65,10 +66,21 @@ For example:
 
 ```text
 /mcp/confluence-mcp -> http://confluence-mcp.mcp-hub:9000/mcp
-/mcp/api-mcp        -> http://api-mcp.mcp-hub:8081/mcp
 ```
 
 This is not one giant merged tool list yet. It is a stable fan-in route namespace.
+
+## Create MCP Hub Namespace
+
+`core-mcp-proxy` is part of MCP Hub infrastructure, so deploy it in the `mcp-hub` namespace:
+
+```sh
+kubectl create namespace mcp-hub --dry-run=client -o yaml | kubectl apply -f -
+```
+
+```sh
+# namespace/mcp-hub created
+```
 
 ## Kubernetes RBAC
 
@@ -194,19 +206,7 @@ For local development, MCP Hub can show proxy URLs:
 
 ```sh
 _core_mcp_proxy_port=$(./tools/port.sh core-mcp-proxy)
-echo "http://127.0.0.1:${_core_mcp_proxy_port}/mcp/api-mcp"
 echo "http://127.0.0.1:${_core_mcp_proxy_port}/mcp/confluence-mcp"
-```
-
-At that point, the K8s Docs Server metadata can look like:
-
-```sh
-_core_mcp_proxy_port=$(./tools/port.sh core-mcp-proxy)
-
-kubectl annotate deploy api-mcp -n mcp-hub \
-  mcp.idthw.dev/public-url="http://127.0.0.1:${_core_mcp_proxy_port}/mcp/api-mcp" \
-  mcp.idthw.dev/upstream-url="http://api-mcp.mcp-hub:8081/mcp" \
-  --overwrite
 ```
 
 The Confluence metadata can look like:

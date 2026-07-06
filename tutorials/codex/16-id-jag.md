@@ -19,36 +19,32 @@ In this tutorial, we will resolve the authorization failure from the previous st
 
 The `human.idjag-learner.codex` service needs permission to perform a JAG exchange on a user's behalf.
 
-First, create roles under the `api` and `mcp-hub` domains to represent AI agents that are allowed to perform token exchanges (skip if already created in a previous tutorial path):
+First, create a role under the `api` domain to represent AI agents that are allowed to perform token exchanges (skip if already created in a previous tutorial path):
 
 ```sh
-./tools/athenz/create-role.sh "api" "token-exchangable-ai-agents"
-./tools/athenz/create-role.sh "mcp-hub" "token-exchangable-ai-agents"
+./tools/athenz/create-role.sh "api" "jag-exchanging-ai-agents"
 ```
 
-Grant the `zts.jag_exchange` action for `api:role.docs-getter` and `mcp-hub:role.api-mcp-accessor`:
+Grant the `zts.jag_exchange` action for `api:role.docs-getter` and `api:role.mcp-accessor`:
 
 ```sh
-./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
-./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.api-mcp-accessor"
+./tools/athenz/add-policy.sh "api" "jag-exchanging-ai-agents" "zts.jag_exchange" "role.docs-getter"
+./tools/athenz/add-policy.sh "api" "jag-exchanging-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
 ```
 
-Now add `human.idjag-learner.codex` as a member of both roles:
+Now add `human.idjag-learner.codex` as a member of this role:
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "token-exchangable-ai-agents" "human.idjag-learner.codex"
-./tools/athenz/add-role-member.sh "mcp-hub" "token-exchangable-ai-agents" "human.idjag-learner.codex"
+./tools/athenz/add-role-member.sh "api" "jag-exchanging-ai-agents" "human.idjag-learner.codex"
 ```
 
 ```sh
-#   ·  Adding Member human.idjag-learner.codex to Role: api:role.token-exchangable-ai-agents...
-#   ✔  human.idjag-learner.codex  →  api:role.token-exchangable-ai-agents
-#   ·  Adding Member human.idjag-learner.codex to Role: mcp-hub:role.token-exchangable-ai-agents...
-#   ✔  human.idjag-learner.codex  →  mcp-hub:role.token-exchangable-ai-agents
+#   ·  Adding Member human.idjag-learner.codex to Role: api:role.jag-exchanging-ai-agents...
+#   ✔  human.idjag-learner.codex  →  api:role.jag-exchanging-ai-agents
 ```
 
 > [!NOTE]
-> Notice that `human.idjag-learner.codex` does not need direct permission to fetch an Access Token for `api:role.docs-getter` or `mcp-hub:role.api-mcp-accessor`. It only needs `zts.jag_exchange` — the right to perform the token exchange on behalf of the user.
+> Notice that `human.idjag-learner.codex` does not need direct permission to fetch an Access Token for `api:role.docs-getter` or `api:role.mcp-accessor`. It only needs `zts.jag_exchange` — the right to perform the token exchange on behalf of the user.
 
 ## Verify
 
@@ -78,7 +74,7 @@ Here is a brief overview of how it all worked:
 
 1. You signed in via the AI Client Gateway as `idjag-learner` through Keycloak, which issued an **ID Token**.
 2. The **AI Client Gateway** intercepted the request and exchanged the ID Token for an **ID-JAG token** via Athenz ZTS.
-3. Athenz ZTS validated the token against the `token-exchangable-ai-agents` role and issued a scoped **Access Token**.
+3. Athenz ZTS validated the token against the `jag-exchanging-ai-agents` role and issued a scoped **Access Token**.
 4. The gateway forwarded the request to the **MCP Server** with the Access Token attached.
 5. The **MCP Authorization Proxy** validated the token and forwarded it to the MCP Server.
 6. The MCP Server performed its own token exchange to call the **API Server**, which returned the data.

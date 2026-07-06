@@ -27,17 +27,7 @@ The page fetches data from the local Next API route:
 /api/mcp-servers
 ```
 
-That API route reads Kubernetes deployments from one namespace:
-
-```text
-MCP_HUB_K8S_NAMESPACE=mcp-hub
-```
-
-If `MCP_HUB_K8S_NAMESPACE` is not set, the default namespace is:
-
-```text
-mcp-hub
-```
+That API route reads Kubernetes deployments from all namespaces visible to the current Kubernetes client.
 
 The API selects deployments with:
 
@@ -55,10 +45,10 @@ MCP_HUB_K8S_LABEL_SELECTOR=<selector>
 
 The catalog reader supports two execution modes:
 
-- **Local development:** if `KUBERNETES_SERVICE_HOST` is not set, it shells out to `kubectl`.
-- **In-cluster/pod mode:** if `KUBERNETES_SERVICE_HOST` is set, it reads the Kubernetes API using the pod service account token.
+- **Local development:** if `KUBERNETES_SERVICE_HOST` is not set, it shells out to `kubectl get deployments --all-namespaces` and uses your current kubeconfig permissions.
+- **In-cluster/pod mode:** if `KUBERNETES_SERVICE_HOST` is set, it reads all namespaces through the Kubernetes API using the pod service account token.
 
-This lets local development use the current `kubectl` context while the deployed MCP Hub can use Kubernetes RBAC.
+For the current local workflow, no additional MCP Hub RBAC setup is required beyond your own `kubectl` access.
 
 ## Live Tool Discovery
 
@@ -67,7 +57,7 @@ The Tools page discovers tools from the running MCP server with JSON-RPC `tools/
 For local development, port-forward the MCP service before opening the Tools page:
 
 ```bash
-kubectl -n mcp-hub port-forward svc/api-mcp 24443:8081
+kubectl -n mcp-hub port-forward svc/example-mcp 24443:8081
 ```
 
 The local default MCP endpoint is:
@@ -84,15 +74,15 @@ mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
 
 The client configuration page and live tool discovery use this annotation when it is present. If the value is just a host and port, such as `http://localhost:24443`, MCP Hub normalizes it to `/mcp`.
 
-When MCP Hub runs in-cluster, the default endpoint is:
+When MCP Hub runs in-cluster, the default endpoint is derived from the selected server name and namespace:
 
 ```text
-MCP_HUB_IN_CLUSTER_MCP_URL=http://api-mcp.mcp-hub:8081/mcp
+http://{server}.{namespace}:8081/mcp
 ```
 
 ## Required Label
 
-Every MCP server deployment must have these labels:
+Every MCP server deployment in any namespace must have these labels:
 
 ```yaml
 metadata:
@@ -213,7 +203,7 @@ The deployment name is the MCP server's real name:
 
 ```yaml
 metadata:
-  name: api-mcp
+  name: example-mcp
 ```
 
 The alias is optional display text:
@@ -221,7 +211,7 @@ The alias is optional display text:
 ```yaml
 metadata:
   annotations:
-    mcp.idthw.dev/alias: "K8s Docs Server"
+    mcp.idthw.dev/alias: "Example MCP"
 ```
 
 The catalog display rule is:
@@ -238,54 +228,46 @@ This keeps Kubernetes identity stable while allowing friendly UI names.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api-mcp
+  name: example-mcp
   namespace: mcp-hub
   labels:
-    app: api-mcp
+    app: example-mcp
     app.kubernetes.io/part-of: mcp-hub
-    mcp.idthw.dev/project: k8s-docs-server
+    mcp.idthw.dev/project: example
   annotations:
-    mcp.idthw.dev/alias: "K8s Docs Server"
-    mcp.idthw.dev/description: "The MCP server for ID-JAG tutorial documents"
+    mcp.idthw.dev/alias: "Example MCP"
+    mcp.idthw.dev/description: "Example MCP server"
     mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
     mcp.idthw.dev/transport: "streamable-http"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: api-mcp
+      app: example-mcp
   template:
     metadata:
       labels:
-        app: api-mcp
+        app: example-mcp
         app.kubernetes.io/part-of: mcp-hub
     spec:
       containers:
-        - name: api-mcp
-          image: ghcr.io/mlajkim/mcp:latest
+        - name: example-mcp
+          image: ghcr.io/example/mcp:latest
           ports:
             - containerPort: 8081
           env:
-            - name: UPSTREAM_BASE_URL
-              value: "http://api-server.api:8080"
             - name: PUBLIC_BASE_URL
-              value: "http://api-mcp.mcp-hub:8081"
+              value: "http://example-mcp.mcp-hub:8081"
             - name: MCP_CERT_DIR
               value: "/app/certs"
-            - name: ATHENZ_CERT_PATH
-              value: "/app/certs/api-mcp.crt"
-            - name: ATHENZ_KEY_PATH
-              value: "/app/certs/api-mcp.key"
-            - name: ATHENZ_CA_PATH
-              value: "/app/certs/ca.crt"
           volumeMounts:
-            - name: api-mcp-certs
+            - name: example-mcp-certs
               mountPath: /app/certs
               readOnly: true
       volumes:
-        - name: api-mcp-certs
+        - name: example-mcp-certs
           secret:
-            secretName: api-mcp-cert
+            secretName: example-mcp-cert
 ```
 
 ## Example Service
@@ -294,14 +276,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: api-mcp
+  name: example-mcp
   namespace: mcp-hub
   labels:
-    app: api-mcp
+    app: example-mcp
     app.kubernetes.io/part-of: mcp-hub
 spec:
   selector:
-    app: api-mcp
+    app: example-mcp
   ports:
     - name: http
       port: 8081
@@ -313,14 +295,14 @@ The service name can remain stable even if the deployment name changes.
 ## Verify Discovery
 
 ```bash
-kubectl -n mcp-hub get deploy \
+kubectl get deploy --all-namespaces \
   -l app.kubernetes.io/part-of=mcp-hub
 ```
 
 Check metadata:
 
 ```bash
-kubectl -n mcp-hub get deploy/api-mcp \
+kubectl -n mcp-hub get deploy/example-mcp \
   -o jsonpath='{.metadata.name}{"\t"}{.metadata.annotations.mcp\.idthw\.dev/alias}{"\t"}{.metadata.labels.mcp\.idthw\.dev/project}{"\n"}'
 ```
 

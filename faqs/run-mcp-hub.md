@@ -14,11 +14,11 @@ The goal of this FAQ is to run MCP Hub locally.
 - Have the local Kubernetes cluster configured for this repo.
 - Have `kubectl` pointed at that cluster.
 - Have Node.js and npm available.
-- Complete the main tutorial through [MCP Server for API](../tutorials/09-mcp-server-for-api.md), or otherwise have at least one MCP server deployment registered in the `mcp-hub` namespace.
-- If you want the Tools page to load live tools from the tutorial MCP server, have the MCP service reachable from your laptop:
+- Have at least one MCP server deployment registered in the `mcp-hub` namespace.
+- If you want the Tools page to load live tools from an MCP server, have that MCP service reachable from your laptop:
 
 ```sh
-kubectl -n mcp-hub port-forward svc/api-mcp 24443:8081
+kubectl -n mcp-hub port-forward svc/example-mcp 24443:8081
 ```
 
 # Steps
@@ -52,11 +52,11 @@ Open:
 http://localhost:3102
 ```
 
-MCP Hub reads MCP server catalog entries from Kubernetes deployments in the `mcp-hub` namespace. For local development, it uses your current `kubectl` context.
+MCP Hub reads MCP server catalog entries from matching Kubernetes deployments across all namespaces. For local development, it uses your current `kubectl` context.
 
 If the catalog is empty, make sure the MCP server deployment has the required label:
 
 ```sh
-kubectl -n mcp-hub get deploy \
+kubectl get deploy --all-namespaces \
   -l app.kubernetes.io/part-of=mcp-hub
 ```

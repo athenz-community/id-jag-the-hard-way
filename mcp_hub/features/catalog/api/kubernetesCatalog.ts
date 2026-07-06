@@ -7,7 +7,6 @@ import type { McpServer } from "../types/catalog"
 const execFileAsync = promisify(execFile)
 
 const LABEL_SELECTOR = process.env.MCP_HUB_K8S_LABEL_SELECTOR ?? "app.kubernetes.io/part-of=mcp-hub"
-const DEFAULT_NAMESPACE = process.env.MCP_HUB_K8S_NAMESPACE ?? "mcp-hub"
 
 const ANNOTATION_DESCRIPTION = "mcp.idthw.dev/description"
 const ANNOTATION_ICON = "mcp.idthw.dev/icon"
@@ -37,7 +36,7 @@ export async function listMcpServersFromKubernetes(): Promise<McpServer[]> {
   return deployments
     .map(deploymentToMcpServer)
     .filter((server): server is McpServer => server !== null)
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name))
 }
 
 async function readDeployments(): Promise<Deployment[]> {
@@ -49,14 +48,13 @@ async function readDeployments(): Promise<Deployment[]> {
 }
 
 async function readDeploymentsFromInClusterApi(): Promise<Deployment[]> {
-  const namespace = await readNamespace()
   const host = process.env.KUBERNETES_SERVICE_HOST
   if (!host) throw new Error("KUBERNETES_SERVICE_HOST is not set")
 
   const port = process.env.KUBERNETES_SERVICE_PORT_HTTPS ?? process.env.KUBERNETES_SERVICE_PORT ?? "443"
   const token = await readFile("/var/run/secrets/kubernetes.io/serviceaccount/token", "utf8")
   const ca = await readFile("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
-  const path = `/apis/apps/v1/namespaces/${encodeURIComponent(namespace)}/deployments?labelSelector=${encodeURIComponent(LABEL_SELECTOR)}`
+  const path = `/apis/apps/v1/deployments?labelSelector=${encodeURIComponent(LABEL_SELECTOR)}`
 
   const response = await httpsGetJson<KubernetesList<Deployment>>({
     host,
@@ -72,21 +70,11 @@ async function readDeploymentsFromInClusterApi(): Promise<Deployment[]> {
 async function readDeploymentsFromKubectl(): Promise<Deployment[]> {
   const { stdout } = await execFileAsync(
     "kubectl",
-    ["get", "deployments", "-n", DEFAULT_NAMESPACE, "-l", LABEL_SELECTOR, "-o", "json"],
+    ["get", "deployments", "--all-namespaces", "-l", LABEL_SELECTOR, "-o", "json"],
     { timeout: 5000 },
   )
   const response = JSON.parse(stdout) as KubernetesList<Deployment>
   return response.items ?? []
-}
-
-async function readNamespace(): Promise<string> {
-  if (process.env.MCP_HUB_K8S_NAMESPACE) return process.env.MCP_HUB_K8S_NAMESPACE
-
-  try {
-    return (await readFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "utf8")).trim()
-  } catch {
-    return DEFAULT_NAMESPACE
-  }
 }
 
 function deploymentToMcpServer(deployment: Deployment): McpServer | null {
@@ -94,14 +82,16 @@ function deploymentToMcpServer(deployment: Deployment): McpServer | null {
   const labels = metadata.labels ?? {}
   const annotations = metadata.annotations ?? {}
   const name = metadata.name ?? "unknown"
+  const namespace = metadata.namespace ?? "default"
   const alias = annotations[ANNOTATION_ALIAS] ?? labels[LABEL_ALIAS] ?? annotations[LEGACY_ANNOTATION_SERVER] ?? labels[LEGACY_LABEL_SERVER]
   const displayName = alias ?? name
   const project = annotations[ANNOTATION_PROJECT] ?? labels[LABEL_PROJECT]
   if (!project) return null
 
   return {
-    id: name,
+    id: `${namespace}:${name}`,
     name,
+    namespace,
     alias,
     description: annotations[ANNOTATION_DESCRIPTION] ?? `The MCP server for ${displayName}`,
     project,

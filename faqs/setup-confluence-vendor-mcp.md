@@ -9,6 +9,7 @@ The goal of this tutorial is to connect a vendor MCP server to MCP Hub, using Co
 - [Step 3. Create Starter Pages](#step-3-create-starter-pages)
 - [Step 4. Create API Token](#step-4-create-api-token)
 - [Step 5. Deploy Vendor MCP Server](#step-5-deploy-vendor-mcp-server)
+  - [Create MCP Hub Namespace](#create-mcp-hub-namespace)
   - [Deploy Confluence MCP](#deploy-confluence-mcp)
   - [Configure Confluence Toolsets](#configure-confluence-toolsets)
   - [Register MCP Hub Metadata](#register-mcp-hub-metadata)
@@ -23,7 +24,7 @@ The goal of this tutorial is to connect a vendor MCP server to MCP Hub, using Co
 # Prerequisites
 
 - Complete the main tutorial through [MCP Server for API](../tutorials/09-mcp-server-for-api.md).
-- Have the local Kubernetes cluster and MCP Hub namespace available.
+- Have the local Kubernetes cluster available.
 - Complete [Setup Core MCP Proxy](./setup-core-mcp-proxy.md).
 - Have a Confluence Cloud site. The free plan is enough for a local multi-user demo.
 - Make sure your Kubernetes cluster can pull `ghcr.io/sooperset/mcp-atlassian:latest`.
@@ -128,6 +129,18 @@ Get key:
 ![store_api_token](./assets/store_api_token.png)
 
 ## Step 5. Deploy Vendor MCP Server
+
+### Create MCP Hub Namespace
+
+Vendor MCP servers are managed by MCP Hub, so deploy this Confluence MCP server in the `mcp-hub` namespace:
+
+```sh
+kubectl create namespace mcp-hub --dry-run=client -o yaml | kubectl apply -f -
+```
+
+```sh
+# namespace/mcp-hub created
+```
 
 Create a Kubernetes Secret for the Confluence credentials using the values obtained above. The helper will ask you for the API token value, so go ahead and paste it when prompted:
 

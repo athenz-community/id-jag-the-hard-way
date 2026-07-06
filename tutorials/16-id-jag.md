@@ -19,43 +19,37 @@ In this tutorial, we will resolve the authorization failure from the previous st
 
 The `human.idjag-learner.claude` service needs two things: permission to perform a JAG exchange on a user's behalf, and membership in the role that grants that permission.
 
-First, create roles under the `api` and `mcp-hub` domains to represent AI agents that are allowed to perform token exchanges:
+First, create a role under the `api` domain to represent AI agents that are allowed to perform token exchanges:
 
 ```sh
-./tools/athenz/create-role.sh "api" "token-exchangable-ai-agents"
-./tools/athenz/create-role.sh "mcp-hub" "token-exchangable-ai-agents"
+./tools/athenz/create-role.sh "api" "jag-exchanging-ai-agents"
 ```
 
-In Athenz, the `zts.jag_exchange` action controls whether a principal can exchange an ID token for an ID-JAG token scoped to a given role. Grant it for `api:role.docs-getter` and `mcp-hub:role.api-mcp-accessor`:
+In Athenz, the `zts.jag_exchange` action controls whether a principal can exchange an ID token for an ID-JAG token scoped to a given role. Grant it for `api:role.docs-getter` and `api:role.mcp-accessor`:
 
 ```sh
-./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
-./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.api-mcp-accessor"
+./tools/athenz/add-policy.sh "api" "jag-exchanging-ai-agents" "zts.jag_exchange" "role.docs-getter"
+./tools/athenz/add-policy.sh "api" "jag-exchanging-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
 ```
 
 ```sh
 #   ·  Creating Policy: api:policy.zts.jag_exchange...
 #   ✔  Policy created: api:policy.zts.jag_exchange
-#   ·  Creating Policy: mcp-hub:policy.zts.jag_exchange...
-#   ✔  Policy created: mcp-hub:policy.zts.jag_exchange
 ```
 
-Now add `human.idjag-learner.claude` as a member of both roles:
+Now add `human.idjag-learner.claude` as a member of this role:
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "token-exchangable-ai-agents" "human.idjag-learner.claude"
-./tools/athenz/add-role-member.sh "mcp-hub" "token-exchangable-ai-agents" "human.idjag-learner.claude"
+./tools/athenz/add-role-member.sh "api" "jag-exchanging-ai-agents" "human.idjag-learner.claude"
 ```
 
 ```sh
-#   ·  Adding Member human.idjag-learner.claude to Role: api:role.token-exchangable-ai-agents...
-#   ✔  human.idjag-learner.claude  →  api:role.token-exchangable-ai-agents
-#   ·  Adding Member human.idjag-learner.claude to Role: mcp-hub:role.token-exchangable-ai-agents...
-#   ✔  human.idjag-learner.claude  →  mcp-hub:role.token-exchangable-ai-agents
+#   ·  Adding Member human.idjag-learner.claude to Role: api:role.jag-exchanging-ai-agents...
+#   ✔  human.idjag-learner.claude  →  api:role.jag-exchanging-ai-agents
 ```
 
 > [!NOTE]
-> Notice that `human.idjag-learner.claude` does not need direct permission to fetch an Access Token for `api:role.docs-getter` or `mcp-hub:role.api-mcp-accessor`. It only needs `zts.jag_exchange` — the right to perform the token exchange on behalf of the user. The resulting scoped Access Token is what grants downstream access.
+> Notice that `human.idjag-learner.claude` does not need direct permission to fetch an Access Token for `api:role.docs-getter` or `api:role.mcp-accessor`. It only needs `zts.jag_exchange` — the right to perform the token exchange on behalf of the user. The resulting scoped Access Token is what grants downstream access.
 
 ## Verify
 
@@ -89,7 +83,7 @@ Here is a brief overview of how it all worked:
 
 1. You signed in to Open WebUI as `idjag-learner` via Keycloak, which issued an **ID Token**.
 2. The **AI Client Gateway** intercepted the request and exchanged the ID Token for an **ID-JAG token** via Athenz ZTS.
-3. Athenz ZTS validated the token against the `token-exchangable-ai-agents` role and issued a scoped **Access Token**.
+3. Athenz ZTS validated the token against the `jag-exchanging-ai-agents` role and issued a scoped **Access Token**.
 4. The gateway forwarded the request to the **MCP Server** with the Access Token attached.
 5. The **MCP Authorization Proxy** validated the token and forwarded it to the MCP Server.
 6. The MCP Server performed its own token exchange to call the **API Server**, which returned the data.

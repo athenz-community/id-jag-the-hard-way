@@ -1,9 +1,7 @@
 import type { McpServer } from "@/features/catalog/types/catalog"
 import type { McpTool, McpToolsResult } from "@/features/catalog/types/tools"
 
-const DEFAULT_NAMESPACE = process.env.MCP_HUB_K8S_NAMESPACE ?? "mcp-hub"
 const DEFAULT_LOCAL_MCP_URL = process.env.MCP_HUB_LOCAL_MCP_URL ?? "http://127.0.0.1:24443/mcp"
-const DEFAULT_IN_CLUSTER_MCP_URL = process.env.MCP_HUB_IN_CLUSTER_MCP_URL ?? `http://api-mcp.${DEFAULT_NAMESPACE}:8081/mcp`
 
 type JsonRpcToolsListResponse = {
   jsonrpc?: string
@@ -61,7 +59,7 @@ function resolveMcpToolsEndpoint(server: McpServer) {
     return template
       .replaceAll("{server}", encodeURIComponent(server.name))
       .replaceAll("{name}", encodeURIComponent(server.name))
-      .replaceAll("{namespace}", encodeURIComponent(DEFAULT_NAMESPACE))
+      .replaceAll("{namespace}", encodeURIComponent(server.namespace))
   }
 
   if (server.publicUrl) {
@@ -73,7 +71,7 @@ function resolveMcpToolsEndpoint(server: McpServer) {
   }
 
   if (process.env.KUBERNETES_SERVICE_HOST) {
-    return DEFAULT_IN_CLUSTER_MCP_URL
+    return process.env.MCP_HUB_IN_CLUSTER_MCP_URL ?? `http://${server.name}.${server.namespace}:8081/mcp`
   }
 
   return DEFAULT_LOCAL_MCP_URL

@@ -1,6 +1,7 @@
 export type McpServer = {
   id: string
   name: string
+  namespace: string
   alias?: string
   description: string
   project: string

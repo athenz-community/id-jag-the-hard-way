@@ -19,7 +19,7 @@ RUN mkdir -p /app/certs
 
 ENV PORT=8081
 ENV UPSTREAM_BASE_URL=http://api-server.api:8080
-ENV PUBLIC_BASE_URL=http://api-mcp.mcp-hub:8081
+ENV PUBLIC_BASE_URL=http://mcp.api:8081
 ENV MCP_CERT_DIR=/app/certs
 ENV ATHENZ_CERT_PATH=/app/certs/api-mcp.crt
 ENV ATHENZ_KEY_PATH=/app/certs/api-mcp.key

@@ -19,43 +19,37 @@ In this tutorial, we will finally resolve the authorization issues encountered i
 
 Because `ai.open-webui` acts on behalf of our user (`human.idjag-learner`), we need to explicitly authorize it to exchange the login ID Token for an ID-JAG token. We must grant it exchange permission for the API role and the MCP Hub role.
 
-First, create roles under the `api` and `mcp-hub` domains:
+First, create a role under the `api` domain:
 
 ```sh
-./tools/athenz/create-role.sh "api" "token-exchangable-ai-agents"
-./tools/athenz/create-role.sh "mcp-hub" "token-exchangable-ai-agents"
+./tools/athenz/create-role.sh "api" "jag-exchanging-ai-agents"
 ```
 
 In Athenz, you must allow the `zts.jag_exchange` action on the target roles:
 
 ```sh
-./tools/athenz/add-policy.sh "api" "token-exchangable-ai-agents" "zts.jag_exchange" "role.docs-getter"
-./tools/athenz/add-policy.sh "mcp-hub" "token-exchangable-ai-agents" "zts.jag_exchange" "role.api-mcp-accessor"
+./tools/athenz/add-policy.sh "api" "jag-exchanging-ai-agents" "zts.jag_exchange" "role.docs-getter"
+./tools/athenz/add-policy.sh "api" "jag-exchanging-ai-agents" "zts.jag_exchange" "role.mcp-accessor"
 ```
 
 ```sh
 #   ·  Creating Policy: api:policy.zts.jag_exchange...
 #   ✔  Policy created: api:policy.zts.jag_exchange
-#   ·  Creating Policy: mcp-hub:policy.zts.jag_exchange...
-#   ✔  Policy created: mcp-hub:policy.zts.jag_exchange
 ```
 
 Next, add the `ai.open-webui` as a member of both token exchange roles:
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "token-exchangable-ai-agents" "ai.open-webui"
-./tools/athenz/add-role-member.sh "mcp-hub" "token-exchangable-ai-agents" "ai.open-webui"
+./tools/athenz/add-role-member.sh "api" "jag-exchanging-ai-agents" "ai.open-webui"
 ```
 
 ```sh
-#   ·  Adding Member ai.open-webui to Role: api:role.token-exchangable-ai-agents...
-#   ✔  ai.open-webui  →  api:role.token-exchangable-ai-agents
-#   ·  Adding Member ai.open-webui to Role: mcp-hub:role.token-exchangable-ai-agents...
-#   ✔  ai.open-webui  →  mcp-hub:role.token-exchangable-ai-agents
+#   ·  Adding Member ai.open-webui to Role: api:role.jag-exchanging-ai-agents...
+#   ✔  ai.open-webui  →  api:role.jag-exchanging-ai-agents
 ```
 
 > [!NOTE]
-> Notice that the `ai.open-webui` client agent does not require direct permissions to fetch an Access Token against `api:role.docs-getter` or `mcp-hub:role.api-mcp-accessor`. It only needs the `zts.jag_exchange` permission to perform the token exchange on the user's behalf.
+> Notice that the `ai.open-webui` client agent does not require direct permissions to fetch an Access Token against `api:role.docs-getter` or `api:role.mcp-accessor`. It only needs the `zts.jag_exchange` permission to perform the token exchange on the user's behalf.
 
 ## Verify
 
@@ -77,7 +71,7 @@ Here is a brief overview of how it all worked:
 
 1. You signed in to Open WebUI as `idjag-learner` via Keycloak, which issued an **ID Token**.
 2. The **AI Client Gateway** intercepted the request and exchanged the ID Token for an **ID-JAG token** via Athenz ZTS.
-3. Athenz ZTS validated the token against the `token-exchangable-ai-agents` role and issued a scoped **Access Token**.
+3. Athenz ZTS validated the token against the `jag-exchanging-ai-agents` role and issued a scoped **Access Token**.
 4. The gateway forwarded the request to the **MCP Server** with the Access Token attached.
 5. The **MCP Authorization Proxy** validated the token and forwarded it to the MCP Server.
 6. The MCP Server performed its own token exchange to call the **API Server**, which returned the data.
