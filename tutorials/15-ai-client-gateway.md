@@ -216,6 +216,10 @@ EOF
 )"
 ```
 
+```sh
+# deployment.apps/claude-idjag-learner-ai-client-gateway patched
+```
+
 > [!NOTE]
 > `KEYCLOAK_URL` uses the in-cluster address `keycloak.idp:8080` because the server-side token exchange happens inside the cluster during the OAuth callback. `KEYCLOAK_PUBLIC_URL` uses the port-forwarded address because the browser's login redirect must be reachable from your local machine.
 

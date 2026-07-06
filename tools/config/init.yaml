@@ -77,8 +77,18 @@ roles:
       - allow: access
         on: mcp
 
-  # jag-exchanging-ai-agents: Claude (ID-JAG token) => exchange into docs roles or MCP access on the user's behalf
-  - name: jag-exchanging-ai-agents
+  # docs-getter-jag-exchanger: AI agents => JAG exchange into docs-getter on the user's behalf
+  - name: docs-getter-jag-exchanger
+    members:
+      - human.idjag-learner.claude
+      - human.idjag-learner.codex
+      - ai.open-webui
+    policies:
+      - allow: zts.jag_exchange
+        on: role.docs-getter
+
+  # mcp-accessor-jag-exchanger: AI agents => JAG exchange into mcp-accessor on the user's behalf
+  - name: mcp-accessor-jag-exchanger
     members:
       - human.idjag-learner.claude
       - human.idjag-learner.codex
@@ -86,13 +96,6 @@ roles:
     policies:
       - allow: zts.jag_exchange
         on: role.mcp-accessor
-      - allow: zts.jag_exchange
-        on: role.docs-getter
-      - allow: zts.jag_exchange
-        on: role.docs-poster
-      # Intentionally disabled to mimic organization not allow AI agents to delete docs on behalf of humans:
-      # - allow: zts.jag_exchange
-      #   on: role.docs-deleter
 
   # jag-exchanging-uis: Next.js UI => exchange into docs roles on the user's behalf
   - name: jag-exchanging-uis
