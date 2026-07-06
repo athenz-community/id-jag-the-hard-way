@@ -17,17 +17,12 @@ In this tutorial, we will deploy Athenz as the local authorization server and ve
 
 ## Deploy Athenz Server
 
-Run the following command (this will take about 5 minutes):
+Run the following command:
 
 ```sh
 git submodule update --init --recursive
 make -C athenz_dist clean-kubernetes-athenz deploy-kubernetes-athenz
 ```
-
-> [!NOTE]
-> The SSOT guide for using the Athenz manifest is available [here](https://github.com/athenz-community/athenz-distribution/blob/main/README.md)
-
-Once you see the following output, you can proceed to the next step:
 
 ```sh
 # ...
@@ -38,6 +33,9 @@ Once you see the following output, you can proceed to the next step:
 # service/athenz-ui created
 # deployment.apps/athenz-ui created
 ```
+
+> [!NOTE]
+> The SSOT guide for using the Athenz manifest is available [here](https://github.com/athenz-community/athenz-distribution/blob/main/README.md)
 
 ## Check Athenz Server Running
 
@@ -93,17 +91,17 @@ kubectl get pods -n athenz
 
 The `kubectl port-forward` command may stop if a pod restarts. Therefore, we need a way to keep the port-forwarding active.
 
-Start the port-forwarder in the background. If a default port is already in use, it will ask you to pick a different one.
+Start the port-forwarder. If a default port is already in use, it will ask you to pick a different one.
 
 > [!IMPORTANT]
-> You need two terminals: one to run the port-forwarder, and one to run commands. Open a second terminal now, then run the port-forwarder in that terminal:
+> Open another terminal tab for the port-forwarder so this terminal remains available for the commands that follow.
 
 ```sh
-./tools/keep-k8s-port-forward.sh &
+./tools/keep-k8s-port-forward.sh
 ```
 
 > [!TIP]
-> Adding `&` sends it to the background. If you prefer to keep it visible, run it in a separate dedicated terminal window without `&`.
+> Adding `&` is optional. It sends the port-forwarder to the background if you prefer to keep using the same terminal.
 
 ## Open Athenz UI
 

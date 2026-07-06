@@ -171,7 +171,7 @@ You should see a confirmation screen similar to this:
 Let's create a human user account to represent you:
 
 ```sh
-./tools/keycloak/create-user.sh \
+OPEN_UI=true ./tools/keycloak/create-user.sh \
   idjag-learner \
   idjag-learner@athenz.io \
   ID-JAG \
@@ -186,6 +186,15 @@ Let's create a human user account to represent you:
 ```sh
 ./tools/keycloak/set-token-lifespan.sh 14400
 ```
+
+```sh
+#   ·  Fetching Keycloak admin token...
+#   ·  Setting access token lifespan to 14400s in realm master...
+#   ✔  Access token lifespan set to 14400s (4h)
+#   ✔  Opened: http://localhost:34443/admin/master/console/#/master/realm-settings/tokens
+```
+
+![13_access_token_lifespan_set](../assets/13_access_token_lifespan_set.png)
 
 ## Add Keycloak Settings to Open WebUI
 

@@ -44,16 +44,17 @@ Create a domain `api` that represents the API server domain:
 ```
 
 ```sh
-# {"description":"TLD for api","org":"ajkimkim","auditEnabled":false,"ypmId":0,"autoDeleteTenantAssumeRoleAssertions":false,"name":"api","modified":"2026-05-10T07:56:23.059Z","id":"bce22e30-4c45-11f1-8af4-88f84977247b"}
+#   ·  Creating TLD: api...
+#   ✔  TLD created: api
 ```
 
 You can verify that this domain is created successfully by refreshing the **Athenz UI** (`http://localhost:3000`). You can open it with:
 
 ```sh
-tools/open.sh http://localhost:$(tools/port.sh athenz-ui)
+tools/open.sh http://localhost:$(tools/port.sh athenz-ui)/api/role
 ```
 
-![07_create_api_tld](./assets/06_create_api_tld.png)
+![06_create_api_tld](./assets/06_create_api_tld.png)
 
 The new domain (or Top Level Domain, or TLD) `api` you just created represents the following blue dotted line:
 
@@ -85,20 +86,16 @@ Create a key
 Execute the script to register the service:
 
 ```sh
-./tools/athenz/create-service.sh "api" "zpu" "./keys/api-zpu.public.key"
+UI_OPEN=true ./tools/athenz/create-service.sh "api" "zpu" "./keys/api-zpu.public.key"
 ```
 
 ```sh
 #   ·  Registering Service: api.zpu...
 #   ✔  Service registered: api.zpu
+#   ✔  Opened: http://localhost:3000/domain/api/service
 ```
 
-This successfully creates the `api.zpu` service identity. You can verify the result in the Athenz UI:
-
-```sh
-_athenz_ui_port=$(./tools/port.sh athenz-ui)
-./tools/open.sh "http://localhost:${_athenz_ui_port}/domain/api/service"
-```
+This successfully creates the `api.zpu` service identity and opens the service page in the Athenz UI.
 
 ![06_new_service_zpu](./assets/06_new_service_zpu.png)
 
@@ -125,6 +122,7 @@ Then, execute the following:
 
 ```sh
 #   ·  Enabling ZTS Certificate Provider for api.zpu...
+# [Template(s) successfully applied to domain]
 #   ✔  ZTS Certificate Provider enabled for api.zpu
 ```
 
@@ -158,7 +156,7 @@ kubectl -n api create secret generic api-zpu-cert \
 ```
 
 ```sh
-#   ✔  Secret created: api/api-zpu-cert
+# secret/api-zpu-cert created
 ```
 
 ## Deploy ZPU Sidecar
@@ -227,6 +225,8 @@ kubectl rollout status deploy/api-server -n api
 ```
 
 ```sh
+# Waiting for deployment "api-server" rollout to finish: 1 old replicas are pending termination...
+# Waiting for deployment "api-server" rollout to finish: 1 old replicas are pending termination...
 # deployment "api-server" successfully rolled out
 ```
 
@@ -244,7 +244,7 @@ kubectl exec deploy/api-server -n api \
 #       "domain": "api",
 #       "policies": [
 #         {
-#           "name": "api:policy.token-exchanging-mcp_zts_token_target_exchange_api_role_docs-getter",
+#           "name": "api:policy.docs-getter-exchanger_zts_token_target_exchange_api_role_docs-getter",
 #           "modified": "2026-05-17T21:41:12.752Z",
 # ...
 ```

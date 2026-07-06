@@ -8,7 +8,6 @@ In this tutorial, we will deploy the `AI Client Gateway`. This component sits be
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
-- [Understand What the Gateway Does](#understand-what-the-gateway-does)
 - [Deploy AI Client Gateway in K8s](#deploy-ai-client-gateway-in-k8s)
 - [Generate the Required Certificates](#generate-the-required-certificates)
 - [Mount the Certificates](#mount-the-certificates)
@@ -20,25 +19,6 @@ In this tutorial, we will deploy the `AI Client Gateway`. This component sits be
 
 <!-- /TOC -->
 
-## Understand What the Gateway Does
-
-Claude Code supports OAuth2-protected MCP servers out of the box. The first time it connects to an MCP server that responds with `401 Unauthorized`, it reads the `WWW-Authenticate` header, fetches the gateway's OAuth2 metadata document, and opens your browser to begin a login flow.
-
-The gateway itself acts as a thin OAuth2 Authorization Server that delegates the actual authentication to Keycloak. After you log in, the gateway stores your Keycloak ID token in a server-side session and hands Claude Code a short-lived session token. From that point on, every MCP request from Claude Code carries that session token as a `Bearer` credential. The gateway resolves it back to your ID token and performs the same ID-JAG exchange chain you have seen in earlier tutorials.
-
-```
-[human ns]                       [ai ns]          [api ns]
-Claude Code
-    │ Bearer (session token)
-    ▼
-human ai-client-gateway
-    │ resolves ID token
-    │ → ID-JAG exchange (as human.idjag-learner.claude)
-    │ → Athenz AT
-    ▼
-                              MCP Auth Proxy → MCP Server → API Server
-```
-
 ## Deploy AI Client Gateway in K8s
 
 The gateway belongs in the `human` namespace — it represents the human-controlled, client side of the architecture.
@@ -49,11 +29,19 @@ Create the `human` namespace:
 kubectl create ns human
 ```
 
+```sh
+# namespace/human created
+```
+
 Deploy the gateway with name `claude-idjag-learner-ai-client-gateway`:
 
 ```sh
 kubectl create deploy claude-idjag-learner-ai-client-gateway -n human \
   --image=ghcr.io/mlajkim/ai-client-gateway:latest
+```
+
+```sh
+# deployment.apps/claude-idjag-learner-ai-client-gateway created
 ```
 
 Check the logs — you will see an error about missing certificates (this is expected and you will fix it shortly):
@@ -63,51 +51,53 @@ kubectl logs deploy/claude-idjag-learner-ai-client-gateway -n human
 ```
 
 ```sh
+# ...
 # Error: ENOENT: no such file or directory, open '...certs/ai-client-gateway.crt'
+# ...
 ```
 
 This is expected. The gateway needs an X.509 certificate to identify itself to Athenz ZTS, and we have not provided one yet. The next two sections take care of that.
 
 ## Generate the Required Certificates
 
-The gateway authenticates to Athenz ZTS as the service identity `human.idjag-learner.claude`. To do that, it needs an X.509 certificate issued by Athenz for that identity.
-
-Generate an RSA key pair for the service:
+Create the service identity and fetch its X.509 certificate:
 
 ```sh
 ./tools/athenz/create-private-key.sh "./keys/human-idjag-learner-claude"
+./tools/athenz/create-subdomain.sh "human" "idjag-learner"
+./tools/athenz/create-service.sh "human.idjag-learner" "claude" "./keys/human-idjag-learner-claude.public.key"
+./tools/athenz/enable-cert-provider.sh "human.idjag-learner" "claude"
+./tools/athenz/fetch-cert.sh "human.idjag-learner" "claude" "./keys/human-idjag-learner-claude.key" "v1"
 ```
 
 ```sh
 #   ·  Generating RSA key pair for: ./keys/human-idjag-learner-claude...
 #   ✔  Keys generated: ./keys/human-idjag-learner-claude.key, ./keys/human-idjag-learner-claude.public.key
-```
-
-Create the `idjag-learner` subdomain under `human`:
-
-```sh
-./tools/athenz/create-subdomain.sh "human" "idjag-learner"
-```
-
-Register the `claude` service under `human.idjag-learner` and enable the certificate provider so Athenz can issue X.509 certs for it:
-
-```sh
-./tools/athenz/create-service.sh "human.idjag-learner" "claude" "./keys/human-idjag-learner-claude.public.key"
-./tools/athenz/enable-cert-provider.sh "human.idjag-learner" "claude"
+#   ·  Creating Subdomain: human.idjag-learner...
+#   ✔  Subdomain created: human.idjag-learner
+#   ·  Registering Service: human.idjag-learner.claude...
+#   ✔  Service registered: human.idjag-learner.claude
+#   ·  Enabling ZTS Certificate Provider for human.idjag-learner.claude...
+# [Template(s) successfully applied to domain]
+#   ✔  ZTS Certificate Provider enabled for human.idjag-learner.claude
+#   ·  Fetching X.509 Certificate for human.idjag-learner.claude...
+#   ✔  Certificate saved to: ./keys/human-idjag-learner-claude.crt
 ```
 
 ## Mount the Certificates
 
-Now that the service is registered, fetch the signed X.509 certificate from Athenz and store it as a Kubernetes Secret:
+Store the certificate as a Kubernetes Secret:
 
 ```sh
-./tools/athenz/fetch-cert.sh "human.idjag-learner" "claude" "./keys/human-idjag-learner-claude.key" "v1"
-
 kubectl delete -n human secret human-idjag-learner-claude-cert --ignore-not-found=true
 kubectl -n human create secret generic human-idjag-learner-claude-cert \
   --from-file=ai-client-gateway.crt=./keys/human-idjag-learner-claude.crt \
   --from-file=ai-client-gateway.key=./keys/human-idjag-learner-claude.key \
   --from-file=ca.crt=./athenz_dist/certs/ca.cert.pem
+```
+
+```sh
+# secret/human-idjag-learner-claude-cert created
 ```
 
 Mount the secret into the gateway pod so the application can read the certificate files at `/app/certs`:
@@ -131,6 +121,10 @@ EOF
 )"
 ```
 
+```sh
+# deployment.apps/claude-idjag-learner-ai-client-gateway patched
+```
+
 Verify the gateway started without errors:
 
 ```sh
@@ -150,36 +144,23 @@ kubectl logs deploy/claude-idjag-learner-ai-client-gateway -n human
 
 Now that the certificate is in place, configure the gateway with the Keycloak credentials it needs to drive the OAuth2 login flow.
 
-Store the Keycloak client credentials. Open the clients list:
+Create the Kubernetes Secret from the Keycloak client credentials:
 
 ```sh
-_keycloak_port=$(./tools/port.sh keycloak)
-./tools/open.sh "http://localhost:${_keycloak_port}/admin/master/console/#/master/clients"
+./tools/keycloak/create-client-k8s-secret.sh \
+  "human.idjag-learner.claude" \
+  "human" \
+  "human-idjag-learner-claude-keycloak"
 ```
-
-Click **human.idjag-learner.claude**:
-
-![15_click_human_idjag_learner](./assets/15_click_human_idjag_learner.png)
-
-Go to the **Credentials** tab. You will see a **Client secret** field — click the copy icon next to it to copy the value.
-
-![Keycloak credentials tab](./assets/15_keycloak_client_credentials.png)
-
-Now run the command below and paste the copied secret when prompted:
 
 ```sh
-printf '\033[1mPaste your client secret and press Enter:\033[0m\n'
-read _client_secret
-
-kubectl delete -n human secret human-idjag-learner-claude-keycloak --ignore-not-found=true
-kubectl -n human create secret generic human-idjag-learner-claude-keycloak \
-  --from-literal=client-id="human.idjag-learner.claude" \
-  --from-literal=client-secret="${_client_secret}"
+#   ·  Fetching Keycloak admin token...
+#   ·  Looking up UUID for client human.idjag-learner.claude...
+#   ·  Fetching client secret...
+#   ·  Creating K8s secret human/human-idjag-learner-claude-keycloak...
+# secret/human-idjag-learner-claude-keycloak created
+#   ✔  Secret created: human/human-idjag-learner-claude-keycloak
 ```
-
-Then Enter the secret:
-
-![15_input_client_secret](./assets/15_input_client_secret.png)
 
 ## Set env vars for the gateway
 
@@ -233,6 +214,10 @@ spec:
               value: "http://localhost:${_keycloak_port}"
 EOF
 )"
+```
+
+```sh
+# deployment.apps/claude-idjag-learner-ai-client-gateway patched
 ```
 
 > [!NOTE]

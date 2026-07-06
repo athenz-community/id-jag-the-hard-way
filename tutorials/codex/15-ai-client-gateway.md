@@ -8,7 +8,6 @@ In this tutorial, we will deploy the `AI Client Gateway`. This component sits be
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
-- [Understand What the Gateway Does](#understand-what-the-gateway-does)
 - [Deploy AI Client Gateway in K8s](#deploy-ai-client-gateway-in-k8s)
 - [Generate the Required Certificates](#generate-the-required-certificates)
 - [Mount the Certificates](#mount-the-certificates)
@@ -20,28 +19,6 @@ In this tutorial, we will deploy the `AI Client Gateway`. This component sits be
 - [What's next?](#whats-next)
 
 <!-- /TOC -->
-
-## Understand What the Gateway Does
-
-Codex CLI supports OAuth2-protected MCP servers. The first time it connects to an MCP server that responds with `401 Unauthorized`, it reads the `WWW-Authenticate` header, fetches the gateway's OAuth2 metadata document, and opens your browser to begin a login flow.
-
-The gateway itself acts as a thin OAuth2 Authorization Server that delegates the actual authentication to Keycloak. After you log in, the gateway stores your Keycloak ID token in a server-side session and hands Codex a short-lived session token. From that point on, every MCP request from Codex carries that session token as a `Bearer` credential. The gateway resolves it back to your ID token and performs the same ID-JAG exchange chain you have seen in earlier tutorials.
-
-```
-[human ns]                       [ai ns]          [api ns]
-Codex CLI
-    │ Bearer (session token)
-    ▼
-human ai-client-gateway
-    │ resolves ID token
-    │ → ID-JAG exchange (as human.idjag-learner.codex)
-    │ → Athenz AT
-    ▼
-                              MCP Auth Proxy → MCP Server → API Server
-```
-
-> [!NOTE]
-> 🟡 TODO: Verify that Codex CLI supports the same OAuth2 MCP flow as Claude Code (`WWW-Authenticate` redirect). Check the Codex CLI documentation for `oauth` MCP server type support.
 
 ## Deploy AI Client Gateway in K8s
 
@@ -67,43 +44,45 @@ kubectl logs deploy/codex-idjag-learner-ai-client-gateway -n human
 ```
 
 ```sh
+# ...
 # Error: ENOENT: no such file or directory, open '...certs/ai-client-gateway.crt'
+# ...
 ```
 
 This is expected. The gateway needs an X.509 certificate to identify itself to Athenz ZTS, and we have not provided one yet.
 
 ## Generate the Required Certificates
 
-The gateway authenticates to Athenz ZTS as the service identity `human.idjag-learner.codex`. Generate an RSA key pair for the service:
+Create the service identity and fetch its X.509 certificate:
 
 ```sh
 ./tools/athenz/create-private-key.sh "./keys/human-idjag-learner-codex"
+./tools/athenz/create-subdomain.sh "human" "idjag-learner"
+./tools/athenz/create-service.sh "human.idjag-learner" "codex" "./keys/human-idjag-learner-codex.public.key"
+./tools/athenz/enable-cert-provider.sh "human.idjag-learner" "codex"
+./tools/athenz/fetch-cert.sh "human.idjag-learner" "codex" "./keys/human-idjag-learner-codex.key" "v1"
 ```
 
 ```sh
 #   ·  Generating RSA key pair for: ./keys/human-idjag-learner-codex...
 #   ✔  Keys generated: ./keys/human-idjag-learner-codex.key, ./keys/human-idjag-learner-codex.public.key
-```
-
-Create the `idjag-learner` subdomain under `human` (skip if already exists):
-
-```sh
-./tools/athenz/create-subdomain.sh "human" "idjag-learner"
-```
-
-Register the `codex` service under `human.idjag-learner` and enable the certificate provider:
-
-```sh
-./tools/athenz/create-service.sh "human.idjag-learner" "codex" "./keys/human-idjag-learner-codex.public.key"
-./tools/athenz/enable-cert-provider.sh "human.idjag-learner" "codex"
+#   ·  Creating Subdomain: human.idjag-learner...
+#   ✔  Subdomain created: human.idjag-learner
+#   ·  Registering Service: human.idjag-learner.codex...
+#   ✔  Service registered: human.idjag-learner.codex
+#   ·  Enabling ZTS Certificate Provider for human.idjag-learner.codex...
+# [Template(s) successfully applied to domain]
+#   ✔  ZTS Certificate Provider enabled for human.idjag-learner.codex
+#   ·  Fetching X.509 Certificate for human.idjag-learner.codex...
+#   ✔  Certificate saved to: ./keys/human-idjag-learner-codex.crt
 ```
 
 ## Mount the Certificates
 
-Fetch the signed X.509 certificate from Athenz and store it as a Kubernetes Secret:
+Store the certificate as a Kubernetes Secret:
 
 ```sh
-./tools/athenz/fetch-cert.sh "human.idjag-learner" "codex" "./keys/human-idjag-learner-codex.key" "v1"
+test -f ./keys/human-idjag-learner-codex.crt
 
 kubectl delete -n human secret human-idjag-learner-codex-cert --ignore-not-found=true
 kubectl -n human create secret generic human-idjag-learner-codex-cert \
@@ -153,25 +132,22 @@ kubectl logs deploy/codex-idjag-learner-ai-client-gateway -n human
 
 Configure the gateway with the Keycloak credentials it needs to drive the OAuth2 login flow.
 
-Open the Keycloak clients list:
+Create the Kubernetes Secret from the Keycloak client credentials:
 
 ```sh
-_keycloak_port=$(./tools/port.sh keycloak)
-./tools/open.sh "http://localhost:${_keycloak_port}/admin/master/console/#/master/clients"
+./tools/keycloak/create-client-k8s-secret.sh \
+  "human.idjag-learner.codex" \
+  "human" \
+  "human-idjag-learner-codex-keycloak"
 ```
 
-Click **human.idjag-learner.codex**, go to the **Credentials** tab, and copy the client secret.
-
-Now run the command below and paste your secret when prompted:
-
 ```sh
-printf '\033[1mPaste your client secret and press Enter:\033[0m\n'
-read _client_secret
-
-kubectl delete -n human secret human-idjag-learner-codex-keycloak --ignore-not-found=true
-kubectl -n human create secret generic human-idjag-learner-codex-keycloak \
-  --from-literal=client-id="human.idjag-learner.codex" \
-  --from-literal=client-secret="${_client_secret}"
+#   ·  Fetching Keycloak admin token...
+#   ·  Looking up UUID for client human.idjag-learner.codex...
+#   ·  Fetching client secret...
+#   ·  Creating K8s secret human/human-idjag-learner-codex-keycloak...
+# secret/human-idjag-learner-codex-keycloak created
+#   ✔  Secret created: human/human-idjag-learner-codex-keycloak
 ```
 
 ## Set env vars for the gateway

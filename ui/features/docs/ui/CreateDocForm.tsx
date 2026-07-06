@@ -14,8 +14,13 @@ export default function CreateDocForm({ onSuccess, accessToken }: Props = {}) {
   const [content, setContent] = useState("");
   const ready = name.trim().length > 0 && content.trim().length > 0;
 
+  const [fakeLoading, setFakeLoading] = useState(false);
+
   const [state, action, pending] = useActionState(
     async (prev: any, formData: FormData) => {
+      setFakeLoading(true);
+      await new Promise((r) => setTimeout(r, 1000));
+      setFakeLoading(false);
       const result = await createDocAction(prev, formData);
       if (result?.success && result.doc) onSuccess?.(result.doc);
       return result;
@@ -57,7 +62,7 @@ export default function CreateDocForm({ onSuccess, accessToken }: Props = {}) {
           cursor: ready ? "pointer" : "not-allowed",
         }}
       >
-        {pending ? "Creating…" : "Create"}
+        {fakeLoading ? "Posting…" : pending ? "Creating…" : "Create"}
       </Button>
     </form>
   );

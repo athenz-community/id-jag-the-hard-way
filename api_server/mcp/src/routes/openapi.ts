@@ -4,7 +4,7 @@ import { toolsRegistry } from "../config/registry";
 
 const router = Router();
 
-const ACCESS_MCP_REQUIRED_SCOPE = "api:role.mcp-accessor"
+const ACCESS_MCP_REQUIRED_SCOPE = process.env.ACCESS_MCP_REQUIRED_SCOPE || "api:role.mcp-accessor"
 const HEADER_ATHENZ_REQUIRED_SCOPE = "x-athenz-required-scope"
 
 router.get("/", (req, res) => {
@@ -15,11 +15,21 @@ router.get("/", (req, res) => {
       paths[tool.path] = {};
     }
 
+    const pathParamNames = (tool.path.match(/\{([^}]+)\}/g) ?? []).map((s) => s.slice(1, -1));
+    const parameters = pathParamNames.map((name) => ({
+      name,
+      in: "path",
+      required: true,
+      schema: tool.pathParamSchemas?.[name] ?? { type: "integer" },
+      description: tool.pathParamSchemas?.[name]?.description ?? `ID of the resource`,
+    }));
+
     const operation: any = {
       operationId: tool.operationId,
       summary: tool.summary,
       description: tool.description,
       [HEADER_ATHENZ_REQUIRED_SCOPE]: ACCESS_MCP_REQUIRED_SCOPE + " " + tool.scope,
+      ...(parameters.length > 0 && { parameters }),
       responses: {
         "200": { description: "Successful response" },
         "400": { description: "Bad Request" },

@@ -92,8 +92,11 @@ _zms_port=$(resolve_port zms)
 _zts_port=$(resolve_port zts)
 _athenz_ui_port=$(resolve_port athenz-ui)
 _api_port=$(resolve_port api-server)
+_core_mcp_proxy_port=$(resolve_port core-mcp-proxy)
 _mcp_port=$(resolve_port mcp)
+_confluence_mcp_port=$(resolve_port confluence-mcp)
 _idp_port=$(resolve_port keycloak)
+_idp_https_port=$(resolve_port keycloak-https)
 _ai_client_gateway_port=$(resolve_port ai-client-gateway)
 _open_webui_port=$(resolve_port open-webui)
 
@@ -109,13 +112,16 @@ _pf() {
 }
 
 ok "Port-forwarding started. Press Ctrl+C to stop."
-_pf athenz deployment/athenz-zms-server   "${_zms_port}"               4443 &
-_pf athenz deployment/athenz-zts-server   "${_zts_port}"               4443 &
-_pf athenz deployment/athenz-ui           "${_athenz_ui_port}"         3000 &
-_pf api   deployment/api-server           "${_api_port}"               8080 &
-_pf api   service/mcp                     "${_mcp_port}"               8081 &
-_pf idp   deployment/keycloak             "${_idp_port}"               8080 &
-_pf human service/ai-client-gateway       "${_ai_client_gateway_port}" 3101 &
-_pf ai    service/open-webui              "${_open_webui_port}"        8080 &
+_pf athenz  deployment/athenz-zms-server  "${_zms_port}"               4443 &
+_pf athenz  deployment/athenz-zts-server  "${_zts_port}"               4443 &
+_pf athenz  deployment/athenz-ui          "${_athenz_ui_port}"         3000 &
+_pf api     deployment/api-server         "${_api_port}"               8080 &
+_pf mcp-hub service/core-mcp-proxy        "${_core_mcp_proxy_port}"    8080 &
+_pf api     service/mcp                   "${_mcp_port}"               8081 &
+_pf mcp-hub service/confluence-mcp        "${_confluence_mcp_port}"    9000 &
+_pf idp     deployment/keycloak           "${_idp_port}"               8080 &
+_pf idp     deployment/keycloak           "${_idp_https_port}"         8443 &
+_pf human   service/ai-client-gateway     "${_ai_client_gateway_port}" 3101 &
+_pf ai      service/open-webui            "${_open_webui_port}"        8080 &
 
 wait

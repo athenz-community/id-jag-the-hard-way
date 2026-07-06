@@ -121,12 +121,26 @@ kubectl patch deployment athenz-zts-server \
   --patch-file keycloak_token_exchange_provider/hack/static/zts-providers-config-patch.yaml
 ```
 
+```sh
+# deployment.apps/athenz-zts-server patched
+```
+
 Verify the file is present inside the container:
 
 ```sh
 kubectl -n athenz exec deployment/athenz-zts-server \
   -c athenz-zts-server \
   -- sh -c "cat /opt/athenz/zts/conf/providers.json"
+```
+
+```sh
+# [
+#   {
+#     "issuerUri": "http://localhost:34443/realms/master",
+#     "jwksUri": "http://keycloak.idp:8080/realms/master/protocol/openid-connect/certs",
+#     "providerClassName": "com.mlajkim.athenz.KeycloakTokenExchangeProvider"
+#   }
+# ]
 ```
 
 ## Configure ZTS to Load the Plugin
@@ -148,6 +162,8 @@ Follow these steps inside `vim`:
 athenz.zts.oauth_provider_config_file=/opt/athenz/zts/conf/providers.json
 ```
 
+![ZTS properties with new config line](./assets/14_zts_properties_setting.png)
+
 5. Press **Esc**, then type `:wq!` and press **Enter** to save.
 
 You should see:
@@ -155,8 +171,6 @@ You should see:
 ```sh
 # configmap/athenz-zts-conf edited
 ```
-
-![ZTS properties with new config line](./assets/14_zts_properties_setting.png)
 
 Restart the ZTS server to load the new configuration:
 
@@ -204,6 +218,11 @@ There is apparent bug where it does not update the jwks_uri, so please run the f
 ```sh
 kubectl -n api rollout restart deployment api-server
 kubectl -n api rollout restart deployment mcp
+```
+
+```sh
+# deployment.apps/api-server restarted
+# deployment.apps/mcp restarted
 ```
 
 ## What's next?

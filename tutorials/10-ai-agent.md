@@ -33,25 +33,17 @@ Check if Claude is already installed:
 claude --version
 ```
 
+```sh
+# X.X.XXX (Claude Code)
+```
+
 If you don't see a version (e.g. `X.X.XXX (Claude Code)`), install it:
 
-macOS / Linux / WSL:
-
-```sh
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
-Windows PowerShell:
-
-```sh
-irm https://claude.ai/install.ps1 | iex
-```
-
-Windows CMD:
-
-```sh
-curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del install.cmd
-```
+| Platform            | Command                                                                                     |
+|:--------------------|:--------------------------------------------------------------------------------------------|
+| macOS / Linux / WSL | ```curl -fsSL https://claude.ai/install.sh \| bash```                                       |
+| Windows PowerShell  | `irm https://claude.ai/install.ps1 \| iex`                                                  |
+| Windows CMD         | `curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del install.cmd` |
 
 > [!NOTE]
 > Official Claude installation guide: [Claude Code Quickstart](https://code.claude.com/docs/en/quickstart#native-install-recommended)
@@ -62,7 +54,13 @@ curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del in
 Claude Code reads `.mcp.json` only on startup, so create this file before launching Claude.
 
 > [!NOTE]
-> You need two terminals open: one to keep the port-forwarder running (`./tools/keep-k8s-port-forward.sh`), and one to run the commands below.
+> The MCP URL below points at `localhost` because `./tools/keep-k8s-port-forward.sh` forwards your local machine to the Kubernetes service. Keep the port-forwarder running in one terminal, then run this in another terminal before launching Claude:
+>
+> ```sh
+> ./tools/wait-readiness.sh mcp
+> ```
+>
+> If Claude says the port-forward connection dropped, restart `./tools/keep-k8s-port-forward.sh`, wait for `mcp` again, and retry.
 
 Get the Access Token:
 
@@ -104,15 +102,18 @@ Check the created `.mcp.json` file:
 cat .mcp.json
 ```
 
-```sh
-# {
-#   "mcpServers": {
-#     "id-jag-the-hard-way-mcp": {
-#       "type": "http",
-#       "url": "http://localhost:<your_port>/mcp"
-#     }
-#   }
-# }
+```json
+{
+  "mcpServers": {
+    "id-jag-the-hard-way-mcp": {
+      "type": "http",
+      "url": "http://localhost:<your_port>/mcp",
+      "headers": {
+        "Authorization": "Bearer <redacted-access-token>"
+      }
+    }
+  }
+}
 ```
 
 > [!TIP]
@@ -151,17 +152,13 @@ You can see that you are `✅ Connected` for the `id-jag-the-hard-way-mcp`:
 
 Let's see if we can really talk through the `id-jag-the-hard-way-mcp` MCP.
 
-Hit `Esc` one time to back to the prompt dialog:
+Hit `Esc` one time to go back to the prompt dialog, then type this prompt into Claude Code:
 
-```sh
+```text
 get docs from k8s doc server!
 ```
 
 ![ask_k8s_docs_server_in_claude](./assets/10_ask_k8s_docs_server_in_claude.png)
-
-You will be prompted `Do you want to proceed?`. select `2` (Or `1` if you want to get asked all the time):
-
-![10_claude_says_do_you_want_to_proceed](./assets/10_claude_says_do_you_want_to_proceed.png)
 
 
 This will intentionally fail — the request will return a `No Permission to Token Exchange` error, similar to:

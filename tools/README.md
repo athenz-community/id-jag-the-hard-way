@@ -31,8 +31,9 @@ Prints the effective port for a given service. Reads `config.local.yaml` first, 
 
 **Examples:**
 ```sh
-./tools/port.sh open-webui   # → 54443
-./tools/port.sh keycloak     # → 34443
+./tools/port.sh open-webui      # → 54443
+./tools/port.sh keycloak        # → 34443
+./tools/port.sh keycloak-https  # → 34444
 ```
 
 Used inside other scripts and tutorials to avoid hardcoded port numbers.
@@ -67,8 +68,11 @@ ports:
   zts: 8443
   athenz-ui: 3000
   api-server: 14443
+  core-mcp-proxy: 24442
   mcp: 24443
+  confluence-mcp: 24444
   keycloak: 34443
+  keycloak-https: 34444
   ai-client-gateway: 44443
   open-webui: 54443
 ```

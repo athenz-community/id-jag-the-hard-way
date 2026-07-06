@@ -11,6 +11,7 @@ By implementing [OAuth 2.0 Token Exchange (RFC 8693)](https://www.rfc-editor.org
 <!-- TOC depthFrom:2 depthTo:2 -->
 
 - [Allow MCP Server to Exchange the Given Access Token](#allow-mcp-server-to-exchange-the-given-access-token)
+- [Refresh the MCP Token](#refresh-the-mcp-token)
 - [Verify](#verify)
 - [What's happened?](#whats-happened)
 
@@ -18,33 +19,56 @@ By implementing [OAuth 2.0 Token Exchange (RFC 8693)](https://www.rfc-editor.org
 
 ## Allow MCP Server to Exchange the Given Access Token
 
-Even if the original requester has `get` access to the `api:docs` resource, that does not automatically mean anyone can exchange the Access Token on their behalf. We need to create a dedicated role that explicitly allows token exchange.
+Even if the original requester has `get` access to the `api:docs` resource, that does not automatically mean anyone can exchange the Access Token on their behalf. We need to create dedicated roles that explicitly allow token exchange.
 
-Create the `token-exchanging-mcp` role:
+Create the exchange roles:
 
 ```sh
-./tools/athenz/create-role.sh "api" "token-exchanging-mcp"
+./tools/athenz/create-role.sh "api" "to-api-exchanger"
+./tools/athenz/create-role.sh "api" "docs-getter-exchanger"
 ```
 
-In Athenz, you must explicitly define both the **source** and the **target** of the exchange. Add both policies:
+```sh
+#   ·  Creating Role: api:role.to-api-exchanger...
+#   ✔  Role created: api:role.to-api-exchanger
+#   ·  Creating Role: api:role.docs-getter-exchanger...
+#   ✔  Role created: api:role.docs-getter-exchanger
+```
+
+In Athenz, you must explicitly define both the source and the target of the exchange. Add both policies:
 
 ```sh
-./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_source_exchange" "api"
-./tools/athenz/add-policy.sh "api" "token-exchanging-mcp" "zts.token_target_exchange" "api:role.docs-getter"
+./tools/athenz/add-policy.sh "api" "to-api-exchanger" "zts.token_source_exchange" "api"
+./tools/athenz/add-policy.sh "api" "docs-getter-exchanger" "zts.token_target_exchange" "api:role.docs-getter"
+```
+
+```sh
+#   ·  Creating Policy: api:policy.to-api-exchanger_zts_token_source_exchange_api...
+#   ✔  Policy created: api:policy.to-api-exchanger_zts_token_source_exchange_api
+#   ·  Creating Policy: api:policy.docs-getter-exchanger_zts_token_target_exchange_api_role_docs-getter...
+#   ✔  Policy created: api:policy.docs-getter-exchanger_zts_token_target_exchange_api_role_docs-getter
 ```
 
 > [!NOTE]
 > The MCP server does not need direct access to the target resource. It only needs permission to perform the exchange itself.
 
-Add the `api.api-mcp` service principal as a member of this role:
+Add the `api.api-mcp` service principal as a member of both roles:
 
 ```sh
-./tools/athenz/add-role-member.sh "api" "token-exchanging-mcp" "api.api-mcp"
+./tools/athenz/add-role-member.sh "api" "to-api-exchanger" "api.api-mcp"
+./tools/athenz/add-role-member.sh "api" "docs-getter-exchanger" "api.api-mcp"
 ```
 
-## Verify
+```sh
+#   ·  Adding Member api.api-mcp to Role: api:role.to-api-exchanger...
+#   ✔  api.api-mcp  →  api:role.to-api-exchanger
+#   ·  Adding Member api.api-mcp to Role: api:role.docs-getter-exchanger...
+#   ✔  api.api-mcp  →  api:role.docs-getter-exchanger
+```
 
-Fetch a fresh Access Token to make sure it hasn't expired:
+## Refresh the MCP Token
+
+The role and policy changed, so fetch a fresh Access Token scoped to the real API docs permission:
 
 ```sh
 _scope="api:role.docs-getter"
@@ -55,7 +79,13 @@ _scope="api:role.docs-getter"
   "./keys/idjag-learner.jwt"
 ```
 
-Update `.mcp.json` with the fresh token (same command as before):
+```sh
+#   ·  Fetching Access Token for scope: api:role.docs-getter...
+#   ✔  Access token issued for scope: api:role.docs-getter
+#   ✔  Token saved to: ./keys/idjag-learner.jwt
+```
+
+Update `.mcp.json` with the fresh token:
 
 ```sh
 _mcp_port=$(./tools/port.sh mcp)
@@ -76,6 +106,8 @@ cat > .mcp.json <<EOF
 EOF
 ```
 
+## Verify
+
 Reload your MCP server in Claude Code:
 
 ```sh
@@ -88,14 +120,14 @@ Then ask:
 get docs from k8s doc server!
 ```
 
-🎉 Horray! You just got the docs list through Claude Code!
+You just got the docs list through Claude Code.
 
 ![11_claude_code_success_to_get_docs](./assets/11_claude_code_success_to_get_docs.png)
 
 ## What's happened?
 
-By creating the `token-exchanging-mcp` role and assigning both source and target exchange policies, the MCP server (`api.api-mcp`) can now exchange the incoming Access Token for a narrower-scoped token before calling the API server.
+By creating the `to-api-exchanger` and `docs-getter-exchanger` roles, the MCP server (`api.api-mcp`) can now exchange the incoming `api` Access Token for a narrower-scoped token before calling the API server.
 
-Our API server is so far fully protected by Athenz Access Tokens. However, the MCP server itself has no authentication layer — anyone who can reach it can use it. In the next tutorial, we will deploy an Authorization Proxy in front of the MCP server.
+Our API server is so far fully protected by Athenz Access Tokens. However, the MCP server itself has no authentication layer - anyone who can reach it can use it. In the next tutorial, we will deploy an Authorization Proxy in front of the MCP server.
 
 Next: [Protect MCP Server](./12-protect-mcp-server.md)

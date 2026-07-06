@@ -58,8 +58,28 @@ function fillPathParams(path: string, args: Record<string, any>): string {
       throw new Error(`Missing required path parameter: ${name}`);
     }
 
-    return encodeURIComponent(String(value));
+    return encodeURIComponent(normalizePathParam(name, value));
   });
+}
+
+function normalizePathParam(name: string, value: any): string {
+  if (!name.endsWith("_id")) {
+    return String(value);
+  }
+
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return String(value);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(?:(?:doc|document)\s*)?(?:id\s*)?#?\s*(\d+)$/i);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  throw new Error(`${name} must be a positive integer.`);
 }
 
 function buildInputSchema(tool: ToolDefinition) {
@@ -79,7 +99,7 @@ function buildInputSchema(tool: ToolDefinition) {
   schema.required ??= [];
 
   for (const param of pathParams) {
-    schema.properties[param] = {
+    schema.properties[param] = tool.pathParamSchemas?.[param] ?? {
       type: "string",
       description: `Path parameter: ${param}`,
     };

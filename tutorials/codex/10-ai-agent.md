@@ -10,7 +10,7 @@
 > OpenAI Codex CLI runs in the cloud and has no local hardware requirements. This path uses the Codex CLI as the AI client instead of Claude Code or Open WebUI.
 
 > [!NOTE]
-> Codex is currently BETA
+> Codex is currently BETA, but has been confirmed working.
 
 In this tutorial, we will install Codex CLI as the AI client and connect it to the MCP server for the first time.
 

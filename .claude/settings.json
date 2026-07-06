@@ -1,5 +1,13 @@
 {
   "enabledMcpjsonServers": [
-    "id-jag-the-hard-way-mcp"
-  ]
+    "id-jag-the-hard-way-mcp",
+    "confluence-mcp"
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__id-jag-the-hard-way-mcp__get_k8s_docs",
+      "mcp__id-jag-the-hard-way-mcp__delete_k8s_doc",
+      "mcp__id-jag-the-hard-way-mcp__post_k8s_doc"
+    ]
+  }
 }

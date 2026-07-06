@@ -13,37 +13,43 @@ The **full reset config**. Apply it when:
 It declares every service identity, role, member, and policy needed for the complete tutorial flow. Running it is fully destructive — it deletes the `api` domain and rebuilds it from scratch.
 
 ```sh
-make -C ui setup-permissions
+make -C ui setup-permissions-api
 # or directly:
 ./tools/setup-permissions.sh tools/config/init.yaml
 ```
 
+> **Order note:** run this after the `api` namespace and `api-server` deployment exist. The setup script creates cert secrets and restarts configured deployments.
+
 ### What's inside
 
-| Role                       | Who                          | What they can do                                                   |
-|----------------------------|------------------------------|--------------------------------------------------------------------|
-| `docs-getter`              | `human.idjag-learner`        | GET /docs                                                          |
-| `docs-poster`              | `human.idjag-learner`        | POST /docs                                                         |
-| `docs-deleter`             | `human.idjag-learner`        | DELETE /docs                                                       |
-| `mcp-accessor`             | `human.idjag-learner`        | access the MCP auth proxy                                          |
-| `jag-exchanging-ai-agents` | `human.idjag-learner.claude` | JAG-exchange into `docs-getter`, `mcp-accessor`                    |
-| `jag-exchanging-uis`       | `org.idjag-ui`               | JAG-exchange into `docs-getter`, `docs-poster`, `docs-deleter`     |
-| `token-exchanging-mcp`     | `api.api-mcp`                | RFC 8693 exchange from any `api` token into `docs-*` scoped tokens |
+| Role                       | Who                          | What they can do                                                |
+|----------------------------|------------------------------|-----------------------------------------------------------------|
+| `docs-getter`              | `human.idjag-learner`        | GET /docs                                                       |
+| `docs-poster`              | `human.idjag-learner`        | POST /docs                                                      |
+| `docs-deleter`             | `human.idjag-learner`        | DELETE /docs                                                    |
+| `mcp-accessor`             | `human.idjag-learner`        | access the MCP auth proxy                                       |
+| `docs-getter-jag-exchanger` | AI agents                   | JAG-exchange into `docs-getter`                                |
+| `mcp-accessor-jag-exchanger` | AI agents                   | JAG-exchange into `mcp-accessor`                               |
+| `jag-exchanging-uis`       | `org.idjag-ui`               | JAG-exchange into `docs-getter`, `docs-poster`, `docs-deleter`  |
+| `to-api-exchanger`         | `api.api-mcp`                | RFC 8693 source exchange from `api` tokens                      |
+| `docs-getter-exchanger`    | `api.api-mcp`                | RFC 8693 target exchange into `docs-getter` scoped tokens       |
 
-> **Note:** `jag-exchanging-ai-agents` intentionally does **not** grant `docs-deleter` exchange — AI agents cannot delete docs on behalf of users by design.
+> **Note:** AI agents intentionally do **not** get a `docs-deleter-jag-exchanger` role — they cannot delete docs on behalf of users by design.
 
 ## org.yaml
 
 The config for the `org` domain, which owns the ID-JAG UI service identity. Apply it when setting up or resetting the UI deployment:
 
 ```sh
+make -C ui setup-permissions-org
+# or directly:
 ./tools/setup-permissions.sh tools/config/org.yaml
 ```
 
 ### What's inside
 
-| Service | K8s namespace | K8s secret | Cert files |
-|---|---|---|---|
-| `idjag-ui` | `org` | `idjag-ui-cert` | `org.idjag-ui.crt` / `org.idjag-ui.key` |
+| Service    | K8s namespace | K8s secret      | Cert files                              |
+|------------|---------------|-----------------|-----------------------------------------|
+| `idjag-ui` | `org`         | `idjag-ui-cert` | `org.idjag-ui.crt` / `org.idjag-ui.key` |
 
 The cert is mounted into the `idjag-ui` deployment at `/app/certs` so the UI can authenticate to Athenz ZTS for JAG token exchange.

@@ -92,9 +92,9 @@ kubectl logs deploy/ai-client-gateway -n ai
 You will likely encounter an error similar to this:
 
 ```sh
+# ...
 # Error: ENOENT: no such file or directory, open '...certs/ai-client-gateway.crt'
-#     at Object.openSync (node:fs:563:18)
-#     at Object.readFileSync (node:fs:447:35)
+# ...
 ```
 
 This happens because the AI Client Gateway requires a TLS certificate to connect to Athenz Server securely.

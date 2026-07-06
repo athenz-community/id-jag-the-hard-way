@@ -5,8 +5,6 @@ TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${TOOLS_DIR}/color.sh"
 _keycloak_port=$("$TOOLS_DIR/port.sh" keycloak)
 _realm=$("$TOOLS_DIR/config.sh" keycloak realm)
-_admin=$("$TOOLS_DIR/config.sh" keycloak admin)
-_admin_password=$("$TOOLS_DIR/config.sh" keycloak admin-password)
 _user_password=$("$TOOLS_DIR/config.sh" keycloak user-password)
 
 if [ $# -lt 4 ]; then
@@ -21,17 +19,7 @@ password=$_user_password
 
 info "Fetching Keycloak admin token..."
 
-token=$(curl -s -X POST \
-  "http://localhost:${_keycloak_port}/realms/master/protocol/openid-connect/token" \
-  -d "client_id=admin-cli" \
-  -d "username=${_admin}" \
-  -d "password=${_admin_password}" \
-  -d "grant_type=password" \
-  | sed 's/.*"access_token":"\([^"]*\)".*/\1/')
-
-if [ -z "$token" ] || [ "$token" = "null" ]; then
-  fatal "Failed to obtain admin token — check keycloak.admin / keycloak.admin-password in tools/config.yaml"
-fi
+token=$("${TOOLS_DIR}/keycloak/get-admin-token.sh")
 
 info "Creating user ${username}..."
 
@@ -79,4 +67,6 @@ if [ "$http_code" != "204" ]; then
 fi
 
 ok "User created: ${username} (${email})"
-"${TOOLS_DIR}/open.sh" "http://localhost:${_keycloak_port}/admin/master/console/#/${_realm}/users/${user_uuid}"
+if [ "${OPEN_UI:-false}" = "true" ]; then
+  "${TOOLS_DIR}/open.sh" "http://localhost:${_keycloak_port}/admin/master/console/#/${_realm}/users/${user_uuid}/settings"
+fi

@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -14,8 +15,8 @@ import java.time.format.DateTimeFormatter;
 public class Api {
     static final JSONArray docs = new JSONArray("""
         [
-            {"id": 1, "name": "first default doc", "content": "hello world"},
-            {"id": 2, "name": "second default doc", "content": "how are you?"}
+            {"name": "first default doc", "id": 1, "content": "hello world"},
+            {"name": "second default doc", "id": 2, "content": "how are you?"}
         ]
     """);
 
@@ -24,7 +25,7 @@ public class Api {
 
     static Authorizer authorizer;
     
-    static int docIdSequence = docs.length();
+    static int docIdSequence = 2;
 
     public static void main(String[] args) throws Exception {
         authorizer = new Authorizer();
@@ -61,18 +62,16 @@ public class Api {
                     sendResponse(exchange, 201, new JSONObject().put("success", true).put("doc", newDoc).toString());
                     
                 } else if ("DELETE".equalsIgnoreCase(method)) {
-                    String[] pathParts = path.split("/");
-                    
-                    if (pathParts.length != 4) {
-                        sendResponse(exchange, 400, new JSONObject()
-                                .put("error", "Bad Request")
-                                .put("message", "Document ID is required in the path (e.g., /api/docs/{doc_id}).")
-                                .toString());
-                        return;
-                    }
-
                     try {
-                        int targetId = Integer.parseInt(pathParts[3]);
+                        Integer targetId = parseDocumentId(exchange.getRequestURI().getRawPath());
+                        if (targetId == null) {
+                            sendResponse(exchange, 400, new JSONObject()
+                                    .put("error", "Bad Request")
+                                    .put("message", "Document ID is required in the path (e.g., /api/docs/{doc_id}).")
+                                    .toString());
+                            return;
+                        }
+
                         boolean foundAndDeleted = false;
                         
                         for (int i = 0; i < docs.length(); i++) {
@@ -150,6 +149,35 @@ public class Api {
         }
         System.out.println("📄 Docs endpoint: http://0.0.0.0:" + PORT + "/api/docs");
         System.out.println("=========================================================\n");
+    }
+
+    private static Integer parseDocumentId(String rawPath) {
+        String docsPath = "/api/docs";
+        String docsPathWithSlash = docsPath + "/";
+
+        if (rawPath.equals(docsPath) || rawPath.equals(docsPathWithSlash)) {
+            return null;
+        }
+
+        if (!rawPath.startsWith(docsPathWithSlash)) {
+            throw new NumberFormatException("Path must match /api/docs/{doc_id}");
+        }
+
+        String rawId = rawPath.substring(docsPathWithSlash.length());
+        if (rawId.endsWith("/")) {
+            rawId = rawId.substring(0, rawId.length() - 1);
+        }
+
+        if (rawId.isEmpty() || rawId.contains("/")) {
+            throw new NumberFormatException("Document ID must be a single path segment");
+        }
+
+        String id = URLDecoder.decode(rawId, StandardCharsets.UTF_8);
+        if (id.isEmpty() || !id.chars().allMatch(Character::isDigit)) {
+            throw new NumberFormatException("Document ID must be an integer");
+        }
+
+        return Integer.parseInt(id);
     }
 
     private static void sendResponse(HttpExchange exchange, int code, String res) throws IOException {
