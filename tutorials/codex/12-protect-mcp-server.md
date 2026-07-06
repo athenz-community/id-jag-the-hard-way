@@ -1,5 +1,5 @@
-|                 Previous                 |             Current              |                      Next                      |
-|:----------------------------------------:|:--------------------------------:|:----------------------------------------------:|
+|                 Previous                 |            Current             |                      Next                      |
+|:----------------------------------------:|:------------------------------:|:----------------------------------------------:|
 | [Token Exchange](./11-token-exchange.md) | **Protect MCP Server - Codex** | [Identity Provider](./13-identity-provider.md) |
 
 # Protect MCP Server - Codex
@@ -13,7 +13,7 @@ In this tutorial, we will secure the MCP server using an Authorization Proxy - e
 - [Verify (Expected Failure)](#verify-expected-failure)
 - [Fix Insufficient Permission](#fix-insufficient-permission)
 - [Fetch a New Access Token for the New Role](#fetch-a-new-access-token-for-the-new-role)
-- [Update .codex/config.toml with the New Token](#update-codexconfigtoml-with-the-new-token)
+- [Update Codex Config with the New Token](#update-codex-config-with-the-new-token)
 - [Verify](#verify)
 - [Review Summary of Changes](#review-summary-of-changes)
 - [What's next?](#whats-next)
@@ -158,7 +158,7 @@ _scope="api:role.mcp-accessor api:role.docs-getter"
 #   ✔  Token saved to: ./keys/idjag-learner.jwt
 ```
 
-## Update .codex/config.toml with the New Token
+## Update Codex Config with the New Token
 
 ```sh
 _mcp_port=$(./tools/port.sh mcp)
@@ -170,21 +170,25 @@ type = "http"
 url = "http://localhost:${_mcp_port}/mcp"
 http_headers = { Authorization = "Bearer ${_at}" }
 EOF
+
+cat .codex/settings.toml >> .codex/config.toml
 ```
 
 ## Verify
 
-Ask Codex again:
+Start a new Codex chat so the updated MCP config is used:
+
+```sh
+/new
+```
+
+Then ask Codex again:
 
 ```sh
 get docs from k8s doc server!
 ```
 
-Check the MCP server logs to confirm the proxy authorized the request:
-
-```sh
-kubectl logs deploy/mcp -n api -c auth-proxy
-```
+![Codex MCP access successful](./assets/12_codex_mcp_access_successful.png)
 
 ## Review Summary of Changes
 

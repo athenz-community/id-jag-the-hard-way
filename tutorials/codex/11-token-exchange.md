@@ -1,5 +1,5 @@
-|              Previous               |          Current          |                       Next                       |
-|:-----------------------------------:|:-------------------------:|:------------------------------------------------:|
+|              Previous               |          Current           |                       Next                       |
+|:-----------------------------------:|:--------------------------:|:------------------------------------------------:|
 | [AI Client Agent](./10-ai-agent.md) | **Token Exchange - Codex** | [Protect MCP Server](./12-protect-mcp-server.md) |
 
 # Token Exchange - Codex
@@ -8,50 +8,14 @@ In this tutorial, we will fix the "Principal not authorized for token exchange" 
 
 By implementing [OAuth 2.0 Token Exchange (RFC 8693)](https://www.rfc-editor.org/rfc/rfc8693.html), we will grant the MCP server permission to exchange the user's Access Token and act on their behalf to call the API server.
 
-> [!NOTE]
-> Access Tokens are short-lived. We will fetch a fresh token at the start of this tutorial so Codex does not keep using an expired token from the previous step.
-
 <!-- TOC depthFrom:2 depthTo:2 -->
 
-- [Refresh the MCP Token](#refresh-the-mcp-token)
 - [Allow MCP Server to Exchange the Given Access Token](#allow-mcp-server-to-exchange-the-given-access-token)
+- [Refresh the MCP Token](#refresh-the-mcp-token)
 - [Verify](#verify)
 - [What's happened?](#whats-happened)
 
 <!-- /TOC -->
-
-## Refresh the MCP Token
-
-Fetch a fresh Access Token scoped to the real API docs permission:
-
-```sh
-_scope="api:role.docs-getter"
-./tools/athenz/fetch-access-token.sh \
-  "./keys/idjag-learner.crt" \
-  "./keys/idjag-learner.key" \
-  "${_scope}" \
-  "./keys/idjag-learner.jwt"
-```
-
-```sh
-#   ·  Fetching Access Token for scope: api:role.docs-getter...
-#   ✔  Access token issued for scope: api:role.docs-getter
-#   ✔  Token saved to: ./keys/idjag-learner.jwt
-```
-
-Update `.codex/config.toml` with the fresh token:
-
-```sh
-_mcp_port=$(./tools/port.sh mcp)
-_at=$(cat ./keys/idjag-learner.jwt)
-
-cat > .codex/config.toml <<EOF
-[mcp_servers.id-jag-the-hard-way-mcp]
-type = "http"
-url = "http://localhost:${_mcp_port}/mcp"
-http_headers = { Authorization = "Bearer ${_at}" }
-EOF
-```
 
 ## Allow MCP Server to Exchange the Given Access Token
 
@@ -102,9 +66,50 @@ Add the `api.api-mcp` service principal as a member of both roles:
 #   ✔  api.api-mcp  →  api:role.docs-getter-exchanger
 ```
 
+## Refresh the MCP Token
+
+The role and policy changed, so fetch a fresh Access Token scoped to the real API docs permission:
+
+```sh
+_scope="api:role.docs-getter"
+./tools/athenz/fetch-access-token.sh \
+  "./keys/idjag-learner.crt" \
+  "./keys/idjag-learner.key" \
+  "${_scope}" \
+  "./keys/idjag-learner.jwt"
+```
+
+```sh
+#   ·  Fetching Access Token for scope: api:role.docs-getter...
+#   ✔  Access token issued for scope: api:role.docs-getter
+#   ✔  Token saved to: ./keys/idjag-learner.jwt
+```
+
+Overwrite `.codex/config.toml` with the fresh token and append the provided settings:
+
+```sh
+_mcp_port=$(./tools/port.sh mcp)
+_at=$(cat ./keys/idjag-learner.jwt)
+
+cat > .codex/config.toml <<EOF
+[mcp_servers.id-jag-the-hard-way-mcp]
+type = "http"
+url = "http://localhost:${_mcp_port}/mcp"
+http_headers = { Authorization = "Bearer ${_at}" }
+EOF
+
+cat .codex/settings.toml >> .codex/config.toml
+```
+
 ## Verify
 
-Now, ask Codex the exact same prompt that failed before:
+Start a new Codex chat so the updated MCP config is used:
+
+```sh
+/new
+```
+
+Then ask the exact same prompt that failed before:
 
 ```sh
 get docs from k8s doc server!
@@ -112,8 +117,7 @@ get docs from k8s doc server!
 
 You just got the docs list through Codex.
 
-> [!NOTE]
-> TODO: Add a screenshot of Codex successfully retrieving docs after token exchange is granted.
+![Codex token exchange successful](./assets/11_codex_token_exchange_successful.png)
 
 ## What's happened?
 

@@ -12,9 +12,13 @@ fi
 parent=$1
 name=$2
 
-info "Creating Subdomain: ${parent}.${name}..."
+subdomain="${parent}.${name}"
 
-response=$(curl -s -k -X POST "https://localhost:${_zms_port}/zms/v1/subdomain/${parent}" \
+info "Creating Subdomain: ${subdomain}..."
+
+response_file=$(mktemp)
+curl_status=0
+http_code=$(curl -s -k -o "${response_file}" -w "%{http_code}" -X POST "https://localhost:${_zms_port}/zms/v1/subdomain/${parent}" \
   --cert ./athenz_dist/certs/athenz_admin.cert.pem \
   --key ./athenz_dist/keys/athenz_admin.private.pem \
   -H "Content-Type: application/json" \
@@ -22,12 +26,23 @@ response=$(curl -s -k -X POST "https://localhost:${_zms_port}/zms/v1/subdomain/$
     "parent": "'"${parent}"'",
     "name": "'"${name}"'",
     "adminUsers": ["user.athenz_admin"]
-  }')
+  }') || curl_status=$?
+response=$(cat "${response_file}")
+rm -f "${response_file}"
 
-if echo "${response}" | grep -q '"code"'; then
-  err "ZMS error response:"
-  echo "${response}" >&2
-  fatal "Failed to create subdomain ${parent}.${name}"
+if [ "${http_code:-000}" = "409" ] || echo "${response}" | grep -qi "already exists"; then
+  info "Subdomain already exists: ${subdomain}"
+  exit 0
 fi
 
-ok "Subdomain created: ${parent}.${name}"
+if [ "${curl_status}" -ne 0 ] || [ "${http_code:-000}" -lt 200 ] || [ "${http_code:-000}" -ge 300 ] || echo "${response}" | grep -q '"code"'; then
+  err "ZMS error response (HTTP ${http_code:-000}, curl ${curl_status}):"
+  if [ -n "${response}" ]; then
+    echo "${response}" >&2
+  else
+    err "No response body returned by ZMS."
+  fi
+  fatal "Failed to create subdomain ${subdomain}"
+fi
+
+ok "Subdomain created: ${subdomain}"

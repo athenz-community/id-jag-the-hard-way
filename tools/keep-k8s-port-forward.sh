@@ -98,6 +98,7 @@ _confluence_mcp_port=$(resolve_port confluence-mcp)
 _idp_port=$(resolve_port keycloak)
 _idp_https_port=$(resolve_port keycloak-https)
 _ai_client_gateway_port=$(resolve_port ai-client-gateway)
+_ai_client_gateway_codex_port=$(resolve_port ai-client-gateway-codex)
 _open_webui_port=$(resolve_port open-webui)
 
 _pf() {
@@ -121,7 +122,8 @@ _pf api     service/mcp                   "${_mcp_port}"               8081 &
 _pf mcp-hub service/confluence-mcp        "${_confluence_mcp_port}"    9000 &
 _pf idp     deployment/keycloak           "${_idp_port}"               8080 &
 _pf idp     deployment/keycloak           "${_idp_https_port}"         8443 &
-_pf human   service/ai-client-gateway     "${_ai_client_gateway_port}" 3101 &
+_pf human   service/ai-client-gateway       "${_ai_client_gateway_port}"       3101 &
+_pf human   service/ai-client-gateway-codex "${_ai_client_gateway_codex_port}" 3101 &
 _pf ai      service/open-webui            "${_open_webui_port}"        8080 &
 
 wait

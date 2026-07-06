@@ -1,5 +1,5 @@
-|                            Previous                            |           Current            |           Next           |
-|:--------------------------------------------------------------:|:----------------------------:|:------------------------:|
+|                            Previous                            |            Current            |           Next           |
+|:--------------------------------------------------------------:|:-----------------------------:|:------------------------:|
 | [Trusted Identity Provider](./14-trusted-identity-provider.md) | **AI Client Gateway — Codex** | [ID-JAG](./16-id-jag.md) |
 
 # AI Client Gateway — Codex
@@ -35,6 +35,10 @@ Deploy the gateway with name `codex-idjag-learner-ai-client-gateway`:
 ```sh
 kubectl create deploy codex-idjag-learner-ai-client-gateway -n human \
   --image=ghcr.io/mlajkim/ai-client-gateway:latest
+```
+
+```sh
+# deployment.apps/codex-idjag-learner-ai-client-gateway created
 ```
 
 Check the logs — you will see an error about missing certificates (this is expected):
@@ -112,6 +116,10 @@ EOF
 )"
 ```
 
+```sh
+# deployment.apps/codex-idjag-learner-ai-client-gateway patched
+```
+
 Verify the gateway started without errors:
 
 ```sh
@@ -121,12 +129,9 @@ kubectl logs deploy/codex-idjag-learner-ai-client-gateway -n human
 ```sh
 # 🚀 OpenWebUI OpenAPI Gateway listening on 0.0.0.0:3101
 # 🔗 Upstream API: http://mcp.api:8081
-# 🌍 Public Base URL: http://localhost:44443
+# 🌍 Public Base URL: http://localhost:44444
 # 🔑 Athenz ZTS Endpoint: https://athenz-zts-server.athenz:4443/zts/v1
 ```
-
-> [!NOTE]
-> 🟡 TODO: Add a screenshot of the AI Client Gateway logs running successfully for the Codex path.
 
 ## Deploy the Human Gateway
 
@@ -167,7 +172,7 @@ Configure the environment variables for the gateway deployment:
 </details>
 
 ```sh
-_gateway_port=$(./tools/port.sh ai-client-gateway)
+_gateway_port=$(./tools/port.sh ai-client-gateway-codex)
 _keycloak_port=$(./tools/port.sh keycloak)
 
 kubectl patch deploy codex-idjag-learner-ai-client-gateway -n human --patch "$(cat <<EOF
@@ -204,11 +209,15 @@ EOF
 )"
 ```
 
+```sh
+# deployment.apps/codex-idjag-learner-ai-client-gateway patched
+```
+
 Expose the deployment as a service and confirm the logs look healthy:
 
 ```sh
-kubectl delete -n human svc ai-client-gateway --ignore-not-found=true
-kubectl expose deploy codex-idjag-learner-ai-client-gateway -n human --port 3101 --name ai-client-gateway
+kubectl delete -n human svc ai-client-gateway-codex --ignore-not-found=true
+kubectl expose deploy codex-idjag-learner-ai-client-gateway -n human --port 3101 --name ai-client-gateway-codex
 kubectl logs deploy/codex-idjag-learner-ai-client-gateway -n human --tail=5
 ```
 
@@ -225,16 +234,18 @@ If Keycloak asks **"Do you want to log out?"**, click **Logout** to confirm.
 
 ## Update Codex MCP Config
 
-Point Codex at the gateway by updating `.codex/config.toml`. This time with no `Authorization` header — the gateway handles the entire ID-JAG flow:
+Point Codex at the gateway by overwriting `.codex/config.toml` and appending the provided settings. This time with no `Authorization` header — the gateway handles the entire ID-JAG flow:
 
 ```sh
-_gateway_port=$(./tools/port.sh ai-client-gateway)
+_gateway_port=$(./tools/port.sh ai-client-gateway-codex)
 
 cat > .codex/config.toml <<EOF
 [mcp_servers.id-jag-the-hard-way-mcp]
 type = "http"
 url = "http://localhost:${_gateway_port}/mcp"
 EOF
+
+cat .codex/settings.toml >> .codex/config.toml
 ```
 
 > [!NOTE]
@@ -248,11 +259,9 @@ Log in to the MCP server. Unlike Claude Code (which prompts you inside the chat)
 codex mcp login id-jag-the-hard-way-mcp
 ```
 
-Codex will print a URL and wait:
-
 ```sh
 # Authorize `id-jag-the-hard-way-mcp` by opening this URL in your browser:
-# http://localhost:44443/oauth/authorize?...
+# http://localhost:44444/oauth/authorize?...
 ```
 
 Open that URL in your browser and sign in with:
@@ -266,16 +275,17 @@ Once you complete the login, the terminal will confirm:
 # Successfully logged in to MCP server 'id-jag-the-hard-way-mcp'.
 ```
 
-Now start Codex:
+Start a new Codex chat:
 
 ```sh
-codex
+/new
 ```
 
-> [!NOTE]
-> 🟡 TODO: Add a screenshot of Codex CLI running after successful MCP login.
+Codex will try to initialize the MCP server and fail:
 
-After signing in, the MCP connection will fail — this is intentional. The `human.idjag-learner.codex` service does not yet have permission in Athenz to exchange the ID token for an ID-JAG token.
+![Codex MCP token exchange forbidden](./assets/15_codex_gateway_token_exchange_forbidden.png)
+
+This is expected. Codex reached the AI Client Gateway, and the gateway tried to exchange the logged-in user's Keycloak ID token through Athenz ZTS. Athenz rejected that exchange because `human.idjag-learner.codex` does not yet have `zts.jag_exchange` permission for the requested API role.
 
 ## What's next?
 
