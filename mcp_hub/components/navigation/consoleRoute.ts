@@ -38,6 +38,18 @@ export function consoleHref({
   return suffix ? `${base}/${suffix.replace(/^\/+/, "")}` : base
 }
 
+export function catalogServerSuffix(serverId: string, view: "client-configuration" | "tools") {
+  return `${encodeURIComponent(serverId)}/${view}`
+}
+
+export function decodeRouteParam(value: string) {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 export function displayProduct(product: string) {
   if (product === "mcp-hub") return "MCP hub"
   return product

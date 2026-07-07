@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { ServerLogo } from "@/components/atoms/ServerLogo"
-import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
+import { catalogServerSuffix, consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import type { McpServer } from "@/features/catalog/types/catalog"
 
 export function CatalogBreadcrumb({ project, product }: { project: string; product: string }) {
@@ -130,7 +130,7 @@ export function CatalogTable({ servers, project, product }: { servers: McpServer
                         project,
                         product,
                         section: "catalog",
-                        suffix: `${server.id}/client-configuration`,
+                        suffix: catalogServerSuffix(server.id, "client-configuration"),
                       })}
                     >
                       {server.alias ?? server.name}

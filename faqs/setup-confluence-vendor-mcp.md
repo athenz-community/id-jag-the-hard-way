@@ -228,7 +228,7 @@ MCP Hub discovers catalog entries from Kubernetes deployments labeled as part of
 This annotation value assumes MCP Hub is running locally and `core-mcp-proxy` is exposed on the configured local port. The default is `24442`, but use `port.sh` so local overrides keep working.
 
 ```sh
-_core_mcp_proxy_port=$(./tools/port.sh core-mcp-proxy)
+_confleunce_mcp_port=$(./tools/port.sh confleunce-mcp)
 
 kubectl label deploy confluence-mcp -n mcp-hub \
   app.kubernetes.io/part-of=mcp-hub \
@@ -238,7 +238,7 @@ kubectl label deploy confluence-mcp -n mcp-hub \
 kubectl annotate deploy confluence-mcp -n mcp-hub \
   mcp.idthw.dev/alias="Confluence MCP" \
   mcp.idthw.dev/description="Vendor MCP server backed by Confluence Cloud" \
-  mcp.idthw.dev/public-url="http://127.0.0.1:${_core_mcp_proxy_port}/mcp/confluence-mcp" \
+  mcp.idthw.dev/public-url="http://127.0.0.1:${_confleunce_mcp_port}/mcp" \
   mcp.idthw.dev/upstream-url="http://confluence-mcp.mcp-hub:9000/mcp" \
   mcp.idthw.dev/transport="streamable-http" \
   --overwrite
@@ -248,7 +248,7 @@ If MCP Hub is running inside Kubernetes instead of through `make -C mcp_hub loca
 
 ```sh
 kubectl annotate deploy confluence-mcp -n mcp-hub \
-  mcp.idthw.dev/public-url="http://core-mcp-proxy.mcp-hub:8080/mcp/confluence-mcp" \
+  mcp.idthw.dev/public-url="http://core-mcp-proxy.mcp-hub:8080/mcp" \
   mcp.idthw.dev/upstream-url="http://confluence-mcp.mcp-hub:9000/mcp" \
   --overwrite
 ```
@@ -261,13 +261,7 @@ kubectl annotate deploy confluence-mcp -n mcp-hub \
 Open MCP Hub:
 
 ```sh
-make -C mcp_hub local
-```
-
-Open the Confluence MCP client configuration page:
-
-```sh
-./tools/open.sh "http://localhost:3102/k8s-docs-server/mcp-hub/catalog/confluence-mcp/client-configuration"
+OPEN_UI=true make -C mcp_hub local
 ```
 
 Copy either the MCP server URL or the JSON block for your client, such as Codex or Claude Code.
@@ -281,12 +275,22 @@ echo "http://127.0.0.1:${_core_mcp_proxy_port}/mcp/confluence-mcp"
 
 Use the settings from MCP Hub instead of manually reconstructing the client config. Once the client has this MCP server entry, it can talk to the Confluence MCP server.
 
+Open the Confluence MCP tools page to verify MCP Hub can load the live tool list:
+
+```sh
+./tools/open.sh "http://localhost:3102/k8s-docs-server/mcp-hub/catalog/mcp-hub%3Aconfluence-mcp/tools"
+```
+
+The page should show the Confluence tools returned by `tools/list`:
+
+![confluence_mcp_tools_page](./assets/confluence_mcp_tools_page.png)
+
 ## Step 7. Verify from the MCP Client
 
 Open the Confluence MCP client configuration page if it is not already open:
 
 ```sh
-./tools/open.sh "http://localhost:3102/k8s-docs-server/mcp-hub/catalog/confluence-mcp/client-configuration"
+./tools/open.sh "http://localhost:3102/k8s-docs-server/mcp-hub/catalog/mcp-hub%3Aconfluence-mcp/client-configuration"
 ```
 
 Choose your AI client agent:

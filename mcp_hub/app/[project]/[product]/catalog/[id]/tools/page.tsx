@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { ConsoleTemplate } from "@/components/templates/ConsoleTemplate"
+import { decodeRouteParam } from "@/components/navigation/consoleRoute"
 import {
   McpServerDetailBreadcrumb,
   McpServerDetailHeader,
@@ -14,8 +15,9 @@ export const revalidate = 0
 
 export default async function McpServerToolsRoute({ params }: { params: Promise<{ project: string; product: string; id: string }> }) {
   const { project, product, id } = await params
+  const serverId = decodeRouteParam(id)
   const catalog = await fetchCatalog()
-  const server = catalog.servers.find((item) => item.id === id)
+  const server = catalog.servers.find((item) => item.id === serverId)
 
   if (!server) notFound()
 
