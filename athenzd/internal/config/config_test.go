@@ -45,6 +45,7 @@ services:
       issuer: https://localhost:34444/realms/master
       client_id: athenzd
       callback_port: 8250
+      ca_file: /tmp/idp-ca.pem
 `)
 	cfg, err := config.Load(path)
 	if err != nil {
@@ -76,6 +77,9 @@ services:
 	}
 	if cfg.Services[0].IDP.CallbackPort != 8250 {
 		t.Errorf("unexpected idp.callback_port: %d", cfg.Services[0].IDP.CallbackPort)
+	}
+	if cfg.Services[0].IDP.CAFile != "/tmp/idp-ca.pem" {
+		t.Errorf("unexpected idp.ca_file: %q", cfg.Services[0].IDP.CAFile)
 	}
 }
 

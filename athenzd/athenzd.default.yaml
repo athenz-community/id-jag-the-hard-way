@@ -20,6 +20,7 @@ services:
       issuer:                   # REQUIRED  e.g. https://localhost:34444/realms/master
       client_id:                # REQUIRED  e.g. athenzd
       callback_port: 8250       # optional  local port for PKCE redirect
+      ca_file:                  # optional  trust a private CA for the IdP HTTPS cert
 
   # ── Uncommented in PR 3: X.509 service identity cert ──────────────────────
   # identity:

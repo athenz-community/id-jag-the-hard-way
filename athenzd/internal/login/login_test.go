@@ -3,10 +3,13 @@ package login_test
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -75,6 +78,89 @@ func TestRun_Success(t *testing.T) {
 	}
 	if !strings.Contains(capturedURL, "code_challenge") {
 		t.Errorf("expected PKCE code_challenge in auth URL, got: %q", capturedURL)
+	}
+}
+
+// TestRun_HTTPSWithCA checks that login completes against an HTTPS IdP whose
+// certificate is signed by a private CA, when that CA is supplied via CAFile.
+func TestRun_HTTPSWithCA(t *testing.T) {
+	// TLS server with a self-signed cert — the same class of cert as the local
+	// Keycloak HTTPS listener signed by the Athenz tutorial CA.
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/protocol/openid-connect/auth":
+			redirect := r.URL.Query().Get("redirect_uri")
+			state := r.URL.Query().Get("state")
+			http.Redirect(w, r, redirect+"?code=fake-code&state="+state, http.StatusFound)
+		case "/protocol/openid-connect/token":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "fake-access-token",
+				"id_token":     "fake-id-token",
+				"token_type":   "Bearer",
+			})
+		}
+	}))
+	defer srv.Close()
+
+	// Write the server's own cert to a PEM file and hand it to login as the CA.
+	caFile := filepath.Join(t.TempDir(), "ca.pem")
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw})
+	if err := os.WriteFile(caFile, certPEM, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := login.Config{Issuer: srv.URL, ClientID: "test-client", CallbackPort: 0, CAFile: caFile}
+
+	openBrowser := func(url string) error {
+		// The browser must also trust the CA to follow the HTTPS auth redirect.
+		client := srv.Client()
+		resp, err := client.Get(url) //nolint:noctx
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+		return nil
+	}
+
+	result, err := login.Run(context.Background(), cfg, openBrowser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.IDToken != "fake-id-token" {
+		t.Errorf("unexpected ID token: %q", result.IDToken)
+	}
+}
+
+// TestRun_CAFileMissing checks that a non-existent CAFile path returns an error.
+func TestRun_CAFileMissing(t *testing.T) {
+	cfg := login.Config{
+		Issuer:       "https://localhost:19999",
+		ClientID:     "test-client",
+		CallbackPort: 0,
+		CAFile:       filepath.Join(t.TempDir(), "no-such-ca.pem"),
+	}
+	_, err := login.Run(context.Background(), cfg, func(url string) error { return nil })
+	if err == nil {
+		t.Fatal("expected error for missing CA file, got nil")
+	}
+}
+
+// TestRun_CAFileInvalid checks that a CAFile with no valid PEM certs returns an error.
+func TestRun_CAFileInvalid(t *testing.T) {
+	caFile := filepath.Join(t.TempDir(), "bad-ca.pem")
+	if err := os.WriteFile(caFile, []byte("not a certificate"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := login.Config{
+		Issuer:       "https://localhost:19999",
+		ClientID:     "test-client",
+		CallbackPort: 0,
+		CAFile:       caFile,
+	}
+	_, err := login.Run(context.Background(), cfg, func(url string) error { return nil })
+	if err == nil {
+		t.Fatal("expected error for invalid CA file, got nil")
 	}
 }
 

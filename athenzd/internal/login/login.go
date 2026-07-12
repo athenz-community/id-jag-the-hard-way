@@ -3,10 +3,13 @@ package login
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -16,6 +19,8 @@ type Config struct {
 	Issuer       string // e.g. https://localhost:34444/realms/master
 	ClientID     string
 	CallbackPort int // local port for the PKCE redirect (e.g. 8250)
+	// CAFile trusts a custom CA for the IdP HTTPS connection. Empty = system trust.
+	CAFile string
 }
 
 type Result struct {
@@ -26,6 +31,17 @@ type Result struct {
 // Run opens the browser for PKCE login and waits for the callback.
 // Returns the ID token and its expiry.
 func Run(ctx context.Context, cfg Config, openBrowser func(url string) error) (*Result, error) {
+	// If a custom CA is configured, build an HTTP client that trusts it and
+	// hand it to the oauth2 library via the context. This lets the token
+	// exchange reach an HTTPS IdP whose cert is signed by a private CA.
+	if cfg.CAFile != "" {
+		client, err := httpClientWithCA(cfg.CAFile)
+		if err != nil {
+			return nil, err
+		}
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, client)
+	}
+
 	oauth2Cfg := &oauth2.Config{
 		ClientID:    cfg.ClientID,
 		RedirectURL: fmt.Sprintf("http://localhost:%d/callback", cfg.CallbackPort),
@@ -122,6 +138,24 @@ func startCallbackServer(port int, expectedState string, codeCh chan<- string, e
 	srv := &http.Server{Handler: mux}
 	go srv.Serve(ln) //nolint:errcheck
 	return srv, actualPort, nil
+}
+
+// httpClientWithCA returns an HTTP client that trusts the CA cert at caFile
+// in addition to nothing else (the IdP connection uses only this CA).
+func httpClientWithCA(caFile string) (*http.Client, error) {
+	pem, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, fmt.Errorf("reading idp ca_file: %w", err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pem) {
+		return nil, fmt.Errorf("no valid certificates in idp ca_file %q", caFile)
+	}
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12},
+		},
+	}, nil
 }
 
 // pkceParams generates a PKCE verifier, challenge, and state.

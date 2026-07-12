@@ -15,6 +15,29 @@ import (
 	"github.com/AthenZ/athenzd/internal/config"
 )
 
+// TestHumanizeRemaining covers the friendly remaining-time formatting for each bucket.
+func TestHumanizeRemaining(t *testing.T) {
+	now := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
+	cases := []struct {
+		name string
+		exp  time.Time
+		want string
+	}{
+		{"hours", now.Add(3 * time.Hour), "~3h left"},
+		{"minutes", now.Add(45 * time.Minute), "~45m left"},
+		{"under a minute", now.Add(30 * time.Second), "~<1m left"},
+		{"expired", now.Add(-time.Minute), "expired"},
+		{"exactly now", now, "expired"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := humanizeRemaining(tc.exp, now); got != tc.want {
+				t.Errorf("humanizeRemaining(%v) = %q, want %q", tc.exp.Sub(now), got, tc.want)
+			}
+		})
+	}
+}
+
 // TestFindService_Found checks that findService returns the matching service.
 func TestFindService_Found(t *testing.T) {
 	cfg := &config.Config{

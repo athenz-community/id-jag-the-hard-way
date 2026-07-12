@@ -44,6 +44,9 @@ type IDPConfig struct {
 	Issuer       string `mapstructure:"issuer"`
 	ClientID     string `mapstructure:"client_id"`
 	CallbackPort int    `mapstructure:"callback_port"`
+	// CAFile trusts a custom CA for the IdP HTTPS connection (e.g. the Athenz
+	// tutorial CA that signs the local Keycloak HTTPS cert). Empty = system trust.
+	CAFile string `mapstructure:"ca_file"`
 }
 
 type ServiceAthenz struct {
