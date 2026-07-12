@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/AthenZ/athenzd/internal/version"
 	"github.com/spf13/cobra"
@@ -16,11 +17,13 @@ func newRootCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
+		// Silence default error/usage printing — we handle it in main() for cleaner output.
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
 
 	root.AddCommand(newVersionCmd())
+	root.AddCommand(newConfigCmd())
 	return root
 }
 
@@ -34,9 +37,16 @@ func newVersionCmd() *cobra.Command {
 	}
 }
 
-func main() {
+// run is extracted from main so the error path is testable without os.Exit.
+func run(args []string) error {
 	cmd := newRootCmd()
-	if err := cmd.Execute(); err != nil {
-		_ = cmd.Help()
+	cmd.SetArgs(args)
+	return cmd.Execute()
+}
+
+func main() {
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
 	}
 }
