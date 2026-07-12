@@ -32,6 +32,9 @@ services:
     athenz:
       domain: home.mlajkim
       provider: cloud.ynw.identityd
+    idp:
+      issuer: https://localhost:34444/realms/master
+      client_id: athenzd
 `)
 	cmd := newRootCmd()
 	buf := &bytes.Buffer{}
@@ -80,5 +83,93 @@ services:
 
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("expected error for missing athenz.zts, got nil")
+	}
+}
+
+// TestConfigValidate_ResolveError checks that validate fails when HOME is unset and no -f flag.
+func TestConfigValidate_ResolveError(t *testing.T) {
+	t.Setenv("HOME", "")
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"config", "validate"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error when HOME is unset and no -f flag, got nil")
+	}
+}
+
+// TestConfigValidate_ShowsSource checks that validate prints the config source to stderr.
+func TestConfigValidate_ShowsSource(t *testing.T) {
+	path := writeTemp(t, `
+athenz:
+  zts: https://zts.example.com:4443/zts/v1
+services:
+  - name: my-service
+    athenz:
+      domain: home.mlajkim
+      provider: cloud.ynw.identityd
+    idp:
+      issuer: https://localhost:34444/realms/master
+      client_id: athenzd
+`)
+	cmd := newRootCmd()
+	errBuf := &bytes.Buffer{}
+	cmd.SetErr(errBuf)
+	cmd.SetArgs([]string{"config", "validate", "-f", path})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(errBuf.String(), "explicit (-f flag)") {
+		t.Errorf("expected source in stderr, got: %q", errBuf.String())
+	}
+}
+
+// TestConfigCurrent_Explicit checks that current-config prints the path and source for an explicit -f flag.
+func TestConfigCurrent_Explicit(t *testing.T) {
+	path := writeTemp(t, "")
+	cmd := newRootCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"config", "current-config", "-f", path})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, path) {
+		t.Errorf("expected path %q in output, got: %q", path, out)
+	}
+	if !strings.Contains(out, "explicit (-f flag)") {
+		t.Errorf("expected source in output, got: %q", out)
+	}
+}
+
+// TestConfigCurrent_UserLevel checks that current-config resolves to ~/.athenzd/config.yaml when no project config.
+func TestConfigCurrent_UserLevel(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cmd := newRootCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"config", "current-config"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, ".athenzd/config.yaml") {
+		t.Errorf("expected .athenzd/config.yaml in output, got: %q", out)
+	}
+	if !strings.Contains(out, "user-level") {
+		t.Errorf("expected user-level source in output, got: %q", out)
+	}
+}
+
+// TestConfigCurrent_ResolveError checks that current-config fails when HOME is unset.
+func TestConfigCurrent_ResolveError(t *testing.T) {
+	t.Setenv("HOME", "")
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"config", "current-config"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error when HOME is unset, got nil")
 	}
 }

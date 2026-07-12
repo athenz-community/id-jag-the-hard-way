@@ -79,7 +79,7 @@ kubectl -n idp create secret tls keycloak-tls \
 ```
 
 ```sh
-# secret/keycloak-tls configured
+# secret/keycloak-tls created
 ```
 
 ## Step 3. Patch the Keycloak Deployment

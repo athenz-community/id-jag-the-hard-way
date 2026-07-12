@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/viper"
 )
@@ -26,15 +28,22 @@ type AthenzCore struct {
 type ServiceConfig struct {
 	Name   string        `mapstructure:"name"`
 	Athenz ServiceAthenz `mapstructure:"athenz"`
+	IDP    IDPConfig     `mapstructure:"idp"`
 
-	// Uncommented in PR 3 (x509 identity):
+	// Uncommented in PR 4 (x509 identity):
 	// Identity IdentityConfig `mapstructure:"identity"`
 
-	// Uncommented in PR 5 (role cert):
+	// Uncommented in PR 6 (role cert):
 	// RoleCert RoleCertConfig `mapstructure:"role_cert"`
 
-	// Uncommented in PR 4 (token):
+	// Uncommented in PR 5 (token):
 	// Token TokenConfig `mapstructure:"token"`
+}
+
+type IDPConfig struct {
+	Issuer       string `mapstructure:"issuer"`
+	ClientID     string `mapstructure:"client_id"`
+	CallbackPort int    `mapstructure:"callback_port"`
 }
 
 type ServiceAthenz struct {
@@ -42,10 +51,54 @@ type ServiceAthenz struct {
 	Provider string `mapstructure:"provider"`
 }
 
-// Load reads the config file at path and returns a validated Config.
+type ResolveSource string
+
+const (
+	SourceExplicit    ResolveSource = "explicit (-f flag)"
+	SourceProjectLevel ResolveSource = "project-level (.athenzd/config.yaml)"
+	SourceUserLevel   ResolveSource = "user-level (~/.athenzd/config.yaml)"
+)
+
+type ResolveResult struct {
+	Path   string
+	Source ResolveSource
+}
+
+// Resolve returns the config file path to use, in priority order:
+//  1. explicit path (non-empty)
+//  2. ./.athenzd/config.yaml  (project-level)
+//  3. ~/.athenzd/config.yaml  (user-level)
+func Resolve(explicit string) (*ResolveResult, error) {
+	if explicit != "" {
+		return &ResolveResult{Path: explicit, Source: SourceExplicit}, nil
+	}
+	if _, err := os.Stat(".athenzd/config.yaml"); err == nil {
+		return &ResolveResult{Path: ".athenzd/config.yaml", Source: SourceProjectLevel}, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("resolving home dir: %w", err)
+	}
+	return &ResolveResult{
+		Path:   filepath.Join(home, ".athenzd", "config.yaml"),
+		Source: SourceUserLevel,
+	}, nil
+}
+
+// Load resolves the config path and loads the config file.
+// Use Resolve + LoadResolved directly when you need the ResolveResult (e.g. to log the source).
 func Load(path string) (*Config, error) {
+	r, err := Resolve(path)
+	if err != nil {
+		return nil, err
+	}
+	return LoadResolved(r)
+}
+
+// LoadResolved loads the config file at the path in r.
+func LoadResolved(r *ResolveResult) (*Config, error) {
 	v := viper.New()
-	v.SetConfigFile(path)
+	v.SetConfigFile(r.Path)
 
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("reading config: %w", err)
@@ -88,6 +141,12 @@ func validate(cfg *Config) error {
 		}
 		if svc.Athenz.Provider == "" {
 			return fmt.Errorf("services[%d] (%s): athenz.provider is required", i, svc.Name)
+		}
+		if svc.IDP.Issuer == "" {
+			return fmt.Errorf("services[%d] (%s): idp.issuer is required", i, svc.Name)
+		}
+		if svc.IDP.ClientID == "" {
+			return fmt.Errorf("services[%d] (%s): idp.client_id is required", i, svc.Name)
 		}
 	}
 	return nil

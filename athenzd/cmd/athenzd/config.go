@@ -9,10 +9,12 @@ import (
 
 func newConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "config",
-		Short: "Manage athenzd configuration",
+		Use:     "config",
+		Aliases: []string{"cfg"},
+		Short:   "Manage athenzd configuration",
 	}
 	cmd.AddCommand(newConfigValidateCmd())
+	cmd.AddCommand(newConfigCurrentCmd())
 	return cmd
 }
 
@@ -23,7 +25,13 @@ func newConfigValidateCmd() *cobra.Command {
 		Use:   "validate",
 		Short: "Validate a config file",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(file)
+			resolved, err := config.Resolve(file)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "config: %s (%s)\n", resolved.Path, resolved.Source)
+
+			cfg, err := config.LoadResolved(resolved)
 			if err != nil {
 				return err
 			}
@@ -40,6 +48,27 @@ func newConfigValidateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&file, "file", "f", "athenzd.default.yaml", "path to config file")
+	cmd.Flags().StringVarP(&file, "file", "f", "", "path to config file (default: .athenzd/config.yaml or ~/.athenzd/config.yaml)")
+	return cmd
+}
+
+func newConfigCurrentCmd() *cobra.Command {
+	var file string
+
+	cmd := &cobra.Command{
+		Use:   "current-config",
+		Short: "Show which config file is active and where it came from",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resolved, err := config.Resolve(file)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s\n", resolved.Path)
+			fmt.Fprintf(cmd.OutOrStdout(), "source: %s\n", resolved.Source)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&file, "file", "f", "", "path to config file (default: .athenzd/config.yaml or ~/.athenzd/config.yaml)")
 	return cmd
 }

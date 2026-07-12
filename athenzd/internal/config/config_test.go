@@ -41,6 +41,10 @@ services:
     athenz:
       domain: home.mlajkim
       provider: cloud.ynw.identityd
+    idp:
+      issuer: https://localhost:34444/realms/master
+      client_id: athenzd
+      callback_port: 8250
 `)
 	cfg, err := config.Load(path)
 	if err != nil {
@@ -63,6 +67,15 @@ services:
 	}
 	if cfg.Services[0].Athenz.Provider != "cloud.ynw.identityd" {
 		t.Errorf("unexpected provider: %q", cfg.Services[0].Athenz.Provider)
+	}
+	if cfg.Services[0].IDP.Issuer != "https://localhost:34444/realms/master" {
+		t.Errorf("unexpected idp.issuer: %q", cfg.Services[0].IDP.Issuer)
+	}
+	if cfg.Services[0].IDP.ClientID != "athenzd" {
+		t.Errorf("unexpected idp.client_id: %q", cfg.Services[0].IDP.ClientID)
+	}
+	if cfg.Services[0].IDP.CallbackPort != 8250 {
+		t.Errorf("unexpected idp.callback_port: %d", cfg.Services[0].IDP.CallbackPort)
 	}
 }
 
@@ -132,6 +145,44 @@ func TestParse_UnmarshalError(t *testing.T) {
 	}
 }
 
+// TestLoad_MissingIDPIssuer checks that a service with no idp.issuer is caught.
+func TestLoad_MissingIDPIssuer(t *testing.T) {
+	path := writeTemp(t, `
+athenz:
+  zts: https://zts.example.com:4443/zts/v1
+services:
+  - name: my-service
+    athenz:
+      domain: home.mlajkim
+      provider: cloud.ynw.identityd
+    idp:
+      client_id: athenzd
+`)
+	_, err := config.Load(path)
+	if err == nil {
+		t.Fatal("expected error for missing idp.issuer, got nil")
+	}
+}
+
+// TestLoad_MissingIDPClientID checks that a service with no idp.client_id is caught.
+func TestLoad_MissingIDPClientID(t *testing.T) {
+	path := writeTemp(t, `
+athenz:
+  zts: https://zts.example.com:4443/zts/v1
+services:
+  - name: my-service
+    athenz:
+      domain: home.mlajkim
+      provider: cloud.ynw.identityd
+    idp:
+      issuer: https://localhost:34444/realms/master
+`)
+	_, err := config.Load(path)
+	if err == nil {
+		t.Fatal("expected error for missing idp.client_id, got nil")
+	}
+}
+
 // TestLoad_MissingServiceProvider checks that a service with no provider is caught.
 func TestLoad_MissingServiceProvider(t *testing.T) {
 	path := writeTemp(t, `
@@ -145,6 +196,83 @@ services:
 	_, err := config.Load(path)
 	if err == nil {
 		t.Fatal("expected error for missing service provider, got nil")
+	}
+}
+
+// TestResolve_Explicit checks that an explicit path returns the path and correct source.
+func TestResolve_Explicit(t *testing.T) {
+	got, err := config.Resolve("/tmp/my.yaml")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Path != "/tmp/my.yaml" {
+		t.Errorf("expected explicit path, got: %q", got.Path)
+	}
+	if got.Source != config.SourceExplicit {
+		t.Errorf("expected source %q, got: %q", config.SourceExplicit, got.Source)
+	}
+}
+
+// TestResolve_ProjectLevel checks that .athenzd/config.yaml is preferred over ~/.athenzd/config.yaml.
+func TestResolve_ProjectLevel(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	// Create a project-level config.
+	if err := os.MkdirAll(".athenzd", 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(".athenzd/config.yaml", []byte(""), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(".athenzd") })
+
+	got, err := config.Resolve("")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Path != ".athenzd/config.yaml" {
+		t.Errorf("expected project-level path, got: %q", got.Path)
+	}
+	if got.Source != config.SourceProjectLevel {
+		t.Errorf("expected source %q, got: %q", config.SourceProjectLevel, got.Source)
+	}
+}
+
+// TestResolve_UserLevel checks that ~/.athenzd/config.yaml is used when no project config exists.
+func TestResolve_UserLevel(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	// No .athenzd/config.yaml in the current directory.
+
+	got, err := config.Resolve("")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expected := tmp + "/.athenzd/config.yaml"
+	if got.Path != expected {
+		t.Errorf("expected user-level path %q, got: %q", expected, got.Path)
+	}
+	if got.Source != config.SourceUserLevel {
+		t.Errorf("expected source %q, got: %q", config.SourceUserLevel, got.Source)
+	}
+}
+
+// TestResolve_HomeUnresolvable checks that Resolve returns an error when HOME is unset.
+func TestResolve_HomeUnresolvable(t *testing.T) {
+	t.Setenv("HOME", "")
+	_, err := config.Resolve("")
+	if err == nil {
+		t.Fatal("expected error when HOME is unset, got nil")
+	}
+}
+
+// TestLoad_ResolveError checks that Load returns an error when config path resolution fails.
+func TestLoad_ResolveError(t *testing.T) {
+	t.Setenv("HOME", "")
+	_, err := config.Load("")
+	if err == nil {
+		t.Fatal("expected error when HOME is unset and no explicit path, got nil")
 	}
 }
 
