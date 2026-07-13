@@ -57,9 +57,9 @@ type ServiceAthenz struct {
 type ResolveSource string
 
 const (
-	SourceExplicit    ResolveSource = "explicit (-f flag)"
-	SourceProjectLevel ResolveSource = "project-level (.athenzd/config.yaml)"
-	SourceUserLevel   ResolveSource = "user-level (~/.athenzd/config.yaml)"
+	SourceExplicit     ResolveSource = "explicit (-f flag)"
+	SourceProjectLevel ResolveSource = "project-level, overrides ~/.athenzd default"
+	SourceUserLevel    ResolveSource = "user-level (default)"
 )
 
 type ResolveResult struct {
@@ -67,16 +67,28 @@ type ResolveResult struct {
 	Source ResolveSource
 }
 
+// getwd is a seam so tests can exercise the (rare) working-directory error path.
+var getwd = os.Getwd
+
 // Resolve returns the config file path to use, in priority order:
 //  1. explicit path (non-empty)
 //  2. ./.athenzd/config.yaml  (project-level)
 //  3. ~/.athenzd/config.yaml  (user-level)
+//
+// The returned Path is always absolute so callers can print it unambiguously.
 func Resolve(explicit string) (*ResolveResult, error) {
 	if explicit != "" {
 		return &ResolveResult{Path: explicit, Source: SourceExplicit}, nil
 	}
 	if _, err := os.Stat(".athenzd/config.yaml"); err == nil {
-		return &ResolveResult{Path: ".athenzd/config.yaml", Source: SourceProjectLevel}, nil
+		cwd, err := getwd()
+		if err != nil {
+			return nil, fmt.Errorf("resolving working dir: %w", err)
+		}
+		return &ResolveResult{
+			Path:   filepath.Join(cwd, ".athenzd", "config.yaml"),
+			Source: SourceProjectLevel,
+		}, nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {

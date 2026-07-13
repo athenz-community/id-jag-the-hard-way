@@ -217,10 +217,13 @@ func TestResolve_Explicit(t *testing.T) {
 	}
 }
 
-// TestResolve_ProjectLevel checks that .athenzd/config.yaml is preferred over ~/.athenzd/config.yaml.
+// TestResolve_ProjectLevel checks that .athenzd/config.yaml is preferred over
+// ~/.athenzd/config.yaml and is returned as an absolute path.
 func TestResolve_ProjectLevel(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	t.Setenv("HOME", t.TempDir())
+	// Run inside a scratch dir so the project config doesn't touch the repo.
+	t.Chdir(tmp)
 
 	// Create a project-level config.
 	if err := os.MkdirAll(".athenzd", 0700); err != nil {
@@ -229,14 +232,16 @@ func TestResolve_ProjectLevel(t *testing.T) {
 	if err := os.WriteFile(".athenzd/config.yaml", []byte(""), 0600); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.RemoveAll(".athenzd") })
 
 	got, err := config.Resolve("")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got.Path != ".athenzd/config.yaml" {
-		t.Errorf("expected project-level path, got: %q", got.Path)
+	if !filepath.IsAbs(got.Path) {
+		t.Errorf("expected absolute project-level path, got: %q", got.Path)
+	}
+	if filepath.Base(got.Path) != "config.yaml" || filepath.Base(filepath.Dir(got.Path)) != ".athenzd" {
+		t.Errorf("expected path ending in .athenzd/config.yaml, got: %q", got.Path)
 	}
 	if got.Source != config.SourceProjectLevel {
 		t.Errorf("expected source %q, got: %q", config.SourceProjectLevel, got.Source)
