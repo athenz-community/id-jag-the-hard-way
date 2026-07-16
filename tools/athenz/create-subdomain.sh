@@ -14,9 +14,32 @@ name=$2
 
 subdomain="${parent}.${name}"
 
+response_file=$(mktemp)
+trap 'rm -f "${response_file}"' EXIT
+
+curl_status=0
+check_status=$(curl -s -k -o "${response_file}" -w "%{http_code}" \
+  --cert ./athenz_dist/certs/athenz_admin.cert.pem \
+  --key ./athenz_dist/keys/athenz_admin.private.pem \
+  "https://localhost:${_zms_port}/zms/v1/domain/${subdomain}") || curl_status=$?
+
+if [ "${check_status}" = "200" ]; then
+  ok "Subdomain already exists: ${subdomain}"
+  exit 0
+fi
+
+if [ "${curl_status}" -ne 0 ] || [ "${check_status}" != "404" ]; then
+  err "ZMS error response (HTTP ${check_status:-000}, curl ${curl_status}):"
+  if [ -s "${response_file}" ]; then
+    cat "${response_file}" >&2
+  else
+    err "No response body returned by ZMS."
+  fi
+  fatal "Failed to check subdomain ${subdomain}"
+fi
+
 info "Creating Subdomain: ${subdomain}..."
 
-response_file=$(mktemp)
 curl_status=0
 http_code=$(curl -s -k -o "${response_file}" -w "%{http_code}" -X POST "https://localhost:${_zms_port}/zms/v1/subdomain/${parent}" \
   --cert ./athenz_dist/certs/athenz_admin.cert.pem \
@@ -28,10 +51,9 @@ http_code=$(curl -s -k -o "${response_file}" -w "%{http_code}" -X POST "https://
     "adminUsers": ["user.athenz_admin"]
   }') || curl_status=$?
 response=$(cat "${response_file}")
-rm -f "${response_file}"
 
 if [ "${http_code:-000}" = "409" ] || echo "${response}" | grep -qi "already exists"; then
-  info "Subdomain already exists: ${subdomain}"
+  ok "Subdomain already exists: ${subdomain}"
   exit 0
 fi
 

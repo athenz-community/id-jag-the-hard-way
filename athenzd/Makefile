@@ -1,4 +1,4 @@
-.PHONY: help build test athenzd
+.PHONY: help build test athenzd idjag-learner
 
 help:
 	@echo "Usage: make <target>"
