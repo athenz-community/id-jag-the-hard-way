@@ -6,23 +6,63 @@ source "${TOOLS_DIR}/color.sh"
 _zts_port=$("$TOOLS_DIR/port.sh" zts)
 
 if [ $# -lt 3 ]; then
-  fatal "Usage: $0 <cert_path> <key_path> <scope> [output_file]"
+  fatal "Usage: $0 <cert_path> <key_path> <scope> [output_file] [--actor <actor>] [--output <output_file>]"
 fi
 
 cert_path=$1
 key_path=$2
 scope=$3
-output=${4:-}
+shift 3
+
+output=""
+actor=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --actor)
+      [ $# -ge 2 ] || fatal "Missing value for --actor"
+      actor=$2
+      shift 2
+      ;;
+    --output)
+      [ $# -ge 2 ] || fatal "Missing value for --output"
+      output=$2
+      shift 2
+      ;;
+    -*)
+      fatal "Unknown option: $1"
+      ;;
+    *)
+      if [ -n "${output}" ]; then
+        fatal "Unexpected argument: $1"
+      fi
+      output=$1
+      shift
+      ;;
+  esac
+done
+
 zts_url="https://localhost:${_zts_port}/zts/v1/oauth2/token"
 
 # Print logs to stderr so stdout only outputs the pure token string
 info "Fetching Access Token for scope: ${scope}..." >&2
 
-response=$(curl -s -k -X POST "${zts_url}" \
-  --cert "${cert_path}" \
-  --key "${key_path}" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&scope=${scope}&expires_in=3600")
+if [ -n "${actor}" ]; then
+  response=$(curl -s -k -X POST "${zts_url}" \
+    --cert "${cert_path}" \
+    --key "${key_path}" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data-urlencode "grant_type=client_credentials" \
+    --data-urlencode "scope=${scope}" \
+    --data-urlencode "actor=${actor}" \
+    --data-urlencode "expires_in=3600")
+else
+  response=$(curl -s -k -X POST "${zts_url}" \
+    --cert "${cert_path}" \
+    --key "${key_path}" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "grant_type=client_credentials&scope=${scope}&expires_in=3600")
+fi
 
 token=$(echo "${response}" | jq -r '.access_token // empty')
 

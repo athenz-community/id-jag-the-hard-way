@@ -1,0 +1,33 @@
+name: Test athenzd
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "athenzd/**"
+      - ".github/workflows/test-athenzd.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "athenzd/**"
+      - ".github/workflows/test-athenzd.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: athenzd
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: athenzd/go.mod
+          cache-dependency-path: athenzd/go.sum
+
+      - name: Run tests
+        run: make test

@@ -56,6 +56,48 @@ Opens a URL in the system browser. Works on macOS, Linux, and Windows. Supports 
 
 Browser priority for incognito: Chrome → Firefox → Safari/Edge (platform-dependent).
 
+### Identity and token helpers
+
+Use these from tutorials and research setup steps instead of repeating low-level HTTP commands.
+
+```sh
+./tools/keycloak/create-client.sh <client_id> <redirect_uri> [web_origin] [public|confidential]
+./tools/keycloak/delete-client.sh <client_id>
+./tools/keycloak/get-client-secret.sh <client_id>
+./tools/keycloak/get-id-token.sh <client_id> <client_secret> [username]
+./tools/keycloak/set-direct-access-grants.sh <client_id> [true|false]
+./tools/athenz/fetch-access-token.sh <cert_path> <key_path> <scope> [output_file] [--actor <actor>] [--output <output_file>]
+./tools/athenz/fetch-access-token-with-id-jag.sh <cert_path> <key_path> <id_jag_token> <scope> [output_file] [--actor <actor>] [--output <output_file>]
+./tools/athenz/fetch-id-jag.sh <cert_path> <key_path> <id_token> <scope>
+./tools/athenz/exchange-id-token-for-id-jag.sh <cert_path> <key_path> <id_token> <scope> [--audience <audience>] [--token-only]
+./tools/athenz/fetch-actor-token.sh <cert_path> <key_path> <client_id>
+./tools/athenz/exchange-access-token.sh <cert_path> <key_path> <subject_access_token> <scope> [--actor-token <id_token>] [--actor <actor>] [--audience <audience>] [--token-only]
+./tools/athenz/delete-policy.sh <domain> <policy>
+./tools/athenz/delete-role.sh <domain> <role>
+./tools/athenz/delete-role-member.sh <domain> <role_name> <member_name>
+./tools/athenz/delete-service.sh <domain> <service_name>
+./tools/athenz/show-service.sh <domain> <service_name> [--summary]
+./tools/athenz/set-service-client-id.sh <domain> <service_name> <client_id>
+```
+
+`get-id-token.sh` writes only the raw token to stdout so it can be used in command substitution. Status lines and decoded JWT header/claims are printed to stderr for inspection.
+
+`set-direct-access-grants.sh` updates an existing Keycloak client so password-grant token fetching works for local research flows.
+
+`exchange-access-token.sh` prints pretty JSON to stdout by default. With `--token-only`, it writes only the raw exchanged token to stdout so it can be used in command substitution. Status lines and decoded JWT header/claims are printed to stderr when a token is returned.
+
+`fetch-access-token-with-id-jag.sh` supports `--actor` for delegated ID-JAG access-token requests that must mint a `may_act` token for a specific actor service.
+
+`show-service.sh` reads service metadata via the ZMS HTTP API and prints pretty JSON by default, including `clientId` when it is stored in service metadata. Use `--summary` for compact `service`, `client-id`, and `public-key-ids` lines.
+
+`create-client.sh` supports optional environment overrides:
+
+- `KEYCLOAK_DIRECT_ACCESS_GRANTS=true` enables password-grant token fetching for local research flows.
+- `KEYCLOAK_CLIENT_SECRET=<secret>` sets a deterministic secret for confidential clients.
+- `KEYCLOAK_OPEN_UI=false` skips opening the Keycloak admin UI after create/update.
+
+`fetch-access-token.sh` keeps its original positional output-file argument. The named `--output` form is available for readability when combined with `--actor`.
+
 ## Configuration
 
 ### `config.yaml`

@@ -14,6 +14,8 @@ client_id=$1
 redirect_uri=$2
 web_origin=${3:-$(echo "$redirect_uri" | sed 's|/[^/]*$||' | sed 's|/[^/]*$||')}
 client_type=${4:-confidential}
+direct_access_grants=${KEYCLOAK_DIRECT_ACCESS_GRANTS:-false}
+client_secret=${KEYCLOAK_CLIENT_SECRET:-}
 
 case "$client_type" in
   public)
@@ -27,9 +29,26 @@ case "$client_type" in
     ;;
 esac
 
+case "$direct_access_grants" in
+  true|false)
+    ;;
+  *)
+    fatal "Invalid KEYCLOAK_DIRECT_ACCESS_GRANTS: ${direct_access_grants}. Use true or false."
+    ;;
+esac
+
+if [ "$client_type" = "public" ] && [ -n "$client_secret" ]; then
+  fatal "KEYCLOAK_CLIENT_SECRET is only valid for confidential clients."
+fi
+
 info "Fetching Keycloak admin token..."
 
 token=$("${TOOLS_DIR}/keycloak/get-admin-token.sh")
+
+secret_line=""
+if [ -n "$client_secret" ]; then
+  secret_line="  \"secret\": \"${client_secret}\","
+fi
 
 client_payload=$(
   cat <<EOF
@@ -38,8 +57,9 @@ client_payload=$(
   "name": "${client_id}",
   "protocol": "openid-connect",
   "publicClient": ${public_client},
+${secret_line}
   "standardFlowEnabled": true,
-  "directAccessGrantsEnabled": false,
+  "directAccessGrantsEnabled": ${direct_access_grants},
   "redirectUris": ["${redirect_uri}"],
   "webOrigins": ["${web_origin}"]
 }
@@ -81,7 +101,7 @@ else
   ok "Client created: ${client_id}"
 fi
 
-if [ "$client_type" = "confidential" ]; then
+if [ "$client_type" = "confidential" ] && [ -z "$client_secret" ]; then
   info "Fetch the generated secret with: tools/keycloak/create-client-k8s-secret.sh"
 fi
 

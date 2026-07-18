@@ -1,0 +1,66 @@
+# athenzd.default.yaml
+# Copy to ~/.config/athenzd/config.yaml and fill in REQUIRED fields.
+# Lines marked REQUIRED must be set — athenzd will refuse to start without them.
+
+# ── Athenz Core ───────────────────────────────────────────────────────────────
+athenz:
+  zts:                          # REQUIRED  e.g. https://zts.athenz.example.com:4443/zts/v1
+  zms:                          # optional
+
+# ── Context (like kubectl current-context) ───────────────────────────────────
+current_service: ""             # which service is active for `athenzd get` commands
+
+# ── Services ──────────────────────────────────────────────────────────────────
+services:
+  - name:                       # REQUIRED  unique name for this service identity
+    athenz:
+      domain:                   # REQUIRED  e.g. home.mlajkim
+      provider:                 # REQUIRED  e.g. cloud.ynw.identityd
+    idp:
+      issuer:                   # REQUIRED  e.g. https://localhost:34444/realms/master
+      client_id:                # REQUIRED  e.g. athenzd
+      callback_port: 8250       # optional  local port for PKCE redirect
+      ca_file:                  # optional  trust a private CA for the IdP HTTPS cert
+
+  # ── Uncommented in PR 3: X.509 service identity cert ──────────────────────
+  # identity:
+  #   mode: local               # local | copperargos
+  #   cert_file: ~/.config/athenzd/service.crt
+  #   key_file:  ~/.config/athenzd/service.key
+  #   ca_file:   ~/.config/athenzd/ca.crt
+  #   refresh_interval: 24h
+  #   copperargos:
+  #     provider:               # REQUIRED if mode=copperargos
+  #     endpoint:
+  #     dns_suffix:
+  #     cert_subject:
+
+  # ── Uncommented in PR 4: Access tokens ────────────────────────────────────
+  # token:
+  #   refresh_interval: 30m
+  #   expiry: ""
+  #   system_code:              # REQUIRED
+  #   delivery:
+  #     file:
+  #       enabled: false
+  #       path: ~/.config/athenzd/token
+  #     proxy:
+  #       enabled: true
+  #       header: Authorization
+
+  # ── Uncommented in PR 5: Role certs ───────────────────────────────────────
+  # role_cert:
+  #   enabled: false
+  #   dir: ~/.config/athenzd/rolecerts/
+  #   cert_filename: "{{domain}}_{{role}}.crt"
+  #   key_filename:  "{{domain}}_{{role}}.key"
+  #   ca_filename:   ca.crt
+  #   refresh_interval: 24h
+
+# ── Uncommented in PR 7: Proxy ────────────────────────────────────────────────
+# proxy:
+#   agent_port: 44443
+
+# ── Uncommented in PR 9: Health check ────────────────────────────────────────
+# healthz:
+#   port: 6080

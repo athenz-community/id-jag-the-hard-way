@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, ClipboardList, Home } from "lucide-react"
 import Link from "next/link"
 import { CopyButton } from "@/components/atoms/CopyButton"
 import { ServerLogo } from "@/components/atoms/ServerLogo"
-import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
+import { catalogServerSuffix, consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import { ClientConfiguration } from "@/components/molecules/ClientConfiguration"
 import type { McpServer } from "@/features/catalog/types/catalog"
 
@@ -86,7 +86,7 @@ export function McpServerDetailTabs({
     <div className="tabs detail-tabs" aria-label="MCP server detail views">
       <Link
         className={`tab ${active === "client-configuration" ? "active" : ""}`}
-        href={consoleHref({ project, product, section: "catalog", suffix: `${serverId}/client-configuration` })}
+        href={consoleHref({ project, product, section: "catalog", suffix: catalogServerSuffix(serverId, "client-configuration") })}
       >
         Client configuration
       </Link>
@@ -95,7 +95,7 @@ export function McpServerDetailTabs({
       </button>
       <Link
         className={`tab ${active === "tools" ? "active" : ""}`}
-        href={consoleHref({ project, product, section: "catalog", suffix: `${serverId}/tools` })}
+        href={consoleHref({ project, product, section: "catalog", suffix: catalogServerSuffix(serverId, "tools") })}
       >
         Tools
       </Link>
@@ -124,7 +124,7 @@ export function JsonConfigurationSection({ serverName, mcpServerUrl }: { serverN
   return (
     <section className="detail-section config-section" aria-labelledby="json-config-heading">
       <h2 id="json-config-heading" className="section-title">
-        JSON configuration
+        Client configuration
       </h2>
       <p className="section-copy">Add this configuration to your MCP client settings.</p>
 

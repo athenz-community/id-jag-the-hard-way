@@ -1,0 +1,86 @@
+{
+    "templates": {
+        "gen_ai_users_delegation": {
+            "metadata": {
+                "latestVersion": 1,
+                "timestamp": "2026-07-17T00:00:00.000Z",
+                "description": "gen ai users delegation template",
+                "keywordsToReplace": "_cost_accountable_admin_",
+                "autoUpdate": false
+            },
+            "roles": [
+                {
+                    "name": "_domain_:role.cost-accountable-admins",
+                    "modified": "1970-01-01T00:00:00.000Z",
+                    "roleMembers": [
+                        {
+                            "memberName": "user._cost_accountable_admin_"
+                        }
+                    ]
+                },
+                {
+                    "name": "_domain_:role.gen-ai-users-manager",
+                    "modified": "1970-01-01T00:00:00.000Z",
+                    "roleMembers": []
+                },
+                {
+                    "name": "_domain_:role.gen-ai-users",
+                    "modified": "1970-01-01T00:00:00.000Z",
+                    "roleMembers": []
+                },
+                {
+                    "name": "_domain_:role.gen-ai-users-jag-exchanger",
+                    "modified": "1970-01-01T00:00:00.000Z",
+                    "roleMembers": [
+                        {
+                            "memberName": "flava.context-ai.*"
+                        },
+                        {
+                            "memberName": "flava.mcp-hub.*"
+                        }
+                    ]
+                }
+            ],
+            "policies": [
+                {
+                    "name": "_domain_:policy.cost-accountable-admins-policy",
+                    "modified": "1970-01-01T00:00:00.000Z",
+                    "assertions": [
+                        {
+                            "resource": "_domain_:role.gen-ai-users-manager",
+                            "role": "_domain_:role.cost-accountable-admins",
+                            "action": "update_members"
+                        },
+                        {
+                            "resource": "_domain_:role.gen-ai-users",
+                            "role": "_domain_:role.cost-accountable-admins",
+                            "action": "update_members"
+                        }
+                    ]
+                },
+                {
+                    "name": "_domain_:policy.gen-ai-users-manager-policy",
+                    "modified": "1970-01-01T00:00:00.000Z",
+                    "assertions": [
+                        {
+                            "resource": "_domain_:role.gen-ai-users",
+                            "role": "_domain_:role.gen-ai-users-manager",
+                            "action": "update_members"
+                        }
+                    ]
+                },
+                {
+                    "name": "_domain_:policy.gen-ai-users-jag-exchanger-policy",
+                    "modified": "1970-01-01T00:00:00.000Z",
+                    "assertions": [
+                        {
+                            "resource": "_domain_:role.gen-ai-users",
+                            "role": "_domain_:role.gen-ai-users-jag-exchanger",
+                            "action": "zts.jag_exchange"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

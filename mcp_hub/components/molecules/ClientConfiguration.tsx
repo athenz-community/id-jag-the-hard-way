@@ -16,17 +16,19 @@ type ScopeInstruction = {
 type ClientConfig = {
   key: ClientKey
   label: string
+  format: "JSON" | "TOML"
   setupTitle?: string
   setupCopy?: string
   project: ScopeInstruction
   global: ScopeInstruction
-  buildJson: (serverName: string, mcpServerUrl: string) => unknown
+  buildConfig: (serverName: string, mcpServerUrl: string) => string
 }
 
 const CLIENTS: ClientConfig[] = [
   {
     key: "github-copilot",
     label: "GitHub Copilot",
+    format: "JSON",
     setupTitle: "Install GitHub Copilot configuration",
     setupCopy: "One-click install will use this server URL and JSON settings when the client action is wired.",
     project: {
@@ -38,18 +40,20 @@ const CLIENTS: ClientConfig[] = [
       label: "User",
       steps: ["Open the VS Code Command Palette.", 'Search for "MCP: Open User Configuration".', "Paste the JSON."],
     },
-    buildJson: (serverName, mcpServerUrl) => ({
-      servers: {
-        [serverName]: {
-          type: "http",
-          url: mcpServerUrl,
+    buildConfig: (serverName, mcpServerUrl) =>
+      jsonConfig({
+        servers: {
+          [serverName]: {
+            type: "http",
+            url: mcpServerUrl,
+          },
         },
-      },
-    }),
+      }),
   },
   {
     key: "claude-code",
     label: "Claude Code",
+    format: "JSON",
     project: {
       label: "Project",
       path: ".mcp.json",
@@ -60,18 +64,20 @@ const CLIENTS: ClientConfig[] = [
       path: "~/.claude.json",
       steps: ["Open your Claude Code user configuration.", "Add this server under mcpServers.", "Paste the JSON."],
     },
-    buildJson: (serverName, mcpServerUrl) => ({
-      mcpServers: {
-        [serverName]: {
-          type: "http",
-          url: mcpServerUrl,
+    buildConfig: (serverName, mcpServerUrl) =>
+      jsonConfig({
+        mcpServers: {
+          [serverName]: {
+            type: "http",
+            url: mcpServerUrl,
+          },
         },
-      },
-    }),
+      }),
   },
   {
     key: "opencode",
     label: "OpenCode",
+    format: "JSON",
     project: {
       label: "Project",
       path: "opencode.json",
@@ -82,41 +88,42 @@ const CLIENTS: ClientConfig[] = [
       path: "~/.config/opencode/opencode.json",
       steps: ["Open your OpenCode user configuration.", "Add this server under mcp.", "Paste the JSON."],
     },
-    buildJson: (serverName, mcpServerUrl) => ({
-      mcp: {
-        [serverName]: {
-          type: "remote",
-          url: mcpServerUrl,
-          enabled: true,
+    buildConfig: (serverName, mcpServerUrl) =>
+      jsonConfig({
+        mcp: {
+          [serverName]: {
+            type: "remote",
+            url: mcpServerUrl,
+            enabled: true,
+          },
         },
-      },
-    }),
+      }),
   },
   {
     key: "codex",
     label: "Codex",
+    format: "TOML",
     project: {
       label: "Project",
-      path: ".codex/mcp.json",
-      steps: ["Create this file in your project root.", "Paste the JSON."],
+      path: ".codex/config.toml",
+      steps: ["Create this file in your project root.", "Paste the TOML."],
     },
     global: {
       label: "User",
-      path: "~/.codex/mcp.json",
-      steps: ["Open your Codex MCP configuration.", "Add this server entry.", "Paste the JSON."],
+      path: "~/.codex/config.toml",
+      steps: ["Open your Codex configuration.", "Add this server entry.", "Paste the TOML."],
     },
-    buildJson: (serverName, mcpServerUrl) => ({
-      mcp_servers: {
-        [serverName]: {
-          type: "http",
-          url: mcpServerUrl,
-        },
-      },
-    }),
+    buildConfig: (serverName, mcpServerUrl) =>
+      [
+        `[mcp_servers.${tomlTableKey(serverName)}]`,
+        `type = "http"`,
+        `url = "${tomlBasicString(mcpServerUrl)}"`,
+      ].join("\n"),
   },
   {
     key: "cline",
     label: "Cline",
+    format: "JSON",
     project: {
       label: "Project",
       path: "cline_mcp_settings.json",
@@ -131,18 +138,20 @@ const CLIENTS: ClientConfig[] = [
       path: "cline_mcp_settings.json",
       steps: ["Open Cline MCP server settings.", "Add this server configuration.", "Paste the JSON."],
     },
-    buildJson: (serverName, mcpServerUrl) => ({
-      mcpServers: {
-        [serverName]: {
-          type: "http",
-          url: mcpServerUrl,
+    buildConfig: (serverName, mcpServerUrl) =>
+      jsonConfig({
+        mcpServers: {
+          [serverName]: {
+            type: "http",
+            url: mcpServerUrl,
+          },
         },
-      },
-    }),
+      }),
   },
   {
     key: "cursor",
     label: "Cursor",
+    format: "JSON",
     setupTitle: "Configure via Cursor",
     setupCopy: "Use the JSON settings below for either project scope or global scope.",
     project: {
@@ -155,18 +164,20 @@ const CLIENTS: ClientConfig[] = [
       path: "~/.cursor/mcp.json",
       steps: ["Go to the following location.", "Paste the JSON."],
     },
-    buildJson: (serverName, mcpServerUrl) => ({
-      mcpServers: {
-        [serverName]: {
-          type: "http",
-          url: mcpServerUrl,
+    buildConfig: (serverName, mcpServerUrl) =>
+      jsonConfig({
+        mcpServers: {
+          [serverName]: {
+            type: "http",
+            url: mcpServerUrl,
+          },
         },
-      },
-    }),
+      }),
   },
   {
     key: "gemini",
     label: "Gemini",
+    format: "JSON",
     setupTitle: "Configure via CLI",
     setupCopy: "Copy the configuration and apply it to the Gemini settings file for the selected scope.",
     project: {
@@ -179,23 +190,36 @@ const CLIENTS: ClientConfig[] = [
       path: "~/.gemini/settings.json",
       steps: ["Go to the following location.", "Paste the JSON."],
     },
-    buildJson: (serverName, mcpServerUrl) => ({
-      mcpServers: {
-        [serverName]: {
-          type: "http",
-          url: mcpServerUrl,
+    buildConfig: (serverName, mcpServerUrl) =>
+      jsonConfig({
+        mcpServers: {
+          [serverName]: {
+            type: "http",
+            url: mcpServerUrl,
+          },
         },
-      },
-    }),
+      }),
   },
 ]
+
+function jsonConfig(value: unknown) {
+  return JSON.stringify(value, null, 2)
+}
+
+function tomlTableKey(value: string) {
+  return /^[A-Za-z0-9_-]+$/.test(value) ? value : `"${tomlBasicString(value)}"`
+}
+
+function tomlBasicString(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+}
 
 export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: string; mcpServerUrl: string }) {
   const [clientKey, setClientKey] = useState<ClientKey>("github-copilot")
   const [scope, setScope] = useState<ScopeKey>("project")
   const client = CLIENTS.find((item) => item.key === clientKey) ?? CLIENTS[0]
   const selectedScope = client[scope]
-  const jsonConfig = JSON.stringify(client.buildJson(serverName, mcpServerUrl), null, 2)
+  const config = client.buildConfig(serverName, mcpServerUrl)
 
   return (
     <div className="config-workbench">
@@ -220,7 +244,7 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
           <div>
             <span className="config-eyebrow">Automatic setup</span>
             <h3>{client.setupTitle ?? `Install ${client.label} configuration`}</h3>
-            <p>{client.setupCopy ?? "Automatic setup is planned. Use the JSON settings below for now."}</p>
+            <p>{client.setupCopy ?? `Automatic setup is planned. Use the ${client.format} settings below for now.`}</p>
           </div>
           <button className="install-button" type="button" disabled>
             <Play size={12} aria-hidden="true" />
@@ -232,7 +256,7 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
           <div className="manual-heading">
             <span className="config-eyebrow">Manual setup</span>
             <h3>Configure in config file</h3>
-            <p>Choose a client and scope to see the matching JSON and save location.</p>
+            <p>Choose a client and scope to see the matching config and save location.</p>
           </div>
 
           <div className="manual-grid">
@@ -240,7 +264,7 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
               <div className="config-step-card">
                 <span className="step-marker">1</span>
                 <div>
-                  <h4>Copy the JSON configuration</h4>
+                  <h4>Copy the {client.format} configuration</h4>
                   <p>This sample is generated for {client.label} using the current MCP server URL.</p>
                 </div>
               </div>
@@ -279,10 +303,10 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
             </div>
 
             <div className="code-panel">
-              <div className="code-panel-title">Copy the JSON configuration</div>
-              <CopyButton value={jsonConfig} label="Copy JSON configuration" className="code-copy" />
+              <div className="code-panel-title">Copy the {client.format} configuration</div>
+              <CopyButton value={config} label={`Copy ${client.format} configuration`} className="code-copy" />
               <pre className="config-code">
-                <code>{jsonConfig}</code>
+                <code>{config}</code>
               </pre>
             </div>
           </div>
