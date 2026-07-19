@@ -2,6 +2,15 @@
 
 Build custom local Athenz ZMS/ZTS images from `athenz_dist`, load them into the local kind cluster, and restart both deployments.
 
+<!-- TOC depthFrom:2 depthTo:3 -->
+
+- [Step 1. Build ZMS and ZTS](#step-1-build-zms-and-zts)
+- [Step 2. Load the Images into kind](#step-2-load-the-images-into-kind)
+- [Step 3. Restart ZMS and ZTS & Wait](#step-3-restart-zms-and-zts--wait)
+- [Step 4. Check Pods](#step-4-check-pods)
+
+<!-- /TOC -->
+
 <details>
 <summary>Last verified on 2026-07-17 — ✅ Success</summary>
 

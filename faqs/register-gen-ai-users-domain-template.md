@@ -2,15 +2,6 @@
 
 Register and apply the GenAI users delegation domain template to a service domain under `gen-ai.services` without editing the ZMS default `solution_templates.json`.
 
-<details>
-<summary>Last verified on 2026-07-17 — ✅ Success</summary>
-
-| # | Date       | Status                                      |
-|---|------------|---------------------------------------------|
-| 1 | 2026-07-17 | ✅ Success — human confirmed fully tested |
-
-</details>
-
 <!-- TOC depthFrom:2 depthTo:3 -->
 
 - [Step 1. Load the Custom Template ConfigMap into ZMS](#step-1-load-the-custom-template-configmap-into-zms)
@@ -18,6 +9,15 @@ Register and apply the GenAI users delegation domain template to a service domai
 - [Step 3. Create the Service Domain With the Template](#step-3-create-the-service-domain-with-the-template)
 
 <!-- /TOC -->
+
+<details>
+<summary>Last verified on 2026-07-17 — ✅ Success</summary>
+
+| # | Date       | Status                                   |
+|---|------------|------------------------------------------|
+| 1 | 2026-07-17 | ✅ Success — human confirmed fully tested |
+
+</details>
 
 # Prerequisites
 

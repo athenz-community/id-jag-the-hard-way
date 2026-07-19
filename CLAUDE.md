@@ -111,7 +111,7 @@ For files under `faqs/`, keep the main path short and procedure-first.
 
 Do not manually hard-wrap normal prose. Keep normal paragraphs on one line unless a list, table, or code block needs structure.
 
-Add a collapsible verification status block near the top of each FAQ, after `# Goal` and its short goal text. Only a human user may mark a FAQ as verified or successful. If the user has not explicitly confirmed that the exact procedure worked, use the pending shape:
+Add a collapsible verification status block immediately below the FAQ's table of contents, after `<!-- /TOC -->`. If the FAQ does not have a table of contents, add one before the verification block. Only a human user may mark a FAQ as verified or successful. If the user has not explicitly confirmed that the exact procedure worked, use the pending shape:
 
 ```md
 <details>

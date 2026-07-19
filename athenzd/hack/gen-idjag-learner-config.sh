@@ -10,7 +10,8 @@ ZTS=$("$PORT" zts)
 ZMS=$("$PORT" zms)
 KEYCLOAK=$("$PORT" keycloak-https)
 # The local Keycloak HTTPS cert is signed by the Athenz tutorial CA, so athenzd
-# must trust that CA to complete the token exchange over https://localhost:34444.
+# must trust that CA to complete the token exchange over the keycloak.idp host
+# mapped to the local Keycloak HTTPS port-forward.
 CA="$(cd "$ATHENZD_DIR/.." && pwd)/athenz_dist/certs/ca.cert.pem"
 
 mkdir -p "$(dirname "$OUT")"
@@ -46,7 +47,7 @@ services:
       domain: home.mlajkim
       provider: sys.auth.zts
     idp:
-      issuer: https://localhost:${KEYCLOAK}/realms/master
+      issuer: https://keycloak.idp:${KEYCLOAK}/realms/master
       client_id: athenzd
       callback_port: 8250
       ca_file: ${CA}

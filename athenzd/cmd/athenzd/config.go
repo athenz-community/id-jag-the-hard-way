@@ -56,8 +56,9 @@ func newConfigCurrentCmd() *cobra.Command {
 	var file string
 
 	cmd := &cobra.Command{
-		Use:   "current-config",
-		Short: "Show which config file is active and where it came from",
+		Use:     "current-config",
+		Aliases: []string{"now"},
+		Short:   "Show which config file is active and where it came from",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resolved, err := config.Resolve(file)
 			if err != nil {
