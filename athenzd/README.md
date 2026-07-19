@@ -1,6 +1,6 @@
 # athenzd
 
-`athenzd` is currently a CLI for browser login, idempotent ZMS service registration, opt-in Copper Argos X.509 enrollment, and ID-JAG issuance for GenAI service projects. It is not yet a long-running daemon and does not exchange ID-JAGs for access tokens, run a proxy, or rotate credentials.
+`athenzd` is currently a CLI for browser login, idempotent ZMS service registration, opt-in Copper Argos X.509 enrollment, ID-JAG issuance for GenAI service projects, and issuance of one default GenAI access token. It is not yet a long-running daemon and does not run a proxy or rotate credentials.
 
 # Current behavior
 
@@ -9,7 +9,7 @@
 1. Runs the OAuth 2.0 Authorization Code flow with PKCE, receives an ID token, and caches it locally.
 2. Reads `preferred_username` from that token and ensures the configured Athenz service exists in ZMS.
 3. When `identity.mode` is `copperargos`, generates a private key and CSR, submits the ID token to the configured ZTS instance provider as attestation, and writes the issued service certificate and signer CA.
-4. When both `gen_ai.domain` and `gen_ai.role` are configured, uses that X.509 identity to issue and cache one all-eligible-roles ID-JAG per associated service project.
+4. When both `gen_ai.domain` and `gen_ai.role` are configured, uses that X.509 identity to issue and cache one all-eligible-roles ID-JAG per associated service project, then issues one access token for the selected `gen_ai.default_project` using that project's baseline `gen_ai.role` scope.
 
 With the default service template, a user whose token contains `preferred_username: alice` gets this target:
 
@@ -77,6 +77,7 @@ Each matching Athenz domain acts like a service-project group. For example, this
 gen_ai:
   domain: gen-ai.services.{{service}}
   role: gen-ai-users
+  default_project: athenz
 ```
 
 maps `gen-ai.services.athenz` to service key `athenz` and `gen-ai.services.mail` to service key `mail`. A signed-in user may be a `gen-ai-users` member in both projects.
@@ -159,6 +160,7 @@ current_service: alice
 gen_ai:
   domain: gen-ai.services.{{service}}
   role: gen-ai-users
+  default_project: athenz
 
 services:
   - name: alice
@@ -184,6 +186,8 @@ services:
 `current_service` selects a local profile and its token-cache filename. It is not an Athenz service identity.
 
 `gen_ai.domain` must contain exactly one `{{service}}` placeholder; `{{.service}}` is accepted as an equivalent spelling. `gen_ai.role` is the simple baseline role name, not a fully qualified Athenz scope. Set both fields to enable ID-JAG issuance, or omit both to leave it disabled.
+
+`gen_ai.default_project` is the service-project key represented by `{{service}}`, such as `athenz` or `mail`. After issuing the per-project ID-JAGs, login uses the selected project's ID-JAG to request one access token for the baseline role configured by `gen_ai.role`. For example, project `athenz` derives the scope `gen-ai.services.athenz:role.gen-ai-users`. If this setting is absent, an interactive arrow-key prompt lists only the eligible project names from the freshly issued ID-JAGs. The selected project is saved into the active config file: the explicit `-f` file, the current directory's `.athenzd/config.yaml`, or the user-level `~/.athenzd/config.yaml`.
 
 `athenz.service` is the complete desired Athenz identity. It uses Go `text/template` syntax, matching the template family used by `kubectl -o go-template`. The currently supported dynamic field is:
 
@@ -254,6 +258,8 @@ Step 4/4 — Issue ID-JAGs for all eligible GenAI service-project roles
 ✓ gen-ai.services.athenz: ID-JAG issued with 2 scope(s): gen-ai.services.athenz:role.docs-reader gen-ai.services.athenz:role.gen-ai-users
 ✓ gen-ai.services.mail: ID-JAG issued with 1 scope(s): gen-ai.services.mail:role.gen-ai-users
 ✓ 2 ID-JAG(s) cached for current_service "alice"
+✓ Default GenAI project: athenz
+✓ Default access token issued and cached for project athenz with scope gen-ai.services.athenz:role.gen-ai-users
 ```
 
 The cache stores a JSON object keyed by service project:
@@ -277,13 +283,20 @@ The cache stores a JSON object keyed by service project:
       "scope": "gen-ai.services.mail:role.gen-ai-users",
       "expires_at": "2026-07-19T15:00:00+09:00"
     }
+  },
+  "access_token": {
+    "project": "athenz",
+    "scope": "gen-ai.services.athenz:role.gen-ai-users",
+    "token": "<Athenz access token>",
+    "token_type": "Bearer",
+    "expires_at": "2026-07-19T14:00:00+09:00"
   }
 }
 ```
 
-Login prints the user's eligible project roles before attempting the ZTS exchange, then prints successful issuance details. This keeps the discovered role associations visible even when the exchange fails. It never prints raw ID-JAG values.
+Login prints the user's eligible project roles before attempting the ZTS exchanges, then prints successful issuance details. This keeps the discovered role associations visible even when an exchange fails. It never prints raw ID-JAG or access-token values.
 
-ID-JAG issuance is best-effort. If no project is eligible, login logs a friendly message such as `↷ ID-JAG skipped — no eligible GenAI roles found for user.alice`. Discovery, exchange, or cache failures are also logged as skipped, and login still succeeds with the cached ID token and enrolled X.509 identity.
+ID-JAG and access-token issuance are best-effort. If no project is eligible, login logs a friendly message such as `↷ ID-JAG skipped — no eligible GenAI roles found for user.alice`. Discovery, exchange, prompt, config-save, or cache failures are also logged as skipped, and login still succeeds with the cached ID token and enrolled X.509 identity.
 
 # Cached identity
 
@@ -293,7 +306,7 @@ ID tokens are stored at:
 ~/.cache/athenzd/<current_service>.json
 ```
 
-The cache file is written with owner-only permissions. It contains the ID token and any issued per-project ID-JAGs; treat it as bearer-credential material.
+The cache file is written with owner-only permissions. It contains the ID token, issued per-project ID-JAGs, and the default access token; treat it as bearer-credential material.
 
 Inspect its non-secret identity fields without printing the token:
 
@@ -319,7 +332,7 @@ athenzd whoami
 - Only `preferred_username` is exposed to the service template.
 - Optional administrators are added to the child domain but are never removed by login.
 - Copper Argos is the only supported certificate-enrollment mode, and enrollment currently uses an RSA 2048-bit key with Athenz-compatible SPIFFE and instance-ID URI SANs.
-- There is no automatic certificate rotation, logout, ZMS cleanup, ID-JAG-to-access-token exchange, proxy, or daemon loop yet.
+- There is no automatic certificate rotation, token renewal, logout, ZMS cleanup, proxy, or daemon loop yet.
 
 # Package boundaries
 
@@ -329,7 +342,8 @@ ID-JAG support is split into focused modules:
 - `internal/zms` discovers user and workload memberships.
 - `internal/zts` performs the mTLS OAuth token exchange and validates the returned token scopes.
 - `internal/idjag` coordinates one exchange per project without knowing about CLI config, output, or cache files.
-- `cmd/athenzd` handles configuration, persistence, and user-facing output.
+- `internal/accesstoken` separately coordinates narrowing one ID-JAG into one role access token.
+- `cmd/athenzd` keeps ID-JAG and access-token command helpers separate while handling configuration, persistence, and user-facing output.
 
 # Development
 

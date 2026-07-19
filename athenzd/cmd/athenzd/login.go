@@ -20,10 +20,14 @@ import (
 )
 
 func newLoginCmd() *cobra.Command {
-	return newLoginCmdWithBrowser(openBrowser)
+	return newLoginCmdWithBrowserAndSelector(openBrowser, promptDefaultProject)
 }
 
 func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
+	return newLoginCmdWithBrowserAndSelector(browserFn, promptDefaultProject)
+}
+
+func newLoginCmdWithBrowserAndSelector(browserFn func(string) error, selector projectSelector) *cobra.Command {
 	var file string
 
 	cmd := &cobra.Command{
@@ -176,6 +180,32 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 					}
 					fmt.Fprintf(cmd.OutOrStdout(), "✓ %d ID-JAG(s) cached for current_service %q\n",
 						len(idJAGs), svcName)
+
+					project := cfg.GenAI.DefaultProject
+					if project == "" {
+						project, issueErr = selector(cmd.InOrStdin(), cmd.OutOrStdout(), defaultProjectChoices(idJAGs))
+						if issueErr == nil {
+							issueErr = config.SaveDefaultProject(resolved.Path, project)
+						}
+						if issueErr == nil {
+							cfg.GenAI.DefaultProject = project
+							fmt.Fprintf(cmd.OutOrStdout(), "✓ Saved gen_ai.default_project to %s\n", resolved.Path)
+						}
+					} else {
+						fmt.Fprintf(cmd.OutOrStdout(), "✓ Default GenAI project: %s\n", project)
+					}
+					if issueErr == nil {
+						cacheEntry.AccessToken, issueErr = issueDefaultAccessToken(cmd.Context(), cfg, svc, idJAGs, project)
+					}
+					if issueErr == nil {
+						issueErr = cacheLoginAccessToken(svcName, &cacheEntry)
+					}
+					if issueErr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "⚠ Default GenAI access token skipped — %v\n", issueErr)
+					} else {
+						fmt.Fprintf(cmd.OutOrStdout(), "✓ Default access token issued and cached for project %s with scope %s\n",
+							project, cacheEntry.AccessToken.Scope)
+					}
 				}
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Ready: %s\n", target.ServiceIdentity)

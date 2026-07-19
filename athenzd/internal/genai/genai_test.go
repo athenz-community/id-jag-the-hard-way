@@ -33,6 +33,14 @@ func TestParseDomainTemplateErrors(t *testing.T) {
 }
 
 func TestRoleAndScopeHelpers(t *testing.T) {
+	if err := ValidateService("athenz"); err != nil {
+		t.Fatal(err)
+	}
+	for _, service := range []string{"", "bad.project", " bad"} {
+		if err := ValidateService(service); err == nil || !strings.Contains(err.Error(), "GenAI project") {
+			t.Fatalf("expected project error for %q, got %v", service, err)
+		}
+	}
 	if err := ValidateRole(" gen-ai-users "); err != nil {
 		t.Fatal(err)
 	}

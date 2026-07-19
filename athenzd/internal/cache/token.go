@@ -9,9 +9,10 @@ import (
 )
 
 type TokenEntry struct {
-	IDToken   string                `json:"id_token"`
-	ExpiresAt time.Time             `json:"expires_at"`
-	IDJAGs    map[string]IDJAGEntry `json:"id_jags,omitempty"`
+	IDToken     string                `json:"id_token"`
+	ExpiresAt   time.Time             `json:"expires_at"`
+	IDJAGs      map[string]IDJAGEntry `json:"id_jags,omitempty"`
+	AccessToken *AccessTokenEntry     `json:"access_token,omitempty"`
 }
 
 // IDJAGEntry is the identity assertion issued to the local X.509 workload for

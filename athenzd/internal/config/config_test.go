@@ -41,6 +41,7 @@ current_service: my-service
 gen_ai:
   domain: gen-ai.services.{{service}}
   role: gen-ai-users
+  default_project: athenz
 services:
   - name: my-service
     athenz:
@@ -77,7 +78,8 @@ services:
 	if cfg.CurrentService != "my-service" {
 		t.Errorf("unexpected current_service: %q", cfg.CurrentService)
 	}
-	if cfg.GenAI.Domain != "gen-ai.services.{{service}}" || cfg.GenAI.Role != "gen-ai-users" {
+	if cfg.GenAI.Domain != "gen-ai.services.{{service}}" || cfg.GenAI.Role != "gen-ai-users" ||
+		cfg.GenAI.DefaultProject != "athenz" {
 		t.Errorf("unexpected GenAI config: %+v", cfg.GenAI)
 	}
 	if cfg.Services[0].Name != "my-service" {
@@ -135,6 +137,8 @@ func TestLoad_RejectsInvalidGenAIConfig(t *testing.T) {
 		{"missing role", "domain: gen-ai.services.{{service}}", "gen_ai.role"},
 		{"invalid domain", "domain: gen-ai.services\n  role: gen-ai-users", "gen_ai.domain"},
 		{"invalid role", "domain: gen-ai.services.{{service}}\n  role: bad+role", "gen_ai.role"},
+		{"default without domain", "role: gen-ai-users\n  default_project: athenz", "gen_ai.domain"},
+		{"invalid default", "domain: gen-ai.services.{{service}}\n  role: gen-ai-users\n  default_project: bad+project", "gen_ai.default_project"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := writeTemp(t, "athenz:\n  zts: https://zts.example.com:4443/zts/v1\ngen_ai:\n  "+test.genAI+"\n")

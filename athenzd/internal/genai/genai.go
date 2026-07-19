@@ -78,6 +78,15 @@ func ValidateRole(role string) error {
 	return nil
 }
 
+// ValidateService validates the service-project key substituted into the
+// configured GenAI domain template.
+func ValidateService(service string) error {
+	if !serviceNamePattern.MatchString(service) {
+		return fmt.Errorf("GenAI project %q is not a valid service-project name", service)
+	}
+	return nil
+}
+
 // Scope returns a fully qualified Athenz role scope.
 func Scope(domain, role string) string {
 	return domain + ":role." + role

@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -428,6 +429,7 @@ func TestLoginCmd_CopperArgosSuccess(t *testing.T) {
 	idToken := fakeIDToken(`{"preferred_username":"idjag-learner","aud":"athenzd"}`)
 	providerAuthorized := false
 	noGenAIRoles := false
+	accessTokenFailure := false
 	zmsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != "Bearer "+idToken {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -512,6 +514,10 @@ func TestLoginCmd_CopperArgosSuccess(t *testing.T) {
 			if err := r.ParseForm(); err != nil {
 				t.Error(err)
 			}
+			if accessTokenFailure && r.Form.Get("grant_type") == "urn:ietf:params:oauth:grant-type:jwt-bearer" {
+				http.Error(w, "access token denied", http.StatusForbidden)
+				return
+			}
 			scope := r.Form.Get("scope")
 			idJAG := fakeIDToken(`{"sub":"user.idjag-learner","scope":"` + scope + `"}`)
 			json.NewEncoder(w).Encode(map[string]any{
@@ -594,13 +600,22 @@ services:
       ca_file: `+caFile+`
 `)
 
-	root := newLoginCmdWithBrowser(func(url string) error {
+	selectorCalls := 0
+	root := newLoginCmdWithBrowserAndSelector(func(url string) error {
 		response, err := http.Get(url) //nolint:noctx
 		if err != nil {
 			return err
 		}
 		response.Body.Close()
 		return nil
+	}, func(_ io.Reader, _ io.Writer, choices []string) (string, error) {
+		selectorCalls++
+		for _, choice := range choices {
+			if choice == "athenz" {
+				return choice, nil
+			}
+		}
+		return "", fmt.Errorf("athenz project choice not found in %v", choices)
 	})
 	buffer := &bytes.Buffer{}
 	root.SetOut(buffer)
@@ -617,8 +632,13 @@ services:
 		!strings.Contains(output, "  - gen-ai.services.athenz:role.docs-reader") ||
 		!strings.Contains(output, "  - gen-ai.services.athenz:role.gen-ai-users") ||
 		!strings.Contains(output, "  - gen-ai.services.mail:role.writer") ||
-		!strings.Contains(output, `2 ID-JAG(s) cached for current_service "idjag-learner"`) {
+		!strings.Contains(output, `2 ID-JAG(s) cached for current_service "idjag-learner"`) ||
+		!strings.Contains(output, "Saved gen_ai.default_project") ||
+		!strings.Contains(output, "Default access token issued and cached for project athenz with scope gen-ai.services.athenz:role.gen-ai-users") {
 		t.Fatalf("unexpected output: %s", output)
+	}
+	if selectorCalls != 1 {
+		t.Fatalf("selector called %d times, want 1", selectorCalls)
 	}
 	if strings.Index(output, rolesHeading) > strings.Index(output, "gen-ai.services.athenz: ID-JAG issued") {
 		t.Fatalf("expected roles before ID-JAG issuance, got: %s", output)
@@ -629,10 +649,36 @@ services:
 		}
 	}
 	entry, err := cache.Load("idjag-learner")
-	if err != nil || len(entry.IDJAGs) != 2 || entry.IDJAGs["athenz"].Token == "" || entry.IDJAGs["mail"].Token == "" {
+	if err != nil || len(entry.IDJAGs) != 2 || entry.IDJAGs["athenz"].Token == "" || entry.IDJAGs["mail"].Token == "" ||
+		entry.AccessToken == nil || entry.AccessToken.Token == "" || entry.AccessToken.Project != "athenz" || entry.AccessToken.Scope != "gen-ai.services.athenz:role.gen-ai-users" {
 		t.Fatalf("cached entry=%+v err=%v", entry, err)
 	}
+	savedConfig, err := config.Load(path)
+	if err != nil || savedConfig.GenAI.DefaultProject != "athenz" {
+		t.Fatalf("saved config=%+v err=%v", savedConfig, err)
+	}
 
+	accessTokenFailure = true
+	root = newLoginCmdWithBrowserAndSelector(func(url string) error {
+		response, err := http.Get(url) //nolint:noctx
+		if err == nil {
+			response.Body.Close()
+		}
+		return err
+	}, func(_ io.Reader, _ io.Writer, _ []string) (string, error) {
+		return "", fmt.Errorf("selector must not run when default_project is configured")
+	})
+	accessTokenSkipLog := &bytes.Buffer{}
+	root.SetErr(accessTokenSkipLog)
+	root.SetArgs([]string{"-f", path})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("access-token failure must not fail login: %v", err)
+	}
+	if !strings.Contains(accessTokenSkipLog.String(), "Default GenAI access token skipped") {
+		t.Fatalf("expected access-token skip log, got %q", accessTokenSkipLog.String())
+	}
+
+	accessTokenFailure = false
 	noGenAIRoles = true
 	root = newLoginCmdWithBrowser(func(url string) error {
 		response, err := http.Get(url) //nolint:noctx

@@ -17,6 +17,9 @@ gen_ai:
   # athenzd issues one ID-JAG per project with all mutually eligible roles.
   domain:                       # optional with role  e.g. gen-ai.services.{{service}}
   role:                         # optional with domain  e.g. gen-ai-users
+  # One service project used to mint the initial access token for its baseline
+  # role. When empty, login prompts from eligible projects and saves it here.
+  default_project:              # optional  e.g. athenz
 
 # ── Services ──────────────────────────────────────────────────────────────────
 services:

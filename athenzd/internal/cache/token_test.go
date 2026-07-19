@@ -25,6 +25,13 @@ func TestSaveLoad(t *testing.T) {
 				ExpiresAt: time.Now().Add(30 * time.Minute).UTC().Truncate(time.Second),
 			},
 		},
+		AccessToken: &cache.AccessTokenEntry{
+			Project:   "athenz",
+			Scope:     "gen-ai.services.athenz:role.gen-ai-users",
+			Token:     "eyJ.access.token",
+			TokenType: "Bearer",
+			ExpiresAt: time.Now().Add(20 * time.Minute).UTC().Truncate(time.Second),
+		},
 	}
 
 	if err := cache.Save("my-service", entry); err != nil {
@@ -48,6 +55,11 @@ func TestSaveLoad(t *testing.T) {
 		gotIDJAG.Token != wantIDJAG.Token || gotIDJAG.Scope != wantIDJAG.Scope ||
 		!gotIDJAG.ExpiresAt.Equal(wantIDJAG.ExpiresAt) {
 		t.Errorf("IDJAG mismatch: got %+v, want %+v", gotIDJAG, wantIDJAG)
+	}
+	if got.AccessToken == nil || got.AccessToken.Project != entry.AccessToken.Project || got.AccessToken.Scope != entry.AccessToken.Scope ||
+		got.AccessToken.Token != entry.AccessToken.Token || got.AccessToken.TokenType != entry.AccessToken.TokenType ||
+		!got.AccessToken.ExpiresAt.Equal(entry.AccessToken.ExpiresAt) {
+		t.Errorf("access token mismatch: got %+v, want %+v", got.AccessToken, entry.AccessToken)
 	}
 }
 

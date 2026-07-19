@@ -25,8 +25,9 @@ type Config struct {
 // GenAIConfig defines how service-project memberships are recognized. Empty
 // values keep ID-JAG issuance disabled for backward compatibility.
 type GenAIConfig struct {
-	Domain string `mapstructure:"domain"`
-	Role   string `mapstructure:"role"`
+	Domain         string `mapstructure:"domain"`
+	Role           string `mapstructure:"role"`
+	DefaultProject string `mapstructure:"default_project"`
 }
 
 type AthenzCore struct {
@@ -171,18 +172,23 @@ func validate(cfg *Config) error {
 	if cfg.Athenz.ZTS == "" {
 		return fmt.Errorf("athenz.zts is required")
 	}
-	if cfg.GenAI.Domain != "" || cfg.GenAI.Role != "" {
+	if cfg.GenAI.Domain != "" || cfg.GenAI.Role != "" || cfg.GenAI.DefaultProject != "" {
 		if cfg.GenAI.Domain == "" {
-			return fmt.Errorf("gen_ai.domain is required when gen_ai.role is set")
+			return fmt.Errorf("gen_ai.domain is required when another gen_ai setting is set")
 		}
 		if cfg.GenAI.Role == "" {
-			return fmt.Errorf("gen_ai.role is required when gen_ai.domain is set")
+			return fmt.Errorf("gen_ai.role is required when another gen_ai setting is set")
 		}
 		if _, err := genai.ParseDomainTemplate(cfg.GenAI.Domain); err != nil {
 			return fmt.Errorf("gen_ai.domain: %w", err)
 		}
 		if err := genai.ValidateRole(cfg.GenAI.Role); err != nil {
 			return fmt.Errorf("gen_ai.role: %w", err)
+		}
+		if cfg.GenAI.DefaultProject != "" {
+			if err := genai.ValidateService(cfg.GenAI.DefaultProject); err != nil {
+				return fmt.Errorf("gen_ai.default_project: %w", err)
+			}
 		}
 	}
 	for i := range cfg.Services {
