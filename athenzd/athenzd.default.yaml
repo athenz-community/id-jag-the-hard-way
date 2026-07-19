@@ -5,17 +5,21 @@
 # ── Athenz Core ───────────────────────────────────────────────────────────────
 athenz:
   zts:                          # REQUIRED  e.g. https://zts.athenz.example.com:4443/zts/v1
-  zms:                          # optional
+  zms:                          # REQUIRED by login  e.g. https://zms.athenz.example.com:4443/zms/v1
+  ca_file:                      # optional  trust a private CA for Athenz HTTPS
 
 # ── Context (like kubectl current-context) ───────────────────────────────────
-current_service: ""             # which service is active for `athenzd get` commands
+current_service: ""             # active profile and token-cache key; not the Athenz identity
 
 # ── Services ──────────────────────────────────────────────────────────────────
 services:
-  - name:                       # REQUIRED  unique name for this service identity
+  - name:                       # REQUIRED  unique local profile name
     athenz:
-      domain:                   # REQUIRED  e.g. home.mlajkim
-      provider:                 # REQUIRED  e.g. cloud.ynw.identityd
+      # Go template; preferred_username comes from the freshly issued ID token.
+      service: home.{{.preferred_username}}.local.athenzd
+      # optional_admins:        # optional additional members of the child domain's admin role
+      #   - user.platform_admin
+      # provider: sys.auth.zts  # reserved for later certificate registration
     idp:
       issuer:                   # REQUIRED  e.g. https://localhost:34444/realms/master
       client_id:                # REQUIRED  e.g. athenzd

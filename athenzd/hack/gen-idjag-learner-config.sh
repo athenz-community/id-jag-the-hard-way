@@ -38,14 +38,17 @@ cat > "$OUT" <<EOF
 athenz:
   zts: https://localhost:${ZTS}/zts/v1
   zms: https://localhost:${ZMS}/zms/v1
+  ca_file: ${CA}
 
 current_service: idjag-learner
 
 services:
   - name: idjag-learner
     athenz:
-      domain: home.mlajkim
-      provider: sys.auth.zts
+      service: home.{{.preferred_username}}.local.athenzd
+      optional_admins:
+        - user.athenz_admin
+      # provider: sys.auth.zts  # reserved for later certificate registration
     idp:
       issuer: https://keycloak.idp:${KEYCLOAK}/realms/master
       client_id: athenzd

@@ -35,11 +35,14 @@ func TestLoad_Valid(t *testing.T) {
 athenz:
   zts: https://zts.example.com:4443/zts/v1
   zms: https://zms.example.com:4443/zms/v1
+  ca_file: /tmp/athenz-ca.pem
 current_service: my-service
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.{{.preferred_username}}.local.athenzd
+      optional_admins:
+        - user.athenz_admin
       provider: cloud.ynw.identityd
     idp:
       issuer: https://localhost:34444/realms/master
@@ -57,14 +60,20 @@ services:
 	if cfg.Athenz.ZMS != "https://zms.example.com:4443/zms/v1" {
 		t.Errorf("unexpected ZMS: %q", cfg.Athenz.ZMS)
 	}
+	if cfg.Athenz.CAFile != "/tmp/athenz-ca.pem" {
+		t.Errorf("unexpected Athenz CA file: %q", cfg.Athenz.CAFile)
+	}
 	if cfg.CurrentService != "my-service" {
 		t.Errorf("unexpected current_service: %q", cfg.CurrentService)
 	}
 	if cfg.Services[0].Name != "my-service" {
 		t.Errorf("unexpected service name: %q", cfg.Services[0].Name)
 	}
-	if cfg.Services[0].Athenz.Domain != "home.mlajkim" {
-		t.Errorf("unexpected domain: %q", cfg.Services[0].Athenz.Domain)
+	if cfg.Services[0].Athenz.Service != "home.{{.preferred_username}}.local.athenzd" {
+		t.Errorf("unexpected service: %q", cfg.Services[0].Athenz.Service)
+	}
+	if len(cfg.Services[0].Athenz.OptionalAdmins) != 1 || cfg.Services[0].Athenz.OptionalAdmins[0] != "user.athenz_admin" {
+		t.Errorf("unexpected optional admins: %v", cfg.Services[0].Athenz.OptionalAdmins)
 	}
 	if cfg.Services[0].Athenz.Provider != "cloud.ynw.identityd" {
 		t.Errorf("unexpected provider: %q", cfg.Services[0].Athenz.Provider)
@@ -89,7 +98,7 @@ func TestLoad_MissingZTS(t *testing.T) {
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: cloud.ynw.identityd
 `)
 	_, err := config.Load(path)
@@ -98,8 +107,8 @@ services:
 	}
 }
 
-// TestLoad_MissingServiceDomain checks that omitting a service's domain is caught.
-func TestLoad_MissingServiceDomain(t *testing.T) {
+// TestLoad_MissingAthenzService checks that omitting the full Athenz service identity is caught.
+func TestLoad_MissingAthenzService(t *testing.T) {
 	path := writeTemp(t, `
 athenz:
   zts: https://zts.example.com:4443/zts/v1
@@ -110,7 +119,7 @@ services:
 `)
 	_, err := config.Load(path)
 	if err == nil {
-		t.Fatal("expected error for missing service domain, got nil")
+		t.Fatal("expected error for missing Athenz service, got nil")
 	}
 }
 
@@ -129,7 +138,7 @@ athenz:
   zts: https://zts.example.com:4443/zts/v1
 services:
   - athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: cloud.ynw.identityd
 `)
 	_, err := config.Load(path)
@@ -157,7 +166,7 @@ athenz:
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: cloud.ynw.identityd
     idp:
       client_id: athenzd
@@ -176,7 +185,7 @@ athenz:
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: cloud.ynw.identityd
     idp:
       issuer: https://localhost:34444/realms/master
@@ -187,19 +196,26 @@ services:
 	}
 }
 
-// TestLoad_MissingServiceProvider checks that a service with no provider is caught.
-func TestLoad_MissingServiceProvider(t *testing.T) {
+// TestLoad_ProviderOptional checks that provider can stay absent until the
+// certificate-registration flow needs it.
+func TestLoad_ProviderOptional(t *testing.T) {
 	path := writeTemp(t, `
 athenz:
   zts: https://zts.example.com:4443/zts/v1
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
+    idp:
+      issuer: https://localhost:34444/realms/master
+      client_id: athenzd
 `)
-	_, err := config.Load(path)
-	if err == nil {
-		t.Fatal("expected error for missing service provider, got nil")
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("expected provider to be optional, got %v", err)
+	}
+	if cfg.Services[0].Athenz.Provider != "" {
+		t.Fatalf("expected empty optional provider, got %q", cfg.Services[0].Athenz.Provider)
 	}
 }
 

@@ -30,7 +30,7 @@ athenz:
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: cloud.ynw.identityd
     idp:
       issuer: https://localhost:34444/realms/master
@@ -75,7 +75,7 @@ func TestConfigValidate_MissingZTS(t *testing.T) {
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: cloud.ynw.identityd
 `)
 	cmd := newRootCmd()
@@ -104,7 +104,7 @@ athenz:
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: cloud.ynw.identityd
     idp:
       issuer: https://localhost:34444/realms/master

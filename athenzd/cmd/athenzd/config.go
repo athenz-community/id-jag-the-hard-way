@@ -38,11 +38,12 @@ func newConfigValidateCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "OK\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "  zts:              %s\n", cfg.Athenz.ZTS)
 			fmt.Fprintf(cmd.OutOrStdout(), "  zms:              %s\n", cfg.Athenz.ZMS)
+			fmt.Fprintf(cmd.OutOrStdout(), "  ca_file:          %s\n", cfg.Athenz.CAFile)
 			fmt.Fprintf(cmd.OutOrStdout(), "  current_service:  %s\n", cfg.CurrentService)
 			fmt.Fprintf(cmd.OutOrStdout(), "  services (%d):\n", len(cfg.Services))
 			for _, svc := range cfg.Services {
-				fmt.Fprintf(cmd.OutOrStdout(), "    - name: %s  domain: %s  provider: %s\n",
-					svc.Name, svc.Athenz.Domain, svc.Athenz.Provider)
+				fmt.Fprintf(cmd.OutOrStdout(), "    - name: %s  service: %s\n",
+					svc.Name, svc.Athenz.Service)
 			}
 			return nil
 		},

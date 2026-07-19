@@ -10,16 +10,18 @@
 
 1. Logs in into IdP via browser
 1. Caches ID token for the logged in *user*
-1. Ensures the `home.<*user*>` domain, its `local` subdomain, and the `athenzd` service in that subdomain exist in **ZMS**, creating them if missing.
-   - athenzd calls ZMS with the ID token as the credential; ZMS's `OIDCAuthority` authenticates the caller as `user.<*user*>`.
-   - The user self-creates their own `home.<*user*>` domain, the `home.<*user*>.local` subdomain, and the `athenzd` service inside that subdomain.
+1. Requires the personal parent `home.<*user*>`, then ensures its `local` child domain and the `athenzd` service exist in **ZMS**, creating only those child resources when missing.
+   - athenzd calls ZMS with the ID token as the credential; ZMS's `OIDCJwtAuthority` authenticates the caller as `user.<*user*>`.
+   - The configured Go template `home.{{.preferred_username}}.local.athenzd` is the complete service identity. It is rendered from the fresh ID token and parsed into the required parent, child domain, and simple service name.
+   - athenzd never creates the reserved `home` top-level domain or the `home.<*user*>` personal parent. If the personal parent is absent, login returns a prerequisite error.
    - Note: this is a **ZMS** operation. Copper Argos (`POST /instance` on ZTS) does **not** create domains/services — it only issues X.509 certs, and requires the service to already exist. Cert issuance (via ID-token attestation) is a **later** step.
 
 ### Prerequisites
 
-- An IdP with an `athenzd` client registered. To set up: [here](../faqs/athenzd_local_test_guide/01-log-in-and-inspect-id-token.md)
-- ZMS is configured to authenticate the IdP token with `OIDCJwtAuthority`. To set up and test the ensure flow: [here](../faqs/athenzd_local_test_guide/02-ensure-home-domain-and-service-with-id-token.md)
+- An IdP with an `athenzd` client registered. For the IDTHW environment, follow [Test `athenzd` with IDTHW](../faqs/athenzd/test-athenzd-with-idthw.md).
+- ZMS is configured to authenticate the IdP token with `OIDCJwtAuthority` as described in the same local test guide.
 - ZMS has `athenz.home_domain=home`; ZMS creates the reserved `home` top-level domain during initial system setup.
+- The user's `home.<user>` personal parent domain has already been provisioned outside athenzd.
 
 ### Constraints
 

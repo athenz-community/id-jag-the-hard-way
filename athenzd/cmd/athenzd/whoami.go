@@ -44,7 +44,7 @@ func newWhoamiCmd() *cobra.Command {
 			}
 
 			out := cmd.OutOrStdout()
-			fmt.Fprintf(out, "service:   %s\n", svcName)
+			fmt.Fprintf(out, "profile:   %s\n", svcName)
 			fmt.Fprintf(out, "user:      %s\n", claims.PreferredUsername)
 			fmt.Fprintf(out, "issuer:    %s\n", claims.Issuer)
 			fmt.Fprintf(out, "audience:  %s\n", claims.Audience)

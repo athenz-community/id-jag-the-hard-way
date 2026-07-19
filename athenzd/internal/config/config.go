@@ -21,8 +21,9 @@ type Config struct {
 }
 
 type AthenzCore struct {
-	ZTS string `mapstructure:"zts"`
-	ZMS string `mapstructure:"zms"`
+	ZTS    string `mapstructure:"zts"`
+	ZMS    string `mapstructure:"zms"`
+	CAFile string `mapstructure:"ca_file"`
 }
 
 type ServiceConfig struct {
@@ -50,8 +51,9 @@ type IDPConfig struct {
 }
 
 type ServiceAthenz struct {
-	Domain   string `mapstructure:"domain"`
-	Provider string `mapstructure:"provider"`
+	Service        string   `mapstructure:"service"`
+	OptionalAdmins []string `mapstructure:"optional_admins"`
+	Provider       string   `mapstructure:"provider"`
 }
 
 type ResolveSource string
@@ -147,15 +149,13 @@ func validate(cfg *Config) error {
 	if cfg.Athenz.ZTS == "" {
 		return fmt.Errorf("athenz.zts is required")
 	}
-	for i, svc := range cfg.Services {
+	for i := range cfg.Services {
+		svc := &cfg.Services[i]
 		if svc.Name == "" {
 			return fmt.Errorf("services[%d].name is required", i)
 		}
-		if svc.Athenz.Domain == "" {
-			return fmt.Errorf("services[%d] (%s): athenz.domain is required", i, svc.Name)
-		}
-		if svc.Athenz.Provider == "" {
-			return fmt.Errorf("services[%d] (%s): athenz.provider is required", i, svc.Name)
+		if svc.Athenz.Service == "" {
+			return fmt.Errorf("services[%d] (%s): athenz.service is required", i, svc.Name)
 		}
 		if svc.IDP.Issuer == "" {
 			return fmt.Errorf("services[%d] (%s): idp.issuer is required", i, svc.Name)

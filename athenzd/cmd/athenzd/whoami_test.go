@@ -42,7 +42,7 @@ current_service: idjag-learner
 services:
   - name: idjag-learner
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: sys.auth.zts
     idp:
       issuer: https://localhost:34444/realms/master
@@ -89,7 +89,7 @@ current_service: idjag-learner
 services:
   - name: idjag-learner
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: sys.auth.zts
     idp:
       issuer: https://localhost:34444/realms/master
@@ -136,7 +136,7 @@ athenz:
 services:
   - name: idjag-learner
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: sys.auth.zts
     idp:
       issuer: https://localhost:34444/realms/master
@@ -159,7 +159,7 @@ current_service: idjag-learner
 services:
   - name: idjag-learner
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: sys.auth.zts
     idp:
       issuer: https://localhost:34444/realms/master
@@ -190,7 +190,7 @@ current_service: idjag-learner
 services:
   - name: idjag-learner
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: sys.auth.zts
     idp:
       issuer: https://localhost:34444/realms/master

@@ -87,13 +87,9 @@ See [Setup Confluence Vendor MCP Server](./setup-confluence-vendor-mcp.md).
 
 See [Setup Core MCP Proxy](./setup-core-mcp-proxy.md).
 
-## Ensure the athenzd Home Domain and Service With an ID Token
+## Test athenzd with IDTHW
 
-See [Ensure the Home Domain and Local `athenzd` Service With an ID Token](./athenzd_local_test_guide/02-ensure-home-domain-and-service-with-id-token.md).
-
-## Clean Up the Local athenzd Test
-
-See [Clean Up the Local `athenzd` Test](./athenzd_local_test_guide/99-clean-up.md).
+See [Test `athenzd` with IDTHW](./athenzd/test-athenzd-with-idthw.md).
 
 ## Register GenAI Users Domain Template
 
