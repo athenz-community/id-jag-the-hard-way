@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -135,6 +136,191 @@ func TestEnsureWithoutOptionalAdmins(t *testing.T) {
 	if len(report.OptionalAdmins) != 0 || state.adminExists {
 		t.Fatalf("expected no optional administrator changes: report=%+v state=%+v", report, state)
 	}
+}
+
+func TestEnsureProviderAuthorization(t *testing.T) {
+	authorized := false
+	putCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/role/identityproviders"):
+			if !authorized {
+				http.NotFound(w, r)
+				return
+			}
+			fmt.Fprint(w, `{"roleMembers":[{"memberName":"sys.auth.localworkload"}]}`)
+		case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/template"):
+			var payload struct {
+				TemplateNames []string `json:"templateNames"`
+				Params        []struct {
+					Name  string `json:"name"`
+					Value string `json:"value"`
+				} `json:"params"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			if len(payload.TemplateNames) != 1 || payload.TemplateNames[0] != "identity_provisioning" ||
+				len(payload.Params) != 2 || payload.Params[0].Value != "sys.auth.localworkload" || payload.Params[1].Value != "athenzd" {
+				t.Errorf("unexpected template payload: %+v", payload)
+			}
+			authorized = true
+			putCount++
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client, err := NewClientWithHTTPClient(server.URL+"/zms/v1", server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := client.EnsureProviderAuthorization(context.Background(), testToken, mustTarget(t), "sys.auth.localworkload")
+	if err != nil || !changed || putCount != 1 {
+		t.Fatalf("first authorization: changed=%v puts=%d err=%v", changed, putCount, err)
+	}
+	changed, err = client.EnsureProviderAuthorization(context.Background(), testToken, mustTarget(t), "sys.auth.localworkload")
+	if err != nil || changed || putCount != 1 {
+		t.Fatalf("idempotent authorization: changed=%v puts=%d err=%v", changed, putCount, err)
+	}
+}
+
+func TestEnsureProviderAuthorizationValidation(t *testing.T) {
+	client, err := NewClientWithHTTPClient("https://zms.example.test/zms/v1", http.DefaultClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.EnsureProviderAuthorization(context.Background(), " ", mustTarget(t), "sys.auth.localworkload"); err == nil || !strings.Contains(err.Error(), "ID token") {
+		t.Fatalf("expected token error, got %v", err)
+	}
+	if _, err := client.EnsureProviderAuthorization(context.Background(), testToken, mustTarget(t), "bad/provider"); err == nil || !strings.Contains(err.Error(), "valid Athenz service name") {
+		t.Fatalf("expected provider error, got %v", err)
+	}
+}
+
+func TestEnsureProviderAuthorizationErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		handler http.HandlerFunc
+		want    string
+	}{
+		{"check status", func(w http.ResponseWriter, _ *http.Request) { http.Error(w, "failed", http.StatusInternalServerError) }, "checking instance-provider authorization failed"},
+		{"bad role", func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, `{`) }, "decoding admin role response"},
+		{"apply status", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				http.NotFound(w, r)
+				return
+			}
+			http.Error(w, "denied", http.StatusForbidden)
+		}, "applying identity_provisioning template failed"},
+		{"verify status", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPut {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			http.NotFound(w, r)
+		}, "verifying instance-provider authorization failed"},
+		{"verify absent", func() http.HandlerFunc {
+			getCount := 0
+			return func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPut {
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				getCount++
+				if getCount == 1 {
+					http.NotFound(w, r)
+					return
+				}
+				fmt.Fprint(w, `{"roleMembers":[]}`)
+			}
+		}(), "was not authorized"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(test.handler)
+			defer server.Close()
+			client, _ := NewClientWithHTTPClient(server.URL, server.Client())
+			_, err := client.EnsureProviderAuthorization(context.Background(), testToken, mustTarget(t), "sys.auth.localworkload")
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("expected %q error, got %v", test.want, err)
+			}
+		})
+	}
+}
+
+func TestEnsureProviderAuthorizationTransportErrors(t *testing.T) {
+	tests := []struct {
+		name      string
+		transport zmsRoundTripFunc
+		want      string
+	}{
+		{"check request", func(*http.Request) (*http.Response, error) {
+			return nil, fmt.Errorf("check transport failed")
+		}, "checking instance-provider authorization"},
+		{"apply request", func() zmsRoundTripFunc {
+			calls := 0
+			return func(*http.Request) (*http.Response, error) {
+				calls++
+				if calls == 1 {
+					return zmsTestResponse(http.StatusNotFound, ""), nil
+				}
+				return nil, fmt.Errorf("apply transport failed")
+			}
+		}(), "applying identity_provisioning template"},
+		{"verify request", func() zmsRoundTripFunc {
+			calls := 0
+			return func(*http.Request) (*http.Response, error) {
+				calls++
+				switch calls {
+				case 1:
+					return zmsTestResponse(http.StatusNotFound, ""), nil
+				case 2:
+					return zmsTestResponse(http.StatusNoContent, ""), nil
+				default:
+					return nil, fmt.Errorf("verify transport failed")
+				}
+			}
+		}(), "verifying instance-provider authorization"},
+		{"verify role", func() zmsRoundTripFunc {
+			calls := 0
+			return func(*http.Request) (*http.Response, error) {
+				calls++
+				switch calls {
+				case 1:
+					return zmsTestResponse(http.StatusNotFound, ""), nil
+				case 2:
+					return zmsTestResponse(http.StatusNoContent, ""), nil
+				default:
+					return zmsTestResponse(http.StatusOK, "{"), nil
+				}
+			}
+		}(), "decoding admin role response"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client, err := NewClientWithHTTPClient("https://zms.example.test/zms/v1", &http.Client{Transport: test.transport})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = client.EnsureProviderAuthorization(context.Background(), testToken, mustTarget(t), "sys.auth.localworkload")
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("expected %q error, got %v", test.want, err)
+			}
+		})
+	}
+}
+
+type zmsRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (function zmsRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return function(request)
+}
+
+func zmsTestResponse(status int, body string) *http.Response {
+	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body))}
 }
 
 func TestNormalizeOptionalAdmins(t *testing.T) {

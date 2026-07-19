@@ -2,8 +2,16 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +22,7 @@ import (
 
 	"github.com/AthenZ/athenzd/internal/cache"
 	"github.com/AthenZ/athenzd/internal/config"
+	"github.com/AthenZ/athenzd/internal/zts"
 )
 
 // TestHumanizeRemaining covers the friendly remaining-time formatting for each bucket.
@@ -51,6 +60,63 @@ func TestEnsureState(t *testing.T) {
 	}
 	if got := membershipState(false); got != "already present" {
 		t.Fatalf("membershipState(false) = %q", got)
+	}
+	if got := authorizationState(true); got != "applied" {
+		t.Fatalf("authorizationState(true) = %q", got)
+	}
+	if got := authorizationState(false); got != "already present" {
+		t.Fatalf("authorizationState(false) = %q", got)
+	}
+}
+
+func TestEnrollWithPolicySync(t *testing.T) {
+	expected := &zts.Identity{Name: "home.idjag-learner.local.athenzd"}
+	attempts := 0
+	identity, err := enrollWithPolicySync(context.Background(), true, 0, func() (*zts.Identity, error) {
+		attempts++
+		if attempts < 3 {
+			return nil, &zts.RegistrationError{StatusCode: http.StatusForbidden, Message: "policy not visible"}
+		}
+		return expected, nil
+	})
+	if err != nil || identity != expected || attempts != 3 {
+		t.Fatalf("retry result: identity=%v attempts=%d err=%v", identity, attempts, err)
+	}
+
+	attempts = 0
+	_, err = enrollWithPolicySync(context.Background(), false, 0, func() (*zts.Identity, error) {
+		attempts++
+		return nil, &zts.RegistrationError{StatusCode: http.StatusForbidden}
+	})
+	if err == nil || attempts != 1 {
+		t.Fatalf("expected no retry without a new authorization: attempts=%d err=%v", attempts, err)
+	}
+
+	attempts = 0
+	_, err = enrollWithPolicySync(context.Background(), true, 0, func() (*zts.Identity, error) {
+		attempts++
+		return nil, &zts.RegistrationError{StatusCode: http.StatusForbidden}
+	})
+	if err == nil || attempts != ztsPolicySyncAttempts {
+		t.Fatalf("expected retry limit: attempts=%d err=%v", attempts, err)
+	}
+
+	attempts = 0
+	_, err = enrollWithPolicySync(context.Background(), true, 0, func() (*zts.Identity, error) {
+		attempts++
+		return nil, fmt.Errorf("network error")
+	})
+	if err == nil || attempts != 1 {
+		t.Fatalf("expected non-403 to stop: attempts=%d err=%v", attempts, err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = enrollWithPolicySync(ctx, true, time.Hour, func() (*zts.Identity, error) {
+		return nil, &zts.RegistrationError{StatusCode: http.StatusForbidden}
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected canceled context, got %v", err)
 	}
 }
 
@@ -356,6 +422,176 @@ services:
 	}
 }
 
+func TestLoginCmd_CopperArgosSuccess(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	idToken := fakeIDToken(`{"preferred_username":"idjag-learner","aud":"athenzd"}`)
+	providerAuthorized := false
+	zmsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer "+idToken {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && (r.URL.Path == "/zms/v1/domain/home.idjag-learner" || r.URL.Path == "/zms/v1/domain/home.idjag-learner.local"):
+			fmt.Fprint(w, `{}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/zms/v1/domain/home.idjag-learner.local/role/admin":
+			fmt.Fprint(w, `{"roleMembers":[]}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/zms/v1/domain/home.idjag-learner.local/service/athenzd":
+			fmt.Fprint(w, `{"name":"home.idjag-learner.local.athenzd"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/zms/v1/domain/home.idjag-learner.local/role/identityproviders":
+			if !providerAuthorized {
+				http.NotFound(w, r)
+				return
+			}
+			fmt.Fprint(w, `{"roleMembers":[{"memberName":"sys.auth.localworkload"}]}`)
+		case r.Method == http.MethodPut && r.URL.Path == "/zms/v1/domain/home.idjag-learner.local/template":
+			providerAuthorized = true
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer zmsServer.Close()
+
+	oidc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/realms/master/protocol/openid-connect/auth":
+			redirect := r.URL.Query().Get("redirect_uri")
+			state := r.URL.Query().Get("state")
+			http.Redirect(w, r, redirect+"?code=fake-code&state="+state, http.StatusFound)
+		case "/realms/master/protocol/openid-connect/token":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "fake-at",
+				"id_token":     idToken,
+				"token_type":   "Bearer",
+				"expiry":       time.Now().Add(time.Hour).Unix(),
+			})
+		}
+	}))
+	defer oidc.Close()
+
+	caKey, caCertificate, caPEM := newLoginTestCA(t)
+	ztsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/zts/v1/instance" || r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		var request struct {
+			Provider        string `json:"provider"`
+			Domain          string `json:"domain"`
+			Service         string `json:"service"`
+			AttestationData string `json:"attestationData"`
+			CSR             string `json:"csr"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Errorf("decoding ZTS request: %v", err)
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		if request.Provider != "sys.auth.localworkload" || request.AttestationData != idToken {
+			t.Errorf("unexpected ZTS request: %+v", request)
+		}
+		csrBlock, _ := pem.Decode([]byte(request.CSR))
+		if csrBlock == nil {
+			t.Fatal("missing CSR")
+		}
+		csr, err := x509.ParseCertificateRequest(csrBlock.Bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		certPEM := signLoginTestCSR(t, caKey, caCertificate, csr)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{
+			"provider":              request.Provider,
+			"name":                  request.Domain + "." + request.Service,
+			"instanceId":            "idjag-learner-athenzd",
+			"x509Certificate":       string(certPEM),
+			"x509CertificateSigner": string(caPEM),
+		})
+	}))
+	defer ztsServer.Close()
+
+	identityDir := filepath.Join(home, ".config", "athenzd", "identity")
+	certFile := filepath.Join(identityDir, "service.cert.pem")
+	keyFile := filepath.Join(identityDir, "service.key.pem")
+	caFile := filepath.Join(identityDir, "ca.cert.pem")
+	path := writeTempConfig(t, `
+athenz:
+  zts: `+ztsServer.URL+`/zts/v1
+  zms: `+zmsServer.URL+`/zms/v1
+current_service: idjag-learner
+services:
+  - name: idjag-learner
+    athenz:
+      service: home.{{.preferred_username}}.local.athenzd
+      provider: sys.auth.localworkload
+    idp:
+      issuer: `+oidc.URL+`/realms/master
+      client_id: athenzd
+      callback_port: 0
+    identity:
+      mode: copperargos
+      instance_id: idjag-learner-athenzd
+      cert_file: `+certFile+`
+      key_file: `+keyFile+`
+      ca_file: `+caFile+`
+`)
+
+	root := newLoginCmdWithBrowser(func(url string) error {
+		response, err := http.Get(url) //nolint:noctx
+		if err != nil {
+			return err
+		}
+		response.Body.Close()
+		return nil
+	})
+	buffer := &bytes.Buffer{}
+	root.SetOut(buffer)
+	root.SetArgs([]string{"-f", path})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	output := buffer.String()
+	if !strings.Contains(output, "Step 3/3 — Enroll X.509 identity through sys.auth.localworkload") ||
+		!strings.Contains(output, "Certificate issued: home.idjag-learner.local.athenzd") {
+		t.Fatalf("unexpected output: %s", output)
+	}
+	for _, outputPath := range []string{certFile, keyFile, caFile} {
+		if _, err := os.Stat(outputPath); err != nil {
+			t.Fatalf("expected credential %s: %v", outputPath, err)
+		}
+	}
+}
+
+func TestLoginCmd_CopperArgosErrors(t *testing.T) {
+	t.Run("provider authorization", func(t *testing.T) {
+		err := runCopperArgosLogin(t, http.StatusInternalServerError, "https://zts.example.test/zts/v1")
+		if err == nil || !strings.Contains(err.Error(), "authorizing instance provider") {
+			t.Fatalf("expected provider authorization error, got %v", err)
+		}
+	})
+	t.Run("ZTS client", func(t *testing.T) {
+		err := runCopperArgosLogin(t, http.StatusOK, "://bad")
+		if err == nil || !strings.Contains(err.Error(), "creating ZTS client") {
+			t.Fatalf("expected ZTS client error, got %v", err)
+		}
+	})
+	t.Run("enrollment", func(t *testing.T) {
+		ztsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "invalid attestation", http.StatusBadRequest)
+		}))
+		defer ztsServer.Close()
+		err := runCopperArgosLogin(t, http.StatusOK, ztsServer.URL+"/zts/v1")
+		if err == nil || !strings.Contains(err.Error(), "enrolling X.509 identity") {
+			t.Fatalf("expected enrollment error, got %v", err)
+		}
+	})
+}
+
 // TestLoginCmd_CacheSaveError checks that a cache write failure is surfaced.
 func TestLoginCmd_CacheSaveError(t *testing.T) {
 	home := t.TempDir()
@@ -513,6 +749,82 @@ services:
 	return root.Execute()
 }
 
+func runCopperArgosLogin(t *testing.T, providerRoleStatus int, ztsURL string) error {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	idToken := fakeIDToken(`{"preferred_username":"idjag-learner","aud":"athenzd"}`)
+	oidc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/realms/master/protocol/openid-connect/auth":
+			redirect := r.URL.Query().Get("redirect_uri")
+			state := r.URL.Query().Get("state")
+			http.Redirect(w, r, redirect+"?code=fake-code&state="+state, http.StatusFound)
+		case "/realms/master/protocol/openid-connect/token":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "fake-at",
+				"id_token":     idToken,
+				"token_type":   "Bearer",
+				"expiry":       time.Now().Add(time.Hour).Unix(),
+			})
+		}
+	}))
+	defer oidc.Close()
+
+	zmsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/zms/v1/domain/home.idjag-learner", "/zms/v1/domain/home.idjag-learner.local":
+			fmt.Fprint(w, `{}`)
+		case "/zms/v1/domain/home.idjag-learner.local/service/athenzd":
+			fmt.Fprint(w, `{"name":"home.idjag-learner.local.athenzd"}`)
+		case "/zms/v1/domain/home.idjag-learner.local/role/identityproviders":
+			w.WriteHeader(providerRoleStatus)
+			if providerRoleStatus == http.StatusOK {
+				fmt.Fprint(w, `{"roleMembers":[{"memberName":"sys.auth.localworkload"}]}`)
+			} else {
+				fmt.Fprint(w, `{"message":"injected provider role failure"}`)
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer zmsServer.Close()
+
+	outputDir := t.TempDir()
+	path := writeTempConfig(t, `
+athenz:
+  zts: `+ztsURL+`
+  zms: `+zmsServer.URL+`/zms/v1
+current_service: idjag-learner
+services:
+  - name: idjag-learner
+    athenz:
+      service: home.{{.preferred_username}}.local.athenzd
+      provider: sys.auth.localworkload
+    idp:
+      issuer: `+oidc.URL+`/realms/master
+      client_id: athenzd
+      callback_port: 0
+    identity:
+      mode: copperargos
+      instance_id: idjag-learner-athenzd
+      cert_file: `+filepath.Join(outputDir, "service.cert.pem")+`
+      key_file: `+filepath.Join(outputDir, "service.key.pem")+`
+      ca_file: `+filepath.Join(outputDir, "ca.cert.pem")+`
+`)
+	root := newLoginCmdWithBrowser(func(url string) error {
+		response, err := http.Get(url) //nolint:noctx
+		if err != nil {
+			return err
+		}
+		response.Body.Close()
+		return nil
+	})
+	root.SetArgs([]string{"-f", path})
+	return root.Execute()
+}
+
 func newExistingZMS(t *testing.T, idToken string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -527,6 +839,8 @@ func newExistingZMS(t *testing.T, idToken string) *httptest.Server {
 			fmt.Fprint(w, `{}`)
 		case "/zms/v1/domain/home.idjag-learner.local/role/admin":
 			fmt.Fprint(w, `{"roleMembers":[{"memberName":"user.athenz_admin"}]}`)
+		case "/zms/v1/domain/home.idjag-learner.local/role/identityproviders":
+			fmt.Fprint(w, `{"roleMembers":[{"memberName":"sys.auth.localworkload"}]}`)
 		case "/zms/v1/domain/home.idjag-learner.local/service/athenzd":
 			fmt.Fprint(w, `{"name":"home.idjag-learner.local.athenzd"}`)
 		default:
@@ -546,4 +860,48 @@ func writeTempConfig(t *testing.T, content string) string {
 	}
 	f.Close()
 	return filepath.Clean(f.Name())
+}
+
+func newLoginTestCA(t *testing.T) (*rsa.PrivateKey, *x509.Certificate, []byte) {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Login Test CA"},
+		NotBefore:             time.Now().Add(-time.Minute),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificate, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return key, certificate, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+}
+
+func signLoginTestCSR(t *testing.T, caKey *rsa.PrivateKey, caCertificate *x509.Certificate, csr *x509.CertificateRequest) []byte {
+	t.Helper()
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      csr.Subject,
+		NotBefore:    time.Now().Add(-time.Minute),
+		NotAfter:     time.Now().Add(time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		URIs:         csr.URIs,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, caCertificate, csr.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
 }

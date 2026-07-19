@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/AthenZ/athenzd/internal/config"
@@ -49,6 +50,13 @@ services:
       client_id: athenzd
       callback_port: 8250
       ca_file: /tmp/idp-ca.pem
+    identity:
+      mode: copperargos
+      instance_id: workstation-idjag-learner
+      cert_file: /tmp/athenzd.cert.pem
+      key_file: /tmp/athenzd.key.pem
+      ca_file: /tmp/athenz-ca-chain.pem
+      expiry_minutes: 60
 `)
 	cfg, err := config.Load(path)
 	if err != nil {
@@ -89,6 +97,25 @@ services:
 	}
 	if cfg.Services[0].IDP.CAFile != "/tmp/idp-ca.pem" {
 		t.Errorf("unexpected idp.ca_file: %q", cfg.Services[0].IDP.CAFile)
+	}
+	identity := cfg.Services[0].Identity
+	if identity.Mode != config.IdentityModeCopperArgos {
+		t.Errorf("unexpected identity.mode: %q", identity.Mode)
+	}
+	if identity.InstanceID != "workstation-idjag-learner" {
+		t.Errorf("unexpected identity.instance_id: %q", identity.InstanceID)
+	}
+	if identity.CertFile != "/tmp/athenzd.cert.pem" {
+		t.Errorf("unexpected identity.cert_file: %q", identity.CertFile)
+	}
+	if identity.KeyFile != "/tmp/athenzd.key.pem" {
+		t.Errorf("unexpected identity.key_file: %q", identity.KeyFile)
+	}
+	if identity.CAFile != "/tmp/athenz-ca-chain.pem" {
+		t.Errorf("unexpected identity.ca_file: %q", identity.CAFile)
+	}
+	if identity.ExpiryMinutes != 60 {
+		t.Errorf("unexpected identity.expiry_minutes: %d", identity.ExpiryMinutes)
 	}
 }
 
@@ -216,6 +243,68 @@ services:
 	}
 	if cfg.Services[0].Athenz.Provider != "" {
 		t.Fatalf("expected empty optional provider, got %q", cfg.Services[0].Athenz.Provider)
+	}
+}
+
+func TestLoad_CopperArgosRequiresIdentityFields(t *testing.T) {
+	valid := `
+athenz:
+  zts: https://zts.example.com:4443/zts/v1
+services:
+  - name: my-service
+    athenz:
+      service: home.mlajkim.local.athenzd
+      provider: sys.auth.localworkload
+    idp:
+      issuer: https://localhost:34444/realms/master
+      client_id: athenzd
+    identity:
+      mode: copperargos
+      instance_id: workstation
+      cert_file: /tmp/service.cert.pem
+      key_file: /tmp/service.key.pem
+      ca_file: /tmp/ca.cert.pem
+`
+	tests := []struct {
+		name string
+		old  string
+		new  string
+		want string
+	}{
+		{"provider", "      provider: sys.auth.localworkload\n", "", "athenz.provider"},
+		{"instance id", "      instance_id: workstation\n", "", "identity.instance_id"},
+		{"certificate file", "      cert_file: /tmp/service.cert.pem\n", "", "identity.cert_file"},
+		{"key file", "      key_file: /tmp/service.key.pem\n", "", "identity.key_file"},
+		{"ca file", "      ca_file: /tmp/ca.cert.pem\n", "", "identity.ca_file"},
+		{"negative expiry", "      ca_file: /tmp/ca.cert.pem\n", "      ca_file: /tmp/ca.cert.pem\n      expiry_minutes: -1\n", "identity.expiry_minutes"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := config.Load(writeTemp(t, strings.Replace(valid, test.old, test.new, 1)))
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("expected %q error, got %v", test.want, err)
+			}
+		})
+	}
+}
+
+func TestLoad_RejectsUnsupportedIdentityMode(t *testing.T) {
+	path := writeTemp(t, `
+athenz:
+  zts: https://zts.example.com:4443/zts/v1
+services:
+  - name: my-service
+    athenz:
+      service: home.mlajkim.local.athenzd
+    idp:
+      issuer: https://localhost:34444/realms/master
+      client_id: athenzd
+    identity:
+      mode: local
+`)
+	_, err := config.Load(path)
+	if err == nil || !strings.Contains(err.Error(), "unsupported identity.mode") {
+		t.Fatalf("expected unsupported identity mode error, got %v", err)
 	}
 }
 

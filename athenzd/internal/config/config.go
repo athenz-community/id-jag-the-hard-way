@@ -27,12 +27,10 @@ type AthenzCore struct {
 }
 
 type ServiceConfig struct {
-	Name   string        `mapstructure:"name"`
-	Athenz ServiceAthenz `mapstructure:"athenz"`
-	IDP    IDPConfig     `mapstructure:"idp"`
-
-	// Uncommented in PR 4 (x509 identity):
-	// Identity IdentityConfig `mapstructure:"identity"`
+	Name     string         `mapstructure:"name"`
+	Athenz   ServiceAthenz  `mapstructure:"athenz"`
+	IDP      IDPConfig      `mapstructure:"idp"`
+	Identity IdentityConfig `mapstructure:"identity"`
 
 	// Uncommented in PR 6 (role cert):
 	// RoleCert RoleCertConfig `mapstructure:"role_cert"`
@@ -54,6 +52,21 @@ type ServiceAthenz struct {
 	Service        string   `mapstructure:"service"`
 	OptionalAdmins []string `mapstructure:"optional_admins"`
 	Provider       string   `mapstructure:"provider"`
+}
+
+const IdentityModeCopperArgos = "copperargos"
+
+// IdentityConfig controls opt-in X.509 service identity enrollment. The
+// provider belongs to the Athenz service configuration because it is part of
+// the Athenz authorization relationship, while these fields are local output
+// and certificate-request settings.
+type IdentityConfig struct {
+	Mode          string `mapstructure:"mode"`
+	InstanceID    string `mapstructure:"instance_id"`
+	CertFile      string `mapstructure:"cert_file"`
+	KeyFile       string `mapstructure:"key_file"`
+	CAFile        string `mapstructure:"ca_file"`
+	ExpiryMinutes int    `mapstructure:"expiry_minutes"`
 }
 
 type ResolveSource string
@@ -162,6 +175,30 @@ func validate(cfg *Config) error {
 		}
 		if svc.IDP.ClientID == "" {
 			return fmt.Errorf("services[%d] (%s): idp.client_id is required", i, svc.Name)
+		}
+		switch svc.Identity.Mode {
+		case "":
+		case IdentityModeCopperArgos:
+			if svc.Athenz.Provider == "" {
+				return fmt.Errorf("services[%d] (%s): athenz.provider is required when identity.mode=%s", i, svc.Name, IdentityModeCopperArgos)
+			}
+			if svc.Identity.InstanceID == "" {
+				return fmt.Errorf("services[%d] (%s): identity.instance_id is required when identity.mode=%s", i, svc.Name, IdentityModeCopperArgos)
+			}
+			if svc.Identity.CertFile == "" {
+				return fmt.Errorf("services[%d] (%s): identity.cert_file is required when identity.mode=%s", i, svc.Name, IdentityModeCopperArgos)
+			}
+			if svc.Identity.KeyFile == "" {
+				return fmt.Errorf("services[%d] (%s): identity.key_file is required when identity.mode=%s", i, svc.Name, IdentityModeCopperArgos)
+			}
+			if svc.Identity.CAFile == "" {
+				return fmt.Errorf("services[%d] (%s): identity.ca_file is required when identity.mode=%s", i, svc.Name, IdentityModeCopperArgos)
+			}
+			if svc.Identity.ExpiryMinutes < 0 {
+				return fmt.Errorf("services[%d] (%s): identity.expiry_minutes must not be negative", i, svc.Name)
+			}
+		default:
+			return fmt.Errorf("services[%d] (%s): unsupported identity.mode %q", i, svc.Name, svc.Identity.Mode)
 		}
 	}
 	return nil

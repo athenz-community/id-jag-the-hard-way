@@ -1,8 +1,8 @@
 # Local Workload Instance Provider
 
-This standalone Maven module builds a class-based Athenz Copper Argos provider that accepts an OIDC ID token as instance attestation data. It is intentionally not deployed or registered by this repository yet.
+This standalone Maven module builds a class-based Athenz Copper Argos provider that accepts an OIDC ID token as instance attestation data. It is not deployed or registered by default.
 
-The later `athenzd` flow will generate a private key and CSR locally, submit the cached ID token to ZTS `POST /zts/v1/instance`, and receive an X.509 service certificate. The private key must never leave the workstation.
+The [`athenzd` test procedure](../faqs/athenzd/test-athenzd-with-idthw.md) mounts the published JAR into ZTS with an init container, registers the provider, and configures its launch policies. With `identity.mode: copperargos`, `athenzd` generates a private key and CSR locally, submits the cached ID token to ZTS `POST /zts/v1/instance`, and writes the returned X.509 service certificate and signer chain. The private key never leaves the workstation.
 
 ## Build
 
@@ -47,7 +47,7 @@ The exported file is `./export/local-workload-instance-provider.jar`.
 
 ## Provider class
 
-The future Athenz provider service endpoint will be:
+The Athenz provider service endpoint is:
 
 ```text
 class://com.yahoo.athenz.instance.provider.impl.InstanceLocalWorkloadProvider
@@ -97,14 +97,10 @@ The ID token remains a replayable bearer credential until it expires. For local 
 
 See [NOTICE.md](./NOTICE.md). The reference implementation is not pulled at build or runtime.
 
-## Deferred integration
+## Current integration limits
 
-This module currently does not:
+This module does not manage its own deployment or Athenz server configuration. The test procedure currently performs those operations explicitly and certificate refresh remains unsupported:
 
-- mount the JAR into ZTS;
-- register an Athenz provider service;
-- change ZTS properties or policies;
-- add the `athenzd` CSR and `/instance` client; or
-- support certificate refresh.
-
-Those changes belong to the later local Copper Argos integration.
+- there is no default Kubernetes deployment for the provider JAR;
+- ZTS properties and global provider registration are administrator-managed; and
+- certificate refresh is unsupported.

@@ -19,25 +19,21 @@ services:
       service: home.{{.preferred_username}}.local.athenzd
       # optional_admins:        # optional additional members of the child domain's admin role
       #   - user.platform_admin
-      # provider: sys.auth.zts  # reserved for later certificate registration
+      # provider:               # REQUIRED when identity.mode=copperargos
     idp:
       issuer:                   # REQUIRED  e.g. https://localhost:34444/realms/master
       client_id:                # REQUIRED  e.g. athenzd
       callback_port: 8250       # optional  local port for PKCE redirect
       ca_file:                  # optional  trust a private CA for the IdP HTTPS cert
 
-  # ── Uncommented in PR 3: X.509 service identity cert ──────────────────────
-  # identity:
-  #   mode: local               # local | copperargos
-  #   cert_file: ~/.config/athenzd/service.crt
-  #   key_file:  ~/.config/athenzd/service.key
-  #   ca_file:   ~/.config/athenzd/ca.crt
-  #   refresh_interval: 24h
-  #   copperargos:
-  #     provider:               # REQUIRED if mode=copperargos
-  #     endpoint:
-  #     dns_suffix:
-  #     cert_subject:
+    # identity:                 # optional; omit for login + ZMS setup only
+    #   mode: copperargos       # currently supported mode
+    #   instance_id:            # REQUIRED, stable id within the provider namespace
+    #   cert_file: ~/.config/athenzd/identity/service.cert.pem
+    #   key_file:  ~/.config/athenzd/identity/service.key.pem
+    #   ca_file:   ~/.config/athenzd/identity/ca.cert.pem
+    #   expiry_minutes: 60      # optional; 0 lets ZTS choose its default
+    # Future mode=local will read externally managed cert/key/CA files; it is not implemented yet.
 
   # ── Uncommented in PR 4: Access tokens ────────────────────────────────────
   # token:

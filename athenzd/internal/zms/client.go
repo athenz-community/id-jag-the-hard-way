@@ -213,6 +213,77 @@ func (c *Client) Ensure(ctx context.Context, idToken string, target Target, opti
 	return report, nil
 }
 
+// EnsureProviderAuthorization applies Athenz's identity_provisioning solution
+// template when needed so the configured instance provider may launch the
+// target service. It must run after Ensure because the child domain and service
+// are template inputs and may have just been created.
+func (c *Client) EnsureProviderAuthorization(ctx context.Context, idToken string, target Target, provider string) (bool, error) {
+	if strings.TrimSpace(idToken) == "" {
+		return false, fmt.Errorf("ID token is required")
+	}
+	if !memberNamePattern.MatchString(provider) {
+		return false, fmt.Errorf("instance provider %q is not a valid Athenz service name", provider)
+	}
+
+	rolePath := "/domain/" + escape(target.Domain) + "/role/identityproviders"
+	status, body, err := c.request(ctx, idToken, http.MethodGet, rolePath, nil)
+	if err != nil {
+		return false, fmt.Errorf("checking instance-provider authorization: %w", err)
+	}
+	if status == http.StatusOK {
+		present, err := roleContains(body, provider)
+		if err != nil {
+			return false, fmt.Errorf("checking instance-provider authorization: %w", err)
+		}
+		if present {
+			return false, nil
+		}
+	} else if status != http.StatusNotFound {
+		return false, unexpectedStatus("checking instance-provider authorization", status, body)
+	}
+
+	requestBody, _ := json.Marshal(struct {
+		TemplateNames []string `json:"templateNames"`
+		Params        []struct {
+			Name  string `json:"name"`
+			Value string `json:"value"`
+		} `json:"params"`
+	}{
+		TemplateNames: []string{"identity_provisioning"},
+		Params: []struct {
+			Name  string `json:"name"`
+			Value string `json:"value"`
+		}{
+			{Name: "instanceprovider", Value: provider},
+			{Name: "service", Value: target.ServiceName},
+		},
+	})
+	status, body, err = c.request(ctx, idToken, http.MethodPut,
+		"/domain/"+escape(target.Domain)+"/template", requestBody)
+	if err != nil {
+		return false, fmt.Errorf("applying identity_provisioning template: %w", err)
+	}
+	if status < 200 || status >= 300 {
+		return false, unexpectedStatus("applying identity_provisioning template", status, body)
+	}
+
+	status, body, err = c.request(ctx, idToken, http.MethodGet, rolePath, nil)
+	if err != nil {
+		return false, fmt.Errorf("verifying instance-provider authorization: %w", err)
+	}
+	if status != http.StatusOK {
+		return false, unexpectedStatus("verifying instance-provider authorization", status, body)
+	}
+	present, err := roleContains(body, provider)
+	if err != nil {
+		return false, fmt.Errorf("verifying instance-provider authorization: %w", err)
+	}
+	if !present {
+		return false, fmt.Errorf("instance provider %q was not authorized after applying identity_provisioning", provider)
+	}
+	return true, nil
+}
+
 func normalizeOptionalAdmins(owner string, optionalAdmins []string) ([]string, error) {
 	seen := map[string]struct{}{owner: {}}
 	admins := make([]string, 0, len(optionalAdmins))

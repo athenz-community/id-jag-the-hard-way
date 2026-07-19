@@ -35,6 +35,12 @@ services:
     idp:
       issuer: https://localhost:34444/realms/master
       client_id: athenzd
+    identity:
+      mode: copperargos
+      instance_id: workstation
+      cert_file: /tmp/service.cert.pem
+      key_file: /tmp/service.key.pem
+      ca_file: /tmp/ca.cert.pem
 `)
 	cmd := newRootCmd()
 	buf := &bytes.Buffer{}
@@ -56,6 +62,9 @@ services:
 	}
 	if !strings.Contains(out, "home.mlajkim") {
 		t.Errorf("expected domain in output, got: %q", out)
+	}
+	if !strings.Contains(out, "identity: copperargos") || !strings.Contains(out, "instance: workstation") {
+		t.Errorf("expected identity enrollment config in output, got: %q", out)
 	}
 }
 

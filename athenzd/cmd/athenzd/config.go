@@ -44,6 +44,10 @@ func newConfigValidateCmd() *cobra.Command {
 			for _, svc := range cfg.Services {
 				fmt.Fprintf(cmd.OutOrStdout(), "    - name: %s  service: %s\n",
 					svc.Name, svc.Athenz.Service)
+				if svc.Identity.Mode != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "      identity: %s  provider: %s  instance: %s\n",
+						svc.Identity.Mode, svc.Athenz.Provider, svc.Identity.InstanceID)
+				}
 			}
 			return nil
 		},

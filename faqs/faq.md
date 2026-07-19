@@ -11,7 +11,6 @@
   - [Confluence Vendor MCP Server](#confluence-vendor-mcp-server)
   - [Setup Core MCP Proxy](#setup-core-mcp-proxy)
   - [Test athenzd with IDTHW](#test-athenzd-with-idthw)
-  - [Build and Publish the Local Workload Instance Provider](#build-and-publish-the-local-workload-instance-provider)
   - [Register GenAI Users Domain Template](#register-genai-users-domain-template)
 - [Governance](#governance)
   - [What should we do if Resource Server](#what-should-we-do-if-resource-server)
@@ -90,10 +89,6 @@ See [Setup Core MCP Proxy](./setup-core-mcp-proxy.md).
 ## Test athenzd with IDTHW
 
 See [Test `athenzd` with IDTHW](./athenzd/test-athenzd-with-idthw.md).
-
-## Build and Publish the Local Workload Instance Provider
-
-See [Build and Publish the Local Workload Instance Provider](./athenzd/build-local-workload-instance-provider.md).
 
 ## Register GenAI Users Domain Template
 

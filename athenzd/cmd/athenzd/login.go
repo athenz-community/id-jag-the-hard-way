@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os/exec"
 	"runtime"
 	"time"
@@ -11,6 +14,7 @@ import (
 	"github.com/AthenZ/athenzd/internal/jwt"
 	"github.com/AthenZ/athenzd/internal/login"
 	"github.com/AthenZ/athenzd/internal/zms"
+	"github.com/AthenZ/athenzd/internal/zts"
 	"github.com/spf13/cobra"
 )
 
@@ -48,8 +52,12 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 			if cfg.Athenz.ZMS == "" {
 				return fmt.Errorf("athenz.zms is required for login")
 			}
+			stepCount := 2
+			if svc.Identity.Mode == config.IdentityModeCopperArgos {
+				stepCount = 3
+			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), "Step 1/2 — Log in with the identity provider")
+			fmt.Fprintf(cmd.OutOrStdout(), "Step 1/%d — Log in with the identity provider\n", stepCount)
 			result, err := login.Run(cmd.Context(), login.Config{
 				Issuer:       svc.IDP.Issuer,
 				ClientID:     svc.IDP.ClientID,
@@ -80,7 +88,7 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 				svcName, result.ExpiresAt.Format(time.RFC3339),
 				humanizeRemaining(result.ExpiresAt, time.Now()))
 
-			fmt.Fprintf(cmd.OutOrStdout(), "\nStep 2/2 — Ensure Athenz service %s\n", target.ServiceIdentity)
+			fmt.Fprintf(cmd.OutOrStdout(), "\nStep 2/%d — Ensure Athenz service %s\n", stepCount, target.ServiceIdentity)
 			zmsClient, err := zms.NewClient(cfg.Athenz.ZMS, cfg.Athenz.CAFile)
 			if err != nil {
 				return fmt.Errorf("creating ZMS client: %w", err)
@@ -96,6 +104,52 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "✓ Optional administrator %s: %s\n", admin.Name, membershipState(admin.Added))
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Service %s: %s\n", target.ServiceIdentity, ensureState(report.ServiceCreated))
+
+			if svc.Identity.Mode != config.IdentityModeCopperArgos {
+				fmt.Fprintf(cmd.OutOrStdout(), "✓ Ready: %s\n", target.ServiceIdentity)
+				return nil
+			}
+
+			providerAuthorized, err := zmsClient.EnsureProviderAuthorization(
+				cmd.Context(), result.IDToken, target, svc.Athenz.Provider)
+			if err != nil {
+				return fmt.Errorf("authorizing instance provider %s for %s: %w",
+					svc.Athenz.Provider, target.ServiceIdentity, err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Provider launch authorization %s: %s\n",
+				svc.Athenz.Provider, authorizationState(providerAuthorized))
+			if providerAuthorized {
+				fmt.Fprintln(cmd.OutOrStdout(), "  Waiting up to 60s for ZTS to observe the new authorization...")
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "\nStep 3/3 — Enroll X.509 identity through %s\n", svc.Athenz.Provider)
+			ztsClient, err := zts.NewClient(cfg.Athenz.ZTS, cfg.Athenz.CAFile)
+			if err != nil {
+				return fmt.Errorf("creating ZTS client: %w", err)
+			}
+			enrollRequest := zts.EnrollRequest{
+				Provider:        svc.Athenz.Provider,
+				Domain:          target.Domain,
+				Service:         target.ServiceName,
+				InstanceID:      svc.Identity.InstanceID,
+				AttestationData: result.IDToken,
+				ExpiryMinutes:   svc.Identity.ExpiryMinutes,
+				CertFile:        svc.Identity.CertFile,
+				KeyFile:         svc.Identity.KeyFile,
+				CAFile:          svc.Identity.CAFile,
+			}
+			identity, err := enrollWithPolicySync(cmd.Context(), providerAuthorized, 5*time.Second,
+				func() (*zts.Identity, error) {
+					return ztsClient.Enroll(cmd.Context(), enrollRequest)
+				})
+			if err != nil {
+				return fmt.Errorf("enrolling X.509 identity for %s: %w", target.ServiceIdentity, err)
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Certificate issued: %s (instance %s)\n", identity.Name, identity.InstanceID)
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Certificate: %s\n", svc.Identity.CertFile)
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Private key: %s\n", svc.Identity.KeyFile)
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Signer CA: %s\n", svc.Identity.CAFile)
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Ready: %s\n", target.ServiceIdentity)
 			return nil
 		},
@@ -103,6 +157,34 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 
 	cmd.Flags().StringVarP(&file, "file", "f", "", "path to config file (default: .athenzd/config.yaml or ~/.athenzd/config.yaml)")
 	return cmd
+}
+
+const ztsPolicySyncAttempts = 13
+
+func enrollWithPolicySync(ctx context.Context, authorizationChanged bool, retryDelay time.Duration,
+	enroll func() (*zts.Identity, error)) (*zts.Identity, error) {
+	attempts := 1
+	if authorizationChanged {
+		attempts = ztsPolicySyncAttempts
+	}
+	for attempt := 1; ; attempt++ {
+		identity, err := enroll()
+		if err == nil {
+			return identity, nil
+		}
+		var registrationError *zts.RegistrationError
+		if !errors.As(err, &registrationError) || registrationError.StatusCode != http.StatusForbidden || attempt == attempts {
+			return nil, err
+		}
+
+		timer := time.NewTimer(retryDelay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 func ensureState(changed bool) string {
@@ -115,6 +197,13 @@ func ensureState(changed bool) string {
 func membershipState(changed bool) string {
 	if changed {
 		return "added"
+	}
+	return "already present"
+}
+
+func authorizationState(changed bool) string {
+	if changed {
+		return "applied"
 	}
 	return "already present"
 }

@@ -20,7 +20,7 @@ The repository contains these runtime components and supporting plugins:
 
 3. **`keycloak_token_exchange_provider/`** — Java 11 Maven Keycloak plugin that enables ID token delegation from Keycloak to Athenz.
 
-4. **`local_workload_instance_provider/`** — Standalone Java 17 Maven plugin for a future local Copper Argos flow. It validates an OIDC ID token as workload attestation and restricts certificate enrollment to the authenticated user's Athenz home-domain subtree. It is not deployed or registered yet.
+4. **`local_workload_instance_provider/`** — Standalone Java 17 Maven plugin for the optional local Copper Argos flow. It validates an OIDC ID token as workload attestation and restricts certificate enrollment to the authenticated user's Athenz home-domain subtree. It is not deployed by default; the `athenzd` FAQ mounts and registers it for testing.
 
 5. **`athenz_dist/`** — Git submodule pointing to `athenz-community/athenz-distribution`. Acts as the authorization server (ZMS + ZTS) and ZPU for the tutorial.
 
@@ -73,7 +73,7 @@ make -C ai_client_gateway local
 # Keycloak token exchange provider — build only (no local run)
 make -C keycloak_token_exchange_provider build
 
-# Local workload instance provider — build and test only; not deployed yet
+# Local workload instance provider — build and test; deployment is opt-in through the athenzd FAQ
 make -C local_workload_instance_provider build
 ```
 

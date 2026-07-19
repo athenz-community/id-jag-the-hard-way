@@ -76,6 +76,7 @@ Use these from tutorials and research setup steps instead of repeating low-level
 ./tools/athenz/delete-role.sh <domain> <role>
 ./tools/athenz/delete-role-member.sh <domain> <role_name> <member_name>
 ./tools/athenz/delete-service.sh <domain> <service_name>
+./tools/athenz/show-domain.sh <domain>
 ./tools/athenz/show-service.sh <domain> <service_name> [--summary]
 ./tools/athenz/set-service-client-id.sh <domain> <service_name> <client_id>
 ```
