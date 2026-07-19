@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	testGenAIDomain = "gen-ai.services.{{service}}"
+	testGenAIDomain = "gen-ai.services.{{project}}"
 	testGenAIRole   = "gen-ai-users"
 )
 

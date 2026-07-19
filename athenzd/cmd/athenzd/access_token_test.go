@@ -21,6 +21,12 @@ import (
 
 const testDefaultProject = "athenz"
 
+func TestAthenzFocusColor(t *testing.T) {
+	if athenzFocusColor != "\x1b[38;2;33;90;242m" {
+		t.Fatalf("focus color must remain Athenz blue #215af2, got %q", athenzFocusColor)
+	}
+}
+
 func TestIssueDefaultAccessToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
@@ -73,9 +79,9 @@ func TestDefaultProjectChoicesAndLookup(t *testing.T) {
 	if got := defaultProjectChoices(entries); !reflect.DeepEqual(got, want) {
 		t.Fatalf("choices=%v want=%v", got, want)
 	}
-	entry, scope, err := idJAGForProject(entries, testDefaultProject, testBaselineRole)
-	if err != nil || entry.Domain != "gen-ai.services.athenz" || scope != testBaselineScope {
-		t.Fatalf("entry=%+v scope=%q err=%v", entry, scope, err)
+	entry, scopes, err := eligibleScopesForProject(entries, testDefaultProject)
+	if err != nil || entry.Domain != "gen-ai.services.athenz" || !containsScope(scopes, testBaselineScope) {
+		t.Fatalf("entry=%+v scopes=%q err=%v", entry, scopes, err)
 	}
 	for _, test := range []struct {
 		project string
@@ -84,13 +90,17 @@ func TestDefaultProjectChoicesAndLookup(t *testing.T) {
 		{"bad+project", "not a valid"},
 		{"missing", "not eligible"},
 	} {
-		if _, _, err := idJAGForProject(entries, test.project, testBaselineRole); err == nil || !strings.Contains(err.Error(), test.want) {
+		if _, _, err := eligibleScopesForProject(entries, test.project); err == nil || !strings.Contains(err.Error(), test.want) {
 			t.Fatalf("project %q: expected %q, got %v", test.project, test.want, err)
 		}
 	}
 	entries["athenz"] = cache.IDJAGEntry{Service: "athenz", Domain: "gen-ai.services.athenz", Scope: "gen-ai.services.athenz:role.docs-reader"}
-	if _, _, err := idJAGForProject(entries, "athenz", testBaselineRole); err == nil || !strings.Contains(err.Error(), "baseline scope") {
+	cfg := &config.Config{GenAI: config.GenAIConfig{Role: testBaselineRole}}
+	if _, err := issueDefaultAccessToken(context.Background(), cfg, &config.ServiceConfig{}, entries, "athenz"); err == nil || !strings.Contains(err.Error(), "baseline scope") {
 		t.Fatalf("unexpected missing-baseline error: %v", err)
+	}
+	if containsScope([]string{"one"}, "two") {
+		t.Fatal("unexpected scope match")
 	}
 }
 
@@ -145,7 +155,8 @@ func TestRunProjectPrompt(t *testing.T) {
 				t.Fatalf("got=%q output=%q err=%v", got, out.String(), err)
 			}
 			if strings.Contains(strings.ReplaceAll(output, "\r\n", ""), "\n") ||
-				!strings.Contains(output, "\r\x1b[2KSelected: "+test.want+"\r\n") {
+				!strings.Contains(output, "\r\x1b[2KSelected: "+test.want+"\r\n") ||
+				!strings.Contains(output, athenzFocusColor+"> ") || !strings.Contains(output, resetColor) {
 				t.Fatalf("prompt did not use raw-terminal line endings: %q", output)
 			}
 		})
@@ -170,6 +181,13 @@ func TestRunProjectPrompt(t *testing.T) {
 	}
 	if got, err := runProjectPrompt(strings.NewReader("\x1b[C\r"), &bytes.Buffer{}, choices); err != nil || got != "first" {
 		t.Fatalf("unsupported arrow should be ignored: got=%q err=%v", got, err)
+	}
+	if _, err := promptGenAIScope(strings.NewReader("\r"), &bytes.Buffer{}, nil); err == nil || !strings.Contains(err.Error(), "GenAI scopes") {
+		t.Fatalf("unexpected empty-scope error: %v", err)
+	}
+	scopeOut := &bytes.Buffer{}
+	if got, err := runSelectionPrompt(strings.NewReader("\r"), scopeOut, []string{"api:role.reader"}, scopeSelection); err != nil || got != "api:role.reader" || !strings.Contains(scopeOut.String(), "Which GenAI scope") {
+		t.Fatalf("scope prompt got=%q output=%q err=%v", got, scopeOut.String(), err)
 	}
 }
 

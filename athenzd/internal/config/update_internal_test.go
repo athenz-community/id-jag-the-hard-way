@@ -38,7 +38,7 @@ func writeUpdateTestConfig(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := file.WriteString("gen_ai:\n  domain: gen-ai.services.{{service}}\n  role: gen-ai-users\n"); err != nil {
+	if _, err := file.WriteString("gen_ai:\n  domain: gen-ai.services.{{project}}\n  role: gen-ai-users\n"); err != nil {
 		t.Fatal(err)
 	}
 	if err := file.Close(); err != nil {

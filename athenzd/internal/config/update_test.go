@@ -14,7 +14,7 @@ athenz:
   zts: https://zts.example.test/zts/v1
 gen_ai:
   # discovery comment
-  domain: gen-ai.services.{{service}}
+  domain: gen-ai.services.{{project}}
   role: gen-ai-users
   default_domain_role: gen-ai.services.docs:role.gen-ai-users
 `)

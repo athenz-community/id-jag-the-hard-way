@@ -17,7 +17,7 @@ var (
 )
 
 // DomainMatcher recognizes service-project domains represented by one
-// {{service}} (or Go-template-style {{.service}}) placeholder.
+// {{project}} (or Go-template-style {{.project}}) placeholder.
 type DomainMatcher struct {
 	prefix string
 	suffix string
@@ -34,8 +34,8 @@ type ServiceScopes struct {
 // ParseDomainTemplate validates and compiles a service-project domain template.
 func ParseDomainTemplate(value string) (DomainMatcher, error) {
 	template := strings.TrimSpace(value)
-	template = strings.ReplaceAll(template, "{{.service}}", "{{service}}")
-	const placeholder = "{{service}}"
+	template = strings.ReplaceAll(template, "{{.project}}", "{{project}}")
+	const placeholder = "{{project}}"
 	if strings.Count(template, placeholder) != 1 {
 		return DomainMatcher{}, fmt.Errorf("GenAI domain %q must contain exactly one %s placeholder", value, placeholder)
 	}
@@ -57,16 +57,16 @@ func validDomainFragment(fragment string) bool {
 	return trimmed != "" && domainNamePattern.MatchString(trimmed)
 }
 
-// Match returns the service-project name represented by domain.
+// Match returns the project name represented by domain.
 func (matcher DomainMatcher) Match(domain string) (string, bool) {
 	if !strings.HasPrefix(domain, matcher.prefix) || !strings.HasSuffix(domain, matcher.suffix) {
 		return "", false
 	}
-	service := strings.TrimSuffix(strings.TrimPrefix(domain, matcher.prefix), matcher.suffix)
-	if !serviceNamePattern.MatchString(service) {
+	project := strings.TrimSuffix(strings.TrimPrefix(domain, matcher.prefix), matcher.suffix)
+	if !serviceNamePattern.MatchString(project) {
 		return "", false
 	}
-	return service, true
+	return project, true
 }
 
 // ValidateRole validates the simple role configured as the baseline GenAI
@@ -78,7 +78,7 @@ func ValidateRole(role string) error {
 	return nil
 }
 
-// ValidateService validates the service-project key substituted into the
+// ValidateService validates the project key substituted into the
 // configured GenAI domain template.
 func ValidateService(service string) error {
 	if !serviceNamePattern.MatchString(service) {

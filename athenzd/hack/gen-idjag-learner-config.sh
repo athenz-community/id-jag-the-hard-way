@@ -42,7 +42,7 @@ athenz:
 current_service: idjag-learner
 
 gen_ai:
-  domain: gen-ai.services.{{service}}
+  domain: gen-ai.services.{{project}}
   role: gen-ai-users
 
 services:

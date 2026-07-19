@@ -581,7 +581,7 @@ athenz:
   zms: `+zmsServer.URL+`/zms/v1
 current_service: idjag-learner
 gen_ai:
-  domain: gen-ai.services.{{service}}
+  domain: gen-ai.services.{{project}}
   role: gen-ai-users
 services:
   - name: idjag-learner
@@ -634,7 +634,9 @@ services:
 		!strings.Contains(output, "  - gen-ai.services.mail:role.writer") ||
 		!strings.Contains(output, `2 ID-JAG(s) cached for current_service "idjag-learner"`) ||
 		!strings.Contains(output, "Saved gen_ai.default_project") ||
-		!strings.Contains(output, "Default access token issued and cached for project athenz with scope gen-ai.services.athenz:role.gen-ai-users") {
+		!strings.Contains(output, "Default access token issued and cached for project athenz with scope gen-ai.services.athenz:role.gen-ai-users") ||
+		!strings.Contains(output, "If you want to change the active GenAI project or scope later, run:") ||
+		!strings.Contains(output, "  "+athenzFocusColor+"athenzd set genai-project"+resetColor) {
 		t.Fatalf("unexpected output: %s", output)
 	}
 	if selectorCalls != 1 {

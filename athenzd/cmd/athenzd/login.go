@@ -205,6 +205,8 @@ func newLoginCmdWithBrowserAndSelector(browserFn func(string) error, selector pr
 					} else {
 						fmt.Fprintf(cmd.OutOrStdout(), "✓ Default access token issued and cached for project %s with scope %s\n",
 							project, cacheEntry.AccessToken.Scope)
+						fmt.Fprintln(cmd.OutOrStdout(), "\nIf you want to change the active GenAI project or scope later, run:")
+						fmt.Fprintf(cmd.OutOrStdout(), "  %sathenzd set genai-project%s\n", athenzFocusColor, resetColor)
 					}
 				}
 			}

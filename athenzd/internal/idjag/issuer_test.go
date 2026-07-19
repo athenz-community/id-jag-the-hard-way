@@ -24,7 +24,7 @@ type fakeDiscoverer struct {
 
 func (f fakeDiscoverer) DiscoverGenAIScopes(_ context.Context, token, userPrincipal, workloadPrincipal, template, role string) ([]genai.ServiceScopes, error) {
 	if token != testSubject || userPrincipal != testUserPrincipal || workloadPrincipal != testWorkloadPrincipal ||
-		template != "gen-ai.services.{{service}}" || role != "gen-ai-users" {
+		template != "gen-ai.services.{{project}}" || role != "gen-ai-users" {
 		return nil, fmt.Errorf("unexpected discovery request")
 	}
 	return f.projects, f.err
@@ -46,7 +46,7 @@ func (f fakeExchanger) ExchangeIDJAG(_ context.Context, subjectToken, scope stri
 
 func testRequest() Request {
 	return Request{SubjectToken: testSubject, UserPrincipal: testUserPrincipal, WorkloadPrincipal: testWorkloadPrincipal,
-		DomainTemplate: "gen-ai.services.{{service}}", BaselineRole: "gen-ai-users"}
+		DomainTemplate: "gen-ai.services.{{project}}", BaselineRole: "gen-ai-users"}
 }
 
 func TestIssuerMultipleProjects(t *testing.T) {

@@ -28,7 +28,7 @@ func TestConfigValidate_Valid(t *testing.T) {
 athenz:
   zts: https://zts.example.com:4443/zts/v1
 gen_ai:
-  domain: gen-ai.services.{{service}}
+  domain: gen-ai.services.{{project}}
   role: gen-ai-users
   default_project: docs
 services:

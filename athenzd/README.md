@@ -1,6 +1,6 @@
 # athenzd
 
-`athenzd` is currently a CLI for browser login, idempotent ZMS service registration, opt-in Copper Argos X.509 enrollment, ID-JAG issuance for GenAI service projects, and issuance of one default GenAI access token. It is not yet a long-running daemon and does not run a proxy or rotate credentials.
+`athenzd` is currently a CLI for browser login, idempotent ZMS service registration, opt-in Copper Argos X.509 enrollment, ID-JAG issuance for GenAI service projects, and selection of one active GenAI access-token scope. It is not yet a long-running daemon and does not run a proxy or rotate credentials.
 
 # Current behavior
 
@@ -10,6 +10,8 @@
 2. Reads `preferred_username` from that token and ensures the configured Athenz service exists in ZMS.
 3. When `identity.mode` is `copperargos`, generates a private key and CSR, submits the ID token to the configured ZTS instance provider as attestation, and writes the issued service certificate and signer CA.
 4. When both `gen_ai.domain` and `gen_ai.role` are configured, uses that X.509 identity to issue and cache one all-eligible-roles ID-JAG per associated service project, then issues one access token for the selected `gen_ai.default_project` using that project's baseline `gen_ai.role` scope.
+
+After login establishes that baseline access token, `athenzd set genai-project` refreshes the human and workload role memberships from ZMS, lets the user choose a currently eligible project and scope, and replaces the active cached access token.
 
 With the default service template, a user whose token contains `preferred_username: alice` gets this target:
 
@@ -75,7 +77,7 @@ Each matching Athenz domain acts like a service-project group. For example, this
 
 ```yaml
 gen_ai:
-  domain: gen-ai.services.{{service}}
+  domain: gen-ai.services.{{project}}
   role: gen-ai-users
   default_project: athenz
 ```
@@ -158,7 +160,7 @@ athenz:
 current_service: alice
 
 gen_ai:
-  domain: gen-ai.services.{{service}}
+  domain: gen-ai.services.{{project}}
   role: gen-ai-users
   default_project: athenz
 
@@ -185,9 +187,9 @@ services:
 
 `current_service` selects a local profile and its token-cache filename. It is not an Athenz service identity.
 
-`gen_ai.domain` must contain exactly one `{{service}}` placeholder; `{{.service}}` is accepted as an equivalent spelling. `gen_ai.role` is the simple baseline role name, not a fully qualified Athenz scope. Set both fields to enable ID-JAG issuance, or omit both to leave it disabled.
+Omit the entire `gen_ai` block to disable GenAI project discovery. Once `gen_ai` is present, `domain` and `role` are required; only `default_project` is optional. `gen_ai.domain` must contain exactly one `{{project}}` placeholder; `{{.project}}` is accepted as an equivalent spelling. `gen_ai.role` is the simple baseline role name, not a fully qualified Athenz scope.
 
-`gen_ai.default_project` is the service-project key represented by `{{service}}`, such as `athenz` or `mail`. After issuing the per-project ID-JAGs, login uses the selected project's ID-JAG to request one access token for the baseline role configured by `gen_ai.role`. For example, project `athenz` derives the scope `gen-ai.services.athenz:role.gen-ai-users`. If this setting is absent, an interactive arrow-key prompt lists only the eligible project names from the freshly issued ID-JAGs. The selected project is saved into the active config file: the explicit `-f` file, the current directory's `.athenzd/config.yaml`, or the user-level `~/.athenzd/config.yaml`.
+`gen_ai.default_project` is the project key represented by `{{project}}`, such as `athenz` or `mail`. After issuing the per-project ID-JAGs, login uses the selected project's ID-JAG to request one access token for the baseline role configured by `gen_ai.role`. For example, project `athenz` derives the scope `gen-ai.services.athenz:role.gen-ai-users`. If this setting is absent, an interactive arrow-key prompt lists only the eligible project names from the freshly issued ID-JAGs. The selected project is saved into the active config file: the explicit `-f` file, the current directory's `.athenzd/config.yaml`, or the user-level `~/.athenzd/config.yaml`.
 
 `athenz.service` is the complete desired Athenz identity. It uses Go `text/template` syntax, matching the template family used by `kubectl -o go-template`. The currently supported dynamic field is:
 
@@ -260,6 +262,9 @@ Step 4/4 — Issue ID-JAGs for all eligible GenAI service-project roles
 ✓ 2 ID-JAG(s) cached for current_service "alice"
 ✓ Default GenAI project: athenz
 ✓ Default access token issued and cached for project athenz with scope gen-ai.services.athenz:role.gen-ai-users
+
+If you want to change the active GenAI project or scope later, run:
+  athenzd set genai-project
 ```
 
 The cache stores a JSON object keyed by service project:
@@ -298,6 +303,20 @@ Login prints the user's eligible project roles before attempting the ZTS exchang
 
 ID-JAG and access-token issuance are best-effort. If no project is eligible, login logs a friendly message such as `↷ ID-JAG skipped — no eligible GenAI roles found for user.alice`. Discovery, exchange, prompt, config-save, or cache failures are also logged as skipped, and login still succeeds with the cached ID token and enrolled X.509 identity.
 
+# Change the active GenAI project or scope
+
+Run this after login whenever the active access token should use another eligible project or role:
+
+```sh
+athenzd set genai-project
+```
+
+The command does not trust the ID-JAG roles already in the cache. It uses the cached, unexpired ID token to query ZMS again for the human's current role memberships and the local workload's current matching `-jag-exchanger` memberships, then issues fresh per-project ID-JAGs from their intersection. The prompts contain only the projects and scopes eligible at that moment.
+
+Choose a project first. When that project has exactly one eligible scope, `athenzd` uses it immediately without showing a redundant scope prompt; when it has multiple scopes, choose one in a second prompt. Focused choices and the login command hint use the Athenz blue `#215af2`. After selection, `athenzd` narrows the freshly issued project ID-JAG into a one-scope access token, replaces the cached ID-JAGs and access token, and saves the selected project as `gen_ai.default_project` in the active config file.
+
+The chosen non-baseline scope is an active-session choice stored in the token cache, not a new static authorization grant. A later `athenzd login` starts from the configured baseline `gen_ai.role` again and prints the command reminder so the user can make another current-role selection. If the cached ID token is expired, the command asks the user to run `athenzd login` again.
+
 # Cached identity
 
 ID tokens are stored at:
@@ -321,6 +340,7 @@ athenzd version
 athenzd config current-config
 athenzd config validate
 athenzd login
+athenzd set genai-project
 athenzd whoami
 ```
 

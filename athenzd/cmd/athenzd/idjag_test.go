@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	testDomainTemplate = "gen-ai.services.{{service}}"
+	testDomainTemplate = "gen-ai.services.{{project}}"
 	testBaselineRole   = "gen-ai-users"
 	testBaselineScope  = "gen-ai.services.athenz:role.gen-ai-users"
 )
@@ -156,7 +156,7 @@ func TestCacheLoginIDJAGsError(t *testing.T) {
 func TestIDJAGSkipLog(t *testing.T) {
 	noEligible := &idjag.NoEligibleProjectsError{
 		UserPrincipal:  "user.alice",
-		DomainTemplate: "gen-ai.services.{{service}}",
+		DomainTemplate: "gen-ai.services.{{project}}",
 	}
 	if got := idJAGSkipLog(noEligible); !strings.Contains(got, "↷ ID-JAG skipped") || !strings.Contains(got, "user.alice") {
 		t.Fatalf("unexpected no-role log: %q", got)

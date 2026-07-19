@@ -7,6 +7,7 @@ import (
 
 	"github.com/AthenZ/athenzd/internal/genai"
 	"github.com/spf13/viper"
+	"go.yaml.in/yaml/v3"
 )
 
 type Config struct {
@@ -22,9 +23,11 @@ type Config struct {
 	// Healthz HealthzConfig `mapstructure:"healthz"`
 }
 
-// GenAIConfig defines how service-project memberships are recognized. Empty
-// values keep ID-JAG issuance disabled for backward compatibility.
+// GenAIConfig defines how service-project memberships are recognized. Omitting
+// the entire gen_ai block keeps project discovery disabled.
 type GenAIConfig struct {
+	// Domain must contain exactly one {{project}} (or {{.project}}) placeholder
+	// whenever GenAI project discovery is enabled.
 	Domain         string `mapstructure:"domain"`
 	Role           string `mapstructure:"role"`
 	DefaultProject string `mapstructure:"default_project"`
@@ -143,36 +146,67 @@ func LoadResolved(r *ResolveResult) (*Config, error) {
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("reading config: %w", err)
 	}
+	genAIConfigured, err := configKeyPresent(r.Path, "gen_ai")
+	if err != nil {
+		return nil, fmt.Errorf("inspecting config structure: %w", err)
+	}
 
-	return loadFromViper(v)
+	return loadFromViper(v, genAIConfigured)
 }
 
 // loadFromViper unmarshals and validates from an already-read Viper instance.
 // Extracted so tests can inject a pre-populated Viper without touching the filesystem.
-func loadFromViper(v *viper.Viper) (*Config, error) {
-	return Parse(v.Unmarshal)
+func loadFromViper(v *viper.Viper, genAIConfigured bool) (*Config, error) {
+	return parse(v.Unmarshal, genAIConfigured)
+}
+
+var readConfigForPresence = os.ReadFile
+
+func configKeyPresent(path, key string) (bool, error) {
+	data, err := readConfigForPresence(path)
+	if err != nil {
+		return false, err
+	}
+	var document yaml.Node
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		return false, err
+	}
+	if len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
+		return false, nil
+	}
+	root := document.Content[0]
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if root.Content[i].Value == key {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // Parse runs unmarshalFn into a Config and validates it.
 // Exported so tests can inject a failing unmarshal to cover the error branch.
 func Parse(unmarshalFn func(any, ...viper.DecoderConfigOption) error) (*Config, error) {
+	return parse(unmarshalFn, false)
+}
+
+func parse(unmarshalFn func(any, ...viper.DecoderConfigOption) error, genAIConfigured bool) (*Config, error) {
 	var cfg Config
 	if err := unmarshalFn(&cfg); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
 
-	if err := validate(&cfg); err != nil {
+	if err := validate(&cfg, genAIConfigured); err != nil {
 		return nil, err
 	}
 
 	return &cfg, nil
 }
 
-func validate(cfg *Config) error {
+func validate(cfg *Config, genAIConfigured bool) error {
 	if cfg.Athenz.ZTS == "" {
 		return fmt.Errorf("athenz.zts is required")
 	}
-	if cfg.GenAI.Domain != "" || cfg.GenAI.Role != "" || cfg.GenAI.DefaultProject != "" {
+	if genAIConfigured || cfg.GenAI.Domain != "" || cfg.GenAI.Role != "" || cfg.GenAI.DefaultProject != "" {
 		if cfg.GenAI.Domain == "" {
 			return fmt.Errorf("gen_ai.domain is required when another gen_ai setting is set")
 		}

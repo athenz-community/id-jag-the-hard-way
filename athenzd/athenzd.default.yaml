@@ -12,14 +12,18 @@ athenz:
 current_service: ""             # active profile and token-cache key; not the Athenz identity
 
 # ── GenAI ID-JAG ──────────────────────────────────────────────────────────────
-gen_ai:
-  # Each matching domain is one service project. A user may belong to several;
-  # athenzd issues one ID-JAG per project with all mutually eligible roles.
-  domain:                       # optional with role  e.g. gen-ai.services.{{service}}
-  role:                         # optional with domain  e.g. gen-ai-users
-  # One service project used to mint the initial access token for its baseline
-  # role. When empty, login prompts from eligible projects and saves it here.
-  default_project:              # optional  e.g. athenz
+# Omit this entire block to disable GenAI project discovery. When gen_ai is
+# present, domain and role are required; only default_project is optional.
+# gen_ai:
+#   # Each matching domain is one service project. A user may belong to several;
+#   # athenzd issues one ID-JAG per project with all mutually eligible roles.
+#   # Domain must contain exactly one {{project}} placeholder.
+#   domain: gen-ai.services.{{project}}
+#   role: gen-ai-users
+#   # When empty, login prompts from eligible projects and saves the choice.
+#   # Run `athenzd set genai-project` later to refresh eligible roles and choose
+#   # another active project and scope.
+#   default_project: athenz
 
 # ── Services ──────────────────────────────────────────────────────────────────
 services:

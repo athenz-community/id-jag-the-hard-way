@@ -6,7 +6,7 @@ import (
 )
 
 func TestDomainMatcher(t *testing.T) {
-	for _, template := range []string{" gen-ai.services.{{service}} ", "gen-ai.services.{{.service}}"} {
+	for _, template := range []string{" gen-ai.services.{{project}} ", "gen-ai.services.{{.project}}"} {
 		matcher, err := ParseDomainTemplate(template)
 		if err != nil {
 			t.Fatal(err)
@@ -24,7 +24,7 @@ func TestDomainMatcher(t *testing.T) {
 
 func TestParseDomainTemplateErrors(t *testing.T) {
 	for _, template := range []string{
-		"gen-ai.services", "{{service}}.{{service}}", "gen-ai+services.{{service}}", "gen-ai /{{service}}", ".{{service}}", "{{service}}.",
+		"gen-ai.services", "{{project}}.{{project}}", "gen-ai+services.{{project}}", "gen-ai /{{project}}", ".{{project}}", "{{project}}.", "gen-ai.services.{{service}}",
 	} {
 		if _, err := ParseDomainTemplate(template); err == nil || !strings.Contains(err.Error(), "GenAI domain") {
 			t.Fatalf("expected template error for %q, got %v", template, err)
