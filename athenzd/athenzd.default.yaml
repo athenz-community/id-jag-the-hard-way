@@ -11,6 +11,13 @@ athenz:
 # ── Context (like kubectl current-context) ───────────────────────────────────
 current_service: ""             # active profile and token-cache key; not the Athenz identity
 
+# ── GenAI ID-JAG ──────────────────────────────────────────────────────────────
+gen_ai:
+  # Each matching domain is one service project. A user may belong to several;
+  # athenzd issues one ID-JAG per project with all mutually eligible roles.
+  domain:                       # optional with role  e.g. gen-ai.services.{{service}}
+  role:                         # optional with domain  e.g. gen-ai-users
+
 # ── Services ──────────────────────────────────────────────────────────────────
 services:
   - name:                       # REQUIRED  unique local profile name

@@ -37,6 +37,9 @@
                         },
                         {
                             "memberName": "flava.mcp-hub.*"
+                        },
+                        {
+                            "memberName": "home.*"
                         }
                     ]
                 }

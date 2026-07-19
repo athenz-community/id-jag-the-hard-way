@@ -9,7 +9,18 @@ import (
 )
 
 type TokenEntry struct {
-	IDToken   string    `json:"id_token"`
+	IDToken   string                `json:"id_token"`
+	ExpiresAt time.Time             `json:"expires_at"`
+	IDJAGs    map[string]IDJAGEntry `json:"id_jags,omitempty"`
+}
+
+// IDJAGEntry is the identity assertion issued to the local X.509 workload for
+// all eligible roles in one discovered GenAI service-project domain.
+type IDJAGEntry struct {
+	Service   string    `json:"service"`
+	Domain    string    `json:"domain"`
+	Token     string    `json:"token"`
+	Scope     string    `json:"scope"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
 

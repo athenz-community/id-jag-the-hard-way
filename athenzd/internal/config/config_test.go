@@ -38,6 +38,9 @@ athenz:
   zms: https://zms.example.com:4443/zms/v1
   ca_file: /tmp/athenz-ca.pem
 current_service: my-service
+gen_ai:
+  domain: gen-ai.services.{{service}}
+  role: gen-ai-users
 services:
   - name: my-service
     athenz:
@@ -73,6 +76,9 @@ services:
 	}
 	if cfg.CurrentService != "my-service" {
 		t.Errorf("unexpected current_service: %q", cfg.CurrentService)
+	}
+	if cfg.GenAI.Domain != "gen-ai.services.{{service}}" || cfg.GenAI.Role != "gen-ai-users" {
+		t.Errorf("unexpected GenAI config: %+v", cfg.GenAI)
 	}
 	if cfg.Services[0].Name != "my-service" {
 		t.Errorf("unexpected service name: %q", cfg.Services[0].Name)
@@ -116,6 +122,27 @@ services:
 	}
 	if identity.ExpiryMinutes != 60 {
 		t.Errorf("unexpected identity.expiry_minutes: %d", identity.ExpiryMinutes)
+	}
+}
+
+func TestLoad_RejectsInvalidGenAIConfig(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		genAI  string
+		wanted string
+	}{
+		{"missing domain", "role: gen-ai-users", "gen_ai.domain"},
+		{"missing role", "domain: gen-ai.services.{{service}}", "gen_ai.role"},
+		{"invalid domain", "domain: gen-ai.services\n  role: gen-ai-users", "gen_ai.domain"},
+		{"invalid role", "domain: gen-ai.services.{{service}}\n  role: bad+role", "gen_ai.role"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := writeTemp(t, "athenz:\n  zts: https://zts.example.com:4443/zts/v1\ngen_ai:\n  "+test.genAI+"\n")
+			_, err := config.Load(path)
+			if err == nil || !strings.Contains(err.Error(), test.wanted) {
+				t.Fatalf("expected %s error, got %v", test.wanted, err)
+			}
+		})
 	}
 }
 

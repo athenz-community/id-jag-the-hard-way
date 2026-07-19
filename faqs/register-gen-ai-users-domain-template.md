@@ -226,7 +226,7 @@ It creates the standard GenAI roles and policies for a service domain:
 - `role.cost-accountable-admins`
 - `role.gen-ai-users`
 - `role.gen-ai-users-manager`
-- `role.gen-ai-users-jag-exchanger` with `flava.context-ai.*` and `flava.mcp-hub.*` as default members
+- `role.gen-ai-users-jag-exchanger` with `flava.context-ai.*`, `flava.mcp-hub.*`, and `home.*` as default members
 - `policy.cost-accountable-admins-policy` lets `cost-accountable-admins` update `gen-ai-users-manager` and `gen-ai-users`
 - `policy.gen-ai-users-manager-policy` lets `gen-ai-users-manager` update `gen-ai-users`
 - `policy.gen-ai-users-jag-exchanger-policy` grants `zts.jag_exchange` into `gen-ai-users`

@@ -16,6 +16,15 @@ func TestSaveLoad(t *testing.T) {
 	entry := cache.TokenEntry{
 		IDToken:   "eyJ.test.token",
 		ExpiresAt: time.Now().Add(1 * time.Hour).UTC().Truncate(time.Second),
+		IDJAGs: map[string]cache.IDJAGEntry{
+			"athenz": {
+				Service:   "athenz",
+				Domain:    "gen-ai.services.athenz",
+				Token:     "eyJ.id.jag",
+				Scope:     "gen-ai.services.athenz:role.gen-ai-users",
+				ExpiresAt: time.Now().Add(30 * time.Minute).UTC().Truncate(time.Second),
+			},
+		},
 	}
 
 	if err := cache.Save("my-service", entry); err != nil {
@@ -32,6 +41,13 @@ func TestSaveLoad(t *testing.T) {
 	}
 	if !got.ExpiresAt.Equal(entry.ExpiresAt) {
 		t.Errorf("ExpiresAt mismatch: got %v, want %v", got.ExpiresAt, entry.ExpiresAt)
+	}
+	gotIDJAG, ok := got.IDJAGs["athenz"]
+	wantIDJAG := entry.IDJAGs["athenz"]
+	if !ok || gotIDJAG.Service != wantIDJAG.Service || gotIDJAG.Domain != wantIDJAG.Domain ||
+		gotIDJAG.Token != wantIDJAG.Token || gotIDJAG.Scope != wantIDJAG.Scope ||
+		!gotIDJAG.ExpiresAt.Equal(wantIDJAG.ExpiresAt) {
+		t.Errorf("IDJAG mismatch: got %+v, want %+v", gotIDJAG, wantIDJAG)
 	}
 }
 

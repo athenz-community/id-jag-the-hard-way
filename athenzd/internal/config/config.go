@@ -5,12 +5,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/AthenZ/athenzd/internal/genai"
 	"github.com/spf13/viper"
 )
 
 type Config struct {
 	Athenz         AthenzCore      `mapstructure:"athenz"`
 	CurrentService string          `mapstructure:"current_service"`
+	GenAI          GenAIConfig     `mapstructure:"gen_ai"`
 	Services       []ServiceConfig `mapstructure:"services"`
 
 	// Uncommented in PR 7 (proxy):
@@ -18,6 +20,13 @@ type Config struct {
 
 	// Uncommented in PR 9 (healthz):
 	// Healthz HealthzConfig `mapstructure:"healthz"`
+}
+
+// GenAIConfig defines how service-project memberships are recognized. Empty
+// values keep ID-JAG issuance disabled for backward compatibility.
+type GenAIConfig struct {
+	Domain string `mapstructure:"domain"`
+	Role   string `mapstructure:"role"`
 }
 
 type AthenzCore struct {
@@ -161,6 +170,20 @@ func Parse(unmarshalFn func(any, ...viper.DecoderConfigOption) error) (*Config, 
 func validate(cfg *Config) error {
 	if cfg.Athenz.ZTS == "" {
 		return fmt.Errorf("athenz.zts is required")
+	}
+	if cfg.GenAI.Domain != "" || cfg.GenAI.Role != "" {
+		if cfg.GenAI.Domain == "" {
+			return fmt.Errorf("gen_ai.domain is required when gen_ai.role is set")
+		}
+		if cfg.GenAI.Role == "" {
+			return fmt.Errorf("gen_ai.role is required when gen_ai.domain is set")
+		}
+		if _, err := genai.ParseDomainTemplate(cfg.GenAI.Domain); err != nil {
+			return fmt.Errorf("gen_ai.domain: %w", err)
+		}
+		if err := genai.ValidateRole(cfg.GenAI.Role); err != nil {
+			return fmt.Errorf("gen_ai.role: %w", err)
+		}
 	}
 	for i := range cfg.Services {
 		svc := &cfg.Services[i]

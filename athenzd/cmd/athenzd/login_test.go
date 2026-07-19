@@ -427,6 +427,7 @@ func TestLoginCmd_CopperArgosSuccess(t *testing.T) {
 	t.Setenv("HOME", home)
 	idToken := fakeIDToken(`{"preferred_username":"idjag-learner","aud":"athenzd"}`)
 	providerAuthorized := false
+	noGenAIRoles := false
 	zmsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != "Bearer "+idToken {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -449,6 +450,34 @@ func TestLoginCmd_CopperArgosSuccess(t *testing.T) {
 		case r.Method == http.MethodPut && r.URL.Path == "/zms/v1/domain/home.idjag-learner.local/template":
 			providerAuthorized = true
 			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodGet && r.URL.Path == "/zms/v1/role":
+			domain := r.URL.Query().Get("domain")
+			if r.URL.Query().Get("principal") == "user.idjag-learner" {
+				if noGenAIRoles {
+					fmt.Fprint(w, `{"memberRoles":[]}`)
+					return
+				}
+				fmt.Fprint(w, `{"memberRoles":[
+					{"domainName":"gen-ai.services.athenz","roleName":"gen-ai-users"},
+					{"domainName":"gen-ai.services.athenz","roleName":"docs-reader"},
+					{"domainName":"gen-ai.services.mail","roleName":"gen-ai-users"},
+					{"domainName":"gen-ai.services.mail","roleName":"writer"}
+				]}`)
+				return
+			}
+			if domain == "gen-ai.services.athenz" {
+				fmt.Fprint(w, `{"memberRoles":[
+					{"domainName":"gen-ai.services.athenz","roleName":"docs-reader-jag-exchanger"}
+				]}`)
+				return
+			}
+			fmt.Fprint(w, `{"memberRoles":[
+				{"domainName":"gen-ai.services.mail","roleName":"writer-jag-exchanger"}
+			]}`)
+		case r.Method == http.MethodGet && (r.URL.Path == "/zms/v1/domain/gen-ai.services.athenz/member" || r.URL.Path == "/zms/v1/domain/gen-ai.services.mail/member"):
+			fmt.Fprint(w, `{"members":[
+				{"memberName":"home.*","memberRoles":[{"roleName":"gen-ai-users-jag-exchanger"}]}
+			]}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -475,7 +504,28 @@ func TestLoginCmd_CopperArgosSuccess(t *testing.T) {
 
 	caKey, caCertificate, caPEM := newLoginTestCA(t)
 	ztsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/zts/v1/instance" || r.Method != http.MethodPost {
+		switch r.URL.Path {
+		case "/zts/v1/.well-known/openid-configuration":
+			fmt.Fprint(w, `{"issuer":"https://issuer.example.test"}`)
+			return
+		case "/zts/v1/oauth2/token":
+			if err := r.ParseForm(); err != nil {
+				t.Error(err)
+			}
+			scope := r.Form.Get("scope")
+			idJAG := fakeIDToken(`{"sub":"user.idjag-learner","scope":"` + scope + `"}`)
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": idJAG,
+				"expires_in":   7200,
+				"scope":        scope,
+			})
+			return
+		case "/zts/v1/instance":
+		default:
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodPost {
 			http.NotFound(w, r)
 			return
 		}
@@ -524,6 +574,9 @@ athenz:
   zts: `+ztsServer.URL+`/zts/v1
   zms: `+zmsServer.URL+`/zms/v1
 current_service: idjag-learner
+gen_ai:
+  domain: gen-ai.services.{{service}}
+  role: gen-ai-users
 services:
   - name: idjag-learner
     athenz:
@@ -556,14 +609,46 @@ services:
 		t.Fatalf("unexpected error: %v", err)
 	}
 	output := buffer.String()
-	if !strings.Contains(output, "Step 3/3 — Enroll X.509 identity through sys.auth.localworkload") ||
-		!strings.Contains(output, "Certificate issued: home.idjag-learner.local.athenzd") {
+	rolesHeading := "Eligible roles for user.idjag-learner:"
+	if !strings.Contains(output, "Step 3/4 — Enroll X.509 identity through sys.auth.localworkload") ||
+		!strings.Contains(output, "Certificate issued: home.idjag-learner.local.athenzd") ||
+		!strings.Contains(output, "Step 4/4 — Issue ID-JAGs for all eligible GenAI service-project roles") ||
+		!strings.Contains(output, rolesHeading) ||
+		!strings.Contains(output, "  - gen-ai.services.athenz:role.docs-reader") ||
+		!strings.Contains(output, "  - gen-ai.services.athenz:role.gen-ai-users") ||
+		!strings.Contains(output, "  - gen-ai.services.mail:role.writer") ||
+		!strings.Contains(output, `2 ID-JAG(s) cached for current_service "idjag-learner"`) {
 		t.Fatalf("unexpected output: %s", output)
+	}
+	if strings.Index(output, rolesHeading) > strings.Index(output, "gen-ai.services.athenz: ID-JAG issued") {
+		t.Fatalf("expected roles before ID-JAG issuance, got: %s", output)
 	}
 	for _, outputPath := range []string{certFile, keyFile, caFile} {
 		if _, err := os.Stat(outputPath); err != nil {
 			t.Fatalf("expected credential %s: %v", outputPath, err)
 		}
+	}
+	entry, err := cache.Load("idjag-learner")
+	if err != nil || len(entry.IDJAGs) != 2 || entry.IDJAGs["athenz"].Token == "" || entry.IDJAGs["mail"].Token == "" {
+		t.Fatalf("cached entry=%+v err=%v", entry, err)
+	}
+
+	noGenAIRoles = true
+	root = newLoginCmdWithBrowser(func(url string) error {
+		response, err := http.Get(url) //nolint:noctx
+		if err == nil {
+			response.Body.Close()
+		}
+		return err
+	})
+	skipLog := &bytes.Buffer{}
+	root.SetErr(skipLog)
+	root.SetArgs([]string{"-f", path})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("fourth-step failure must not fail login: %v", err)
+	}
+	if !strings.Contains(skipLog.String(), "↷ ID-JAG skipped — no eligible GenAI roles found for user.idjag-learner") {
+		t.Fatalf("expected fourth-step skip log, got %q", skipLog.String())
 	}
 }
 

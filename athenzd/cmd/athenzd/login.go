@@ -11,6 +11,7 @@ import (
 
 	"github.com/AthenZ/athenzd/internal/cache"
 	"github.com/AthenZ/athenzd/internal/config"
+	"github.com/AthenZ/athenzd/internal/genai"
 	"github.com/AthenZ/athenzd/internal/jwt"
 	"github.com/AthenZ/athenzd/internal/login"
 	"github.com/AthenZ/athenzd/internal/zms"
@@ -53,8 +54,13 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 				return fmt.Errorf("athenz.zms is required for login")
 			}
 			stepCount := 2
+			issueIDJAGAfterEnrollment := false
 			if svc.Identity.Mode == config.IdentityModeCopperArgos {
 				stepCount = 3
+				if cfg.GenAI.Domain != "" && cfg.GenAI.Role != "" {
+					stepCount = 4
+					issueIDJAGAfterEnrollment = true
+				}
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Step 1/%d — Log in with the identity provider\n", stepCount)
@@ -77,10 +83,11 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 				return fmt.Errorf("deriving Athenz service from ID token: %w", err)
 			}
 
-			if err := cache.Save(svcName, cache.TokenEntry{
+			cacheEntry := cache.TokenEntry{
 				IDToken:   result.IDToken,
 				ExpiresAt: result.ExpiresAt,
-			}); err != nil {
+			}
+			if err := cache.Save(svcName, cacheEntry); err != nil {
 				return fmt.Errorf("saving token: %w", err)
 			}
 
@@ -122,7 +129,7 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), "  Waiting up to 60s for ZTS to observe the new authorization...")
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "\nStep 3/3 — Enroll X.509 identity through %s\n", svc.Athenz.Provider)
+			fmt.Fprintf(cmd.OutOrStdout(), "\nStep 3/%d — Enroll X.509 identity through %s\n", stepCount, svc.Athenz.Provider)
 			ztsClient, err := zts.NewClient(cfg.Athenz.ZTS, cfg.Athenz.CAFile)
 			if err != nil {
 				return fmt.Errorf("creating ZTS client: %w", err)
@@ -150,6 +157,27 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Certificate: %s\n", svc.Identity.CertFile)
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Private key: %s\n", svc.Identity.KeyFile)
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Signer CA: %s\n", svc.Identity.CAFile)
+			if issueIDJAGAfterEnrollment {
+				fmt.Fprintln(cmd.OutOrStdout(), "\nStep 4/4 — Issue ID-JAGs for all eligible GenAI service-project roles")
+				idJAGs, issueErr := issueIDJAGs(cmd.Context(), cfg, svc, result.IDToken, target, func(projects []genai.ServiceScopes) {
+					for _, line := range formatEligibleRoles(target.UserPrincipal, projects) {
+						fmt.Fprintln(cmd.OutOrStdout(), line)
+					}
+				})
+				if issueErr == nil {
+					issueErr = cacheLoginIDJAGs(svcName, &cacheEntry, idJAGs)
+				}
+				if issueErr != nil {
+					fmt.Fprintln(cmd.ErrOrStderr(), idJAGSkipLog(issueErr))
+				} else {
+					for _, entry := range sortedIDJAGs(idJAGs) {
+						fmt.Fprintf(cmd.OutOrStdout(), "✓ %s: ID-JAG issued with %d scope(s): %s\n",
+							entry.Domain, len(scopeFields(entry.Scope)), entry.Scope)
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "✓ %d ID-JAG(s) cached for current_service %q\n",
+						len(idJAGs), svcName)
+				}
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Ready: %s\n", target.ServiceIdentity)
 			return nil
 		},
@@ -157,6 +185,14 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 
 	cmd.Flags().StringVarP(&file, "file", "f", "", "path to config file (default: .athenzd/config.yaml or ~/.athenzd/config.yaml)")
 	return cmd
+}
+
+func cacheLoginIDJAGs(serviceName string, entry *cache.TokenEntry, idJAGs map[string]cache.IDJAGEntry) error {
+	entry.IDJAGs = idJAGs
+	if err := cache.Save(serviceName, *entry); err != nil {
+		return fmt.Errorf("caching issued ID-JAGs: %w", err)
+	}
+	return nil
 }
 
 const ztsPolicySyncAttempts = 13
