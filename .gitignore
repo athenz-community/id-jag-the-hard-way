@@ -38,6 +38,7 @@ api_server/mcp/node_modules/
 api_server/mcp/certs
 
 keycloak_token_exchange_provider/target/
+local_workload_instance_provider/target/
 keycloak_data/
 
 keys/

@@ -10,7 +10,7 @@ The architecture implements the [ID-JAG specification](https://techblog.lycorp.c
 
 ## Components and Their Roles
 
-Five microservices implement the full authorization flow:
+The repository contains these runtime components and supporting plugins:
 
 1. **`api_server/`** — Java 17 (Maven) REST API that enforces Athenz access tokens. Also contains two sub-services:
    - **`api_server/mcp/`** — Node.js/TypeScript MCP (Model Context Protocol) server that performs token exchange with Athenz ZTS before calling the API server.
@@ -20,9 +20,11 @@ Five microservices implement the full authorization flow:
 
 3. **`keycloak_token_exchange_provider/`** — Java 11 Maven Keycloak plugin that enables ID token delegation from Keycloak to Athenz.
 
-4. **`athenz_dist/`** — Git submodule pointing to `athenz-community/athenz-distribution`. Acts as the authorization server (ZMS + ZTS) and ZPU for the tutorial.
+4. **`local_workload_instance_provider/`** — Standalone Java 17 Maven plugin for a future local Copper Argos flow. It validates an OIDC ID token as workload attestation and restricts certificate enrollment to the authenticated user's Athenz home-domain subtree. It is not deployed or registered yet.
 
-5. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
+5. **`athenz_dist/`** — Git submodule pointing to `athenz-community/athenz-distribution`. Acts as the authorization server (ZMS + ZTS) and ZPU for the tutorial.
+
+6. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
 
 **Default ports** — local (`make local`) vs. Kubernetes port-forward (`keep-k8s-port-forward.sh`):
 
@@ -70,6 +72,9 @@ make -C ai_client_gateway local
 
 # Keycloak token exchange provider — build only (no local run)
 make -C keycloak_token_exchange_provider build
+
+# Local workload instance provider — build and test only; not deployed yet
+make -C local_workload_instance_provider build
 ```
 
 Node.js components use `npx tsx` (no compile step required) and `npm install` is run as part of `make local`.
@@ -82,7 +87,7 @@ Each component has a multi-stage Dockerfile. CI/CD via GitHub Actions (`.github/
 docker build -t <name> .
 ```
 
-The `keycloak_token_exchange_provider` Dockerfile is export-only — it copies the built JAR into a scratch image for extraction.
+The provider Dockerfiles are export-only — they copy their built JARs into a mounted export directory and do not run a service.
 
 ## Technology Stack
 
@@ -93,6 +98,7 @@ The `keycloak_token_exchange_provider` Dockerfile is export-only — it copies t
 | `api_server/authorization_proxy`   | Java 17    | Spring Boot 3.2.5, Spring Cloud Gateway |
 | `ai_client_gateway`                | TypeScript | Node.js 22, Express                     |
 | `keycloak_token_exchange_provider` | Java 11    | Maven, Keycloak SPI                     |
+| `local_workload_instance_provider` | Java 17    | Maven, Athenz InstanceProvider SPI      |
 
 ## Key Architectural Concepts
 

@@ -40,6 +40,8 @@ Test `athenzd` against the local ID-JAG The Hard Way environment: configure Keyc
 > [!NOTE]
 > This test covers browser login and ZMS registration only. It does not request an X.509 certificate, contact Copper Argos, or exchange the ID token for an Athenz access token.
 
+The next Copper Argos building block is documented in [Build and Publish the Local Workload Instance Provider](./build-local-workload-instance-provider.md). That procedure builds the provider artifact but does not deploy it into ZTS.
+
 # Steps
 
 ## Step 1. Build and install athenzd
@@ -548,6 +550,7 @@ No. Cleanup removes only the child service and child domain created by this test
 
 # Reference
 
+- [Build and Publish the Local Workload Instance Provider](./build-local-workload-instance-provider.md)
 - [Make Keycloak HTTPS for ZTS User Certificates](../make-keycloak-https.md)
 - [`athenzd` README](../../athenzd/README.md)
 - [`athenzd` login command](../../athenzd/cmd/athenzd/login.go)
