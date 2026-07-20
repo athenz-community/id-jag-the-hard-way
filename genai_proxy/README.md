@@ -4,7 +4,7 @@
 
 The proxy verifies each Athenz Bearer access token with the local ZTS public key. The signed `aud` claim must identify one `gen-ai.services.<project>` project, the signed `sub` must identify a human user, `client_id` must identify the calling workload, and the token must grant the `gen-ai-users` scope. It never logs or stores the AT and removes the `Authorization` header before forwarding to Ollama.
 
-Successful generation responses are metered using the token counts reported by Ollama. Counters are held only in memory, grouped by the signed project and user claims, and reset whenever the proxy restarts.
+Successful generation responses are metered using the token counts reported by Ollama and grouped by JST date, signed project, and user claims. Each daily entry includes the most recent usage time in JST using `HH:mm:ss` format. With `make local`, counters are stored in the gitignored `athenzd/.athenzd/genai-proxy-data/usage.json` file and survive container restarts.
 
 ## Run locally
 
@@ -14,7 +14,9 @@ Ollama must already be listening on its default API address, `http://127.0.0.1:1
 make -C genai_proxy local
 ```
 
-This builds `genai-proxy:local` and starts it as the detached `genai-proxy-local` Docker container. Runtime logs are not attached to the terminal.
+This builds `genai-proxy:local` and starts it as the detached `genai-proxy-local` Docker container. Runtime logs are not attached to the terminal. The local `athenzd/.athenzd/genai-proxy-data` directory is mounted into the container for persistent usage data.
+
+If that container already exists, `make local` asks before deleting and replacing it. Press Enter or answer `Y` to replace it; answer `n` to keep it and cancel the command.
 
 The proxy listens on `0.0.0.0` so clients running in local Docker or kind containers can reach it through `host.docker.internal`. It uses the repository port allocation:
 
@@ -35,6 +37,12 @@ Override the ZTS public key when needed:
 
 ```sh
 make -C genai_proxy local ATHENZ_PUBLIC_KEY_PATH=/path/to/zts.public.pem
+```
+
+Override the persistent data directory when needed:
+
+```sh
+make -C genai_proxy local DATA_DIR=/path/to/genai-proxy-data
 ```
 
 To restrict the proxy to host-only clients instead, override the bind address:
@@ -80,7 +88,7 @@ unset _athenz_at _genai_proxy_port
 
 ## Read project usage
 
-`GET /api/users` is an unauthenticated local reporting endpoint. It returns all in-memory counters grouped by the signed project from each generation request:
+`GET /api/users` is an unauthenticated local reporting endpoint. It returns daily stored counters grouped by the signed project, ordered by newest JST date and `last_usage` time:
 
 ```sh
 _genai_proxy_port="$(./tools/port.sh genai-proxy)"
@@ -101,6 +109,8 @@ Example response:
       "scope": "gen-ai.services.athenz:role.gen-ai-users",
       "users": [
         {
+          "date": "2026-07-20",
+          "last_usage": "21:34:56",
           "sub": "user.idjag-learner",
           "client_id": "home.idjag-learner.local.athenzd",
           "scope": "gen-ai.services.athenz:role.gen-ai-users",

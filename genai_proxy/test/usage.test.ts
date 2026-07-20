@@ -1,4 +1,7 @@
 import assert from "node:assert/strict"
+import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { test } from "node:test"
 import { extractTokenUsage, UsageStore } from "../src/usage.ts"
 
@@ -17,7 +20,7 @@ test("extracts OpenAI-compatible usage", () => {
 })
 
 test("aggregates users separately within each project", () => {
-  const store = new UsageStore()
+  const store = new UsageStore({ now: () => new Date("2026-07-20T12:00:00Z") })
   const alice = {
     project: "gen-ai.services.athenz",
     subject: "user.alice",
@@ -34,6 +37,8 @@ test("aggregates users separately within each project", () => {
   }, { promptTokens: 1, completionTokens: 1, totalTokens: 2 })
 
   assert.deepEqual(store.list("gen-ai.services.athenz"), [{
+    date: "2026-07-20",
+    last_usage: "21:00:00",
     sub: "user.alice",
     client_id: "home.alice.local.athenzd",
     scope: "gen-ai.services.athenz:role.gen-ai-users",
@@ -47,4 +52,116 @@ test("aggregates users separately within each project", () => {
     { project: "athenz", scope: "gen-ai.services.athenz:role.gen-ai-users" },
     { project: "spire", scope: "gen-ai.services.spire:role.gen-ai-users" },
   ])
+})
+
+test("persists usage across store instances", () => {
+  const directory = mkdtempSync(join(tmpdir(), "genai-proxy-usage-"))
+  const dataPath = join(directory, "usage.json")
+
+  try {
+    const first = new UsageStore({ dataPath, now: () => new Date("2026-07-20T12:00:00Z") })
+    first.record({
+      project: "gen-ai.services.athenz",
+      subject: "user.alice",
+      clientId: "home.alice.local.athenzd",
+      scope: "gen-ai.services.athenz:role.gen-ai-users",
+    }, { promptTokens: 2, completionTokens: 3, totalTokens: 5 })
+
+    const reloaded = new UsageStore({ dataPath })
+    assert.deepEqual(reloaded.list("gen-ai.services.athenz"), [{
+      date: "2026-07-20",
+      last_usage: "21:00:00",
+      sub: "user.alice",
+      client_id: "home.alice.local.athenzd",
+      scope: "gen-ai.services.athenz:role.gen-ai-users",
+      requests: 1,
+      input_tokens: 2,
+      output_tokens: 3,
+      total_tokens: 5,
+    }])
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test("groups usage by JST date and lists the newest date first", () => {
+  let now = new Date("2026-07-19T14:59:00Z")
+  const store = new UsageStore({ now: () => now })
+  const identity = {
+    project: "gen-ai.services.athenz",
+    subject: "user.alice",
+    clientId: "home.alice.local.athenzd",
+    scope: "gen-ai.services.athenz:role.gen-ai-users",
+  }
+
+  store.record(identity, { promptTokens: 1, completionTokens: 2, totalTokens: 3 })
+  now = new Date("2026-07-19T15:01:00Z")
+  store.record(identity, { promptTokens: 4, completionTokens: 5, totalTokens: 9 })
+
+  assert.deepEqual(store.list("gen-ai.services.athenz").map(({ date, last_usage, total_tokens }) => ({ date, last_usage, total_tokens })), [
+    { date: "2026-07-20", last_usage: "00:01:00", total_tokens: 9 },
+    { date: "2026-07-19", last_usage: "23:59:00", total_tokens: 3 },
+  ])
+})
+
+test("loads version 1 data using the file modification date", () => {
+  const directory = mkdtempSync(join(tmpdir(), "genai-proxy-usage-v1-"))
+  const dataPath = join(directory, "usage.json")
+
+  try {
+    writeFileSync(dataPath, JSON.stringify({
+      version: 1,
+      projects: [{
+        project: "gen-ai.services.athenz",
+        users: [{
+          subject: "user.alice",
+          clientId: "home.alice.local.athenzd",
+          scope: "gen-ai.services.athenz:role.gen-ai-users",
+          requests: 1,
+          promptTokens: 2,
+          completionTokens: 3,
+          totalTokens: 5,
+        }],
+      }],
+    }))
+    const modified = new Date("2026-07-18T12:00:00Z")
+    utimesSync(dataPath, modified, modified)
+
+    const migrated = new UsageStore({ dataPath })
+    assert.equal(migrated.list("gen-ai.services.athenz")[0].date, "2026-07-18")
+    assert.equal(migrated.list("gen-ai.services.athenz")[0].last_usage, "21:00:00")
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test("loads version 2 daily data with a JST last-usage time", () => {
+  const directory = mkdtempSync(join(tmpdir(), "genai-proxy-usage-v2-"))
+  const dataPath = join(directory, "usage.json")
+
+  try {
+    writeFileSync(dataPath, JSON.stringify({
+      version: 2,
+      projects: [{
+        project: "gen-ai.services.athenz",
+        users: [{
+          date: "2026-07-17",
+          subject: "user.alice",
+          clientId: "home.alice.local.athenzd",
+          scope: "gen-ai.services.athenz:role.gen-ai-users",
+          requests: 1,
+          promptTokens: 2,
+          completionTokens: 3,
+          totalTokens: 5,
+        }],
+      }],
+    }))
+    const modified = new Date("2026-07-18T12:00:00Z")
+    utimesSync(dataPath, modified, modified)
+
+    const migrated = new UsageStore({ dataPath })
+    assert.equal(migrated.list("gen-ai.services.athenz")[0].last_usage, "00:00:00")
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 })

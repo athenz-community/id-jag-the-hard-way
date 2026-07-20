@@ -123,12 +123,19 @@ async function handleRequest(
     })
     upstream.on("end", () => {
       const usage = extractTokenUsage(tail.toString("utf8"))
-      if (usage) usageStore.record({
-        project: auth.audience,
-        subject: auth.subject,
-        clientId: auth.clientId,
-        scope: auth.scope,
-      }, usage)
+      if (usage) {
+        try {
+          usageStore.record({
+            project: auth.audience,
+            subject: auth.subject,
+            clientId: auth.clientId,
+            scope: auth.scope,
+          }, usage)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unknown persistence error"
+          console.error("Failed to persist GenAI proxy usage", { message })
+        }
+      }
     })
   }
   upstream.on("error", () => res.destroy()).pipe(res)

@@ -51,7 +51,7 @@ test("forwards native Ollama requests without leaking the AT upstream", async ()
     res.write('{"message":{"content":"hello"}}\n')
     res.end('{"done":true}\n')
   }))
-  const usageStore = new UsageStore()
+  const usageStore = new UsageStore({ now: () => new Date("2026-07-20T12:00:00Z") })
   const proxy = await listen(createGenAIProxy({ authenticate, ollamaBaseUrl: url(ollama, "/"), usageStore }))
 
   const response = await fetch(url(proxy, "/api/chat?trace=yes"), {
@@ -87,7 +87,7 @@ test("records Ollama token usage by project and exposes all projects without an 
     res.write('{"message":{"content":"hello"}}\n')
     res.end('{"done":true,"prompt_eval_count":3,"eval_count":5}\n')
   }))
-  const usageStore = new UsageStore()
+  const usageStore = new UsageStore({ now: () => new Date("2026-07-20T12:00:00Z") })
   const proxy = await listen(createGenAIProxy({ authenticate, ollamaBaseUrl: url(ollama, "/"), usageStore }))
 
   const generated = await fetch(url(proxy, "/api/chat"), {
@@ -104,6 +104,8 @@ test("records Ollama token usage by project and exposes all projects without an 
       project: "athenz",
       scope: "gen-ai.services.athenz:role.gen-ai-users",
       users: [{
+        date: "2026-07-20",
+        last_usage: "21:00:00",
         sub: "user.idjag-learner",
         client_id: "home.idjag-learner.local.athenzd",
         scope: "gen-ai.services.athenz:role.gen-ai-users",

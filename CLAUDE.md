@@ -26,7 +26,7 @@ The repository contains these runtime components and supporting plugins:
 
 6. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
 
-7. **`genai_proxy/`** — Minimal locally run Node.js proxy that validates Athenz Bearer tokens with the ZTS public key, requires a `gen-ai.services.<project>` audience and `gen-ai-users` scope, and forwards native Ollama `/api/*` and compatible `/v1/*` requests to the workstation's Ollama API. It keeps per-project, per-user model-token counters in memory and exposes all projects at unauthenticated `GET /api/users`.
+7. **`genai_proxy/`** — Minimal locally run Node.js proxy that validates Athenz Bearer tokens with the ZTS public key, requires a `gen-ai.services.<project>` audience and `gen-ai-users` scope, and forwards native Ollama `/api/*` and compatible `/v1/*` requests to the workstation's Ollama API. It keeps daily JST per-project, per-user model-token counters with a JST `last_usage` time in `HH:mm:ss` format, persists them under the gitignored `athenzd/.athenzd/` directory for `make local`, and exposes all projects newest-first at unauthenticated `GET /api/users`.
 
 **Default ports** — local (`make local`) vs. Kubernetes port-forward (`keep-k8s-port-forward.sh`):
 
