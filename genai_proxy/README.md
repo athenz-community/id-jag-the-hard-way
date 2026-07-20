@@ -14,6 +14,8 @@ Ollama must already be listening on its default API address, `http://127.0.0.1:1
 make -C genai_proxy local
 ```
 
+This builds `genai-proxy:local` and starts it as the detached `genai-proxy-local` Docker container. Runtime logs are not attached to the terminal.
+
 The proxy listens on `0.0.0.0` so clients running in local Docker or kind containers can reach it through `host.docker.internal`. It uses the repository port allocation:
 
 ```sh
@@ -26,7 +28,7 @@ The service binds to every host interface for local container access. Run it onl
 Override either endpoint when needed:
 
 ```sh
-make -C genai_proxy local PORT=65000 OLLAMA_BASE_URL=http://127.0.0.1:11434
+make -C genai_proxy local PORT=65000 OLLAMA_BASE_URL=http://host.docker.internal:11434
 ```
 
 Override the ZTS public key when needed:
@@ -39,6 +41,12 @@ To restrict the proxy to host-only clients instead, override the bind address:
 
 ```sh
 make -C genai_proxy local HOST=127.0.0.1
+```
+
+Stop the detached proxy with:
+
+```sh
+docker stop genai-proxy-local
 ```
 
 ## Connect Open WebUI
