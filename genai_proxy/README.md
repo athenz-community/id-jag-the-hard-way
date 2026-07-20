@@ -6,6 +6,8 @@ The proxy verifies each Athenz Bearer access token with the local ZTS public key
 
 Successful generation responses are metered using the token counts reported by Ollama and grouped by JST date, signed project, and user claims. Each daily entry includes the most recent usage time in JST using `HH:mm:ss` format. With `make local`, counters are stored in the gitignored `athenzd/.athenzd/genai-proxy-data/usage.json` file and survive container restarts.
 
+Before forwarding a metered generation request, the proxy totals the service code's recorded spend for the current JST day. Athenz has a `$0.00240` daily limit and Spire has a `$0.002` daily limit. Once a limit is reached, later generation requests return `429 Too Many Requests` with a `Retry-After` header and are not forwarded to Ollama. Ollama reports tokens only after a response completes, so the request that crosses a limit completes; enforcement begins with the next request. Limits reset at `00:00 JST`.
+
 ## Run locally
 
 Ollama must already be listening on its default API address, `http://127.0.0.1:11434`. The local Athenz distribution must provide the ZTS public key at `athenz_dist/keys/zts.public.pem`.
@@ -86,15 +88,15 @@ curl --fail --silent --show-error \
 unset _athenz_at _genai_proxy_port
 ```
 
-## Read project usage
+## Read user project usage
 
-`GET /api/users` is an unauthenticated local reporting endpoint. It returns daily stored counters grouped by the signed project, ordered by newest JST date and `last_usage` time:
+`GET /api/users/{user}` is an unauthenticated local reporting endpoint. Pass the username without its stored `user.` subject prefix; for example, `idjag-learner` reads data stored for `user.idjag-learner`. It returns only that user's daily counters grouped by signed project, ordered by newest JST date and `last_usage` time. An unknown user returns `{ "projects": [] }`.
 
 ```sh
 _genai_proxy_port="$(./tools/port.sh genai-proxy)"
 
 curl --fail --silent --show-error \
-  "http://127.0.0.1:${_genai_proxy_port}/api/users" | jq
+  "http://127.0.0.1:${_genai_proxy_port}/api/users/idjag-learner" | jq
 
 unset _genai_proxy_port
 ```
@@ -107,6 +109,9 @@ Example response:
     {
       "project": "athenz",
       "scope": "gen-ai.services.athenz:role.gen-ai-users",
+      "daily_limit_usd": 0.0024,
+      "daily_limit_fraction_digits": 5,
+      "daily_spend_usd": 0.0000072,
       "users": [
         {
           "date": "2026-07-20",
@@ -118,13 +123,15 @@ Example response:
           "input_tokens": 12,
           "output_tokens": 20,
           "total_tokens": 32,
+          "estimated_cost_usd": 0.0000072,
           "tokens": [
             {
               "model": "gemma4:26b",
               "requests": 1,
               "input": 12,
               "output": 20,
-              "total": 32
+              "total": 32,
+              "estimated_cost_usd": 0.0000072
             }
           ]
         }
@@ -134,7 +141,7 @@ Example response:
 }
 ```
 
-These are model-usage tokens reported by Ollama, not Athenz access tokens. Each daily user entry includes per-model totals so dashboards can display `gemma4:26b` now and additional models independently when they are used. The proxy stores no prompts, generated content, or credentials. Because this endpoint intentionally has no authentication, keep port `64443` limited to the trusted local development environment.
+These are model-usage tokens reported by Ollama, not Athenz access tokens. Each project includes its proxy-enforced daily limit, configured display precision, and current project-wide JST spend. Each daily user entry and model includes proxy-calculated estimated cost, so reporting clients do not need their own pricing table. An uncapped project returns `null` for its limit fields. The proxy stores no prompts, generated content, or credentials. Because this endpoint intentionally has no authentication, keep port `64443` limited to the trusted local development environment.
 
 For a small non-streaming Gemma request:
 

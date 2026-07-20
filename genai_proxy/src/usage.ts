@@ -7,7 +7,7 @@ export type TokenUsage = {
   totalTokens: number
 }
 
-type ModelUsage = TokenUsage & {
+export type ModelUsage = TokenUsage & {
   model: string
   requests: number
 }
@@ -126,11 +126,11 @@ export class UsageStore {
       }))
   }
 
-  listProjects() {
+  listProjects(subject?: string) {
     return [...this.projects.keys()]
       .sort()
       .map((domain) => {
-        const users = this.list(domain)
+        const users = this.list(domain).filter((usage) => !subject || usage.sub === subject)
         return {
           project: domain.startsWith("gen-ai.services.")
             ? domain.slice("gen-ai.services.".length)
@@ -139,6 +139,30 @@ export class UsageStore {
           users,
         }
       })
+      .filter(({ users }) => users.length > 0)
+  }
+
+  currentDailyModels(project: string) {
+    const currentDate = jstDate(this.now())
+    const totals = new Map<string, ModelUsage>()
+    for (const usage of this.projects.get(project)?.values() ?? []) {
+      if (usage.date !== currentDate) continue
+      for (const model of usage.models) {
+        const total = totals.get(model.model) ?? {
+          model: model.model,
+          requests: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        }
+        total.requests += model.requests
+        total.promptTokens += model.promptTokens
+        total.completionTokens += model.completionTokens
+        total.totalTokens += model.totalTokens
+        totals.set(model.model, total)
+      }
+    }
+    return [...totals.values()].sort((left, right) => left.model.localeCompare(right.model))
   }
 
   private load() {

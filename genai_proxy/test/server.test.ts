@@ -76,12 +76,15 @@ test("forwards native Ollama requests without leaking the AT upstream", async ()
     messages: [{ role: "user", content: "hi" }],
   })
 
-  const users = await fetch(url(proxy, "/api/users"))
+  const users = await fetch(url(proxy, "/api/users/idjag-learner"))
   assert.equal(users.status, 200)
   assert.deepEqual(await users.json(), { projects: [] })
+
+  const missingUser = await fetch(url(proxy, "/api/users"))
+  assert.equal(missingUser.status, 400)
 })
 
-test("records Ollama token usage by project and exposes all projects without an AT", async () => {
+test("returns user-specific project usage, limits, spend, and model costs without an AT", async () => {
   const ollama = await listen(http.createServer((_req, res) => {
     res.setHeader("content-type", "application/x-ndjson")
     res.write('{"message":{"content":"hello"}}\n')
@@ -98,11 +101,14 @@ test("records Ollama token usage by project and exposes all projects without an 
   assert.equal(generated.status, 200)
   await generated.arrayBuffer()
 
-  const athenzUsers = await fetch(url(proxy, "/api/users"))
+  const athenzUsers = await fetch(url(proxy, "/api/users/idjag-learner"))
   assert.deepEqual(await athenzUsers.json(), {
     projects: [{
       project: "athenz",
       scope: "gen-ai.services.athenz:role.gen-ai-users",
+      daily_limit_usd: 0.0024,
+      daily_limit_fraction_digits: 5,
+      daily_spend_usd: 0.0000018,
       users: [{
         date: "2026-07-20",
         last_usage: "21:00:00",
@@ -113,16 +119,67 @@ test("records Ollama token usage by project and exposes all projects without an 
         input_tokens: 3,
         output_tokens: 5,
         total_tokens: 8,
+        estimated_cost_usd: 0.0000018,
         tokens: [{
           model: "gemma4:26b",
           requests: 1,
           input: 3,
           output: 5,
           total: 8,
+          estimated_cost_usd: 0.0000018,
         }],
       }],
     }],
   })
+
+  const unknownUser = await fetch(url(proxy, "/api/users/unknown-user"))
+  assert.equal(unknownUser.status, 200)
+  assert.deepEqual(await unknownUser.json(), { projects: [] })
+})
+
+test("rejects generation requests with 429 after a service code exceeds its daily spending limit", async () => {
+  let upstreamCalls = 0
+  const ollama = await listen(http.createServer((_req, res) => {
+    upstreamCalls += 1
+    res.end('{"done":true,"prompt_eval_count":1,"eval_count":1}\n')
+  }))
+  const usageStore = new UsageStore({ now: () => new Date("2026-07-20T12:00:00Z") })
+  usageStore.record({
+    project: "gen-ai.services.athenz",
+    subject: "user.idjag-learner",
+    clientId: "home.idjag-learner.local.athenzd",
+    model: "gemma4:26b",
+    scope: "gen-ai.services.athenz:role.gen-ai-users",
+  }, { promptTokens: 0, completionTokens: 8_001, totalTokens: 8_001 })
+  usageStore.record({
+    project: "gen-ai.services.spire",
+    subject: "user.idjag-learner",
+    clientId: "home.idjag-learner.local.athenzd",
+    model: "gemma4:31b",
+    scope: "gen-ai.services.spire:role.gen-ai-users",
+  }, { promptTokens: 0, completionTokens: 12_000, totalTokens: 12_000 })
+  const proxy = await listen(createGenAIProxy({ authenticate, ollamaBaseUrl: url(ollama, "/"), usageStore }))
+
+  for (const [authorization, serviceCode, limit] of [
+    ["Bearer secret-athenz-at", "athenz", 0.0024],
+    ["Bearer project-spire", "spire", 0.002],
+  ] as const) {
+    const response = await fetch(url(proxy, "/api/chat"), {
+      method: "POST",
+      headers: { authorization, "content-type": "application/json" },
+      body: JSON.stringify({ model: "gemma4:26b", messages: [] }),
+    })
+
+    assert.equal(response.status, 429)
+    assert.equal(response.statusText, "Too Many Requests")
+    assert.ok(Number(response.headers.get("retry-after")) > 0)
+    const payload = await response.json() as Record<string, unknown>
+    assert.equal(payload.error, "too_many_requests")
+    assert.equal(payload.code, "daily_service_code_limit_exceeded")
+    assert.equal(payload.service_code, serviceCode)
+    assert.equal(payload.limit_usd, limit)
+  }
+  assert.equal(upstreamCalls, 0)
 })
 
 test("returns a redacted 502 when Ollama is unavailable", async () => {

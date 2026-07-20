@@ -1,6 +1,7 @@
 import http, { type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http"
 import { Readable } from "node:stream"
 import { AccessTokenError, type AuthContext, type TokenVerifier } from "./auth.ts"
+import { dailyServiceCodeLimits, estimatedTokenCostUsd, estimatedUsageCostUsd } from "./billing.ts"
 import { extractTokenUsage, UsageStore } from "./usage.ts"
 
 type Fetch = typeof globalThis.fetch
@@ -69,13 +70,22 @@ async function handleRequest(
     return
   }
 
-  if (requestUrl.pathname === "/api/users") {
+  if (requestUrl.pathname === "/api/users" || requestUrl.pathname.startsWith("/api/users/")) {
     if (req.method !== "GET") {
       res.setHeader("allow", "GET")
-      sendJson(res, 405, { error: "method_not_allowed", message: "Use GET /api/users." })
+      sendJson(res, 405, { error: "method_not_allowed", message: "Use GET /api/users/{user}." })
       return
     }
-    sendJson(res, 200, { projects: usageStore.listProjects() })
+    const subject = reportSubject(requestUrl.pathname)
+    if (!subject) {
+      if (requestUrl.pathname === "/api/users") {
+        sendJson(res, 400, { error: "user_required", message: "Use a username without the user. prefix." })
+      } else {
+        sendJson(res, 200, { projects: [] })
+      }
+      return
+    }
+    sendJson(res, 200, { projects: projectUsageReport(usageStore, subject) })
     return
   }
 
@@ -92,6 +102,25 @@ async function handleRequest(
     res.setHeader("www-authenticate", challenge)
     sendJson(res, error.statusCode, { error: error.code, message: error.message })
     return
+  }
+
+  if (isMeteredRequest) {
+    const dailyLimit = dailyServiceCodeLimits[auth.project]?.amountUsd
+    if (dailyLimit !== undefined) {
+      const dailySpend = estimatedUsageCostUsd(usageStore.currentDailyModels(auth.audience))
+      if (dailySpend >= dailyLimit) {
+        res.setHeader("retry-after", String(secondsUntilNextJstDay()))
+        sendJson(res, 429, {
+          error: "too_many_requests",
+          code: "daily_service_code_limit_exceeded",
+          message: `The daily GenAI spending limit for ${auth.project} has been reached. Retry after 00:00 JST.`,
+          service_code: auth.project,
+          limit_usd: dailyLimit,
+          spent_usd: roundedUsd(dailySpend),
+        })
+        return
+      }
+    }
   }
 
   const upstreamUrl = new URL(requestUrl.pathname + requestUrl.search, ollamaBaseUrl)
@@ -168,6 +197,42 @@ function requestModel(body: Buffer) {
   }
 }
 
+function reportSubject(pathname: string) {
+  const match = /^\/api\/users\/([^/]+)$/.exec(pathname)
+  if (!match) return undefined
+  try {
+    const user = decodeURIComponent(match[1])
+    return /^[a-z0-9][a-z0-9._-]*$/i.test(user) ? `user.${user}` : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function projectUsageReport(usageStore: UsageStore, subject: string) {
+  return usageStore.listProjects(subject).map((project) => {
+    const limit = dailyServiceCodeLimits[project.project]
+    const projectAudience = `gen-ai.services.${project.project}`
+    const dailySpend = estimatedUsageCostUsd(usageStore.currentDailyModels(projectAudience))
+    return {
+      ...project,
+      daily_limit_usd: limit?.amountUsd ?? null,
+      daily_limit_fraction_digits: limit?.fractionDigits ?? null,
+      daily_spend_usd: roundedUsd(dailySpend),
+      users: project.users.map((usage) => {
+        const tokens = usage.tokens.map((token) => ({
+          ...token,
+          estimated_cost_usd: roundedUsd(estimatedTokenCostUsd(token.model, token.input, token.output)),
+        }))
+        return {
+          ...usage,
+          estimated_cost_usd: roundedUsd(tokens.reduce((total, token) => total + token.estimated_cost_usd, 0)),
+          tokens,
+        }
+      }),
+    }
+  })
+}
+
 function normalizeOllamaBaseUrl(value: string) {
   const url = new URL(value)
   if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -191,6 +256,16 @@ function appendTail(current: Buffer, chunk: Buffer) {
   return combined.length <= maxUsageTailBytes
     ? combined
     : combined.subarray(combined.length - maxUsageTailBytes)
+}
+
+function secondsUntilNextJstDay(now = new Date()) {
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+  const nextMidnight = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + 1) - 9 * 60 * 60 * 1000
+  return Math.max(1, Math.ceil((nextMidnight - now.getTime()) / 1000))
+}
+
+function roundedUsd(value: number) {
+  return Number(value.toFixed(8))
 }
 
 function sendJson(res: ServerResponse, statusCode: number, payload: unknown) {

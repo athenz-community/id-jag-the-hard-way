@@ -7,24 +7,18 @@ import { consoleHref, displayProduct } from "@/components/navigation/consoleRout
 import type { GenAIUsageResponse, ModelTokenUsage, UserUsage } from "@/features/genai/types/usage"
 
 const DEFAULT_MODEL = "gemma4:26b"
-const MODEL_PRICES: Record<string, { input: number; output: number }> = {
-  "gemma4:26b": { input: 0.1, output: 0.3 },
-  "gemma4:31b": { input: 0.12, output: 0.36 },
-}
-const FALLBACK_PRICE = { input: 0.1, output: 0.3 }
 const MODEL_CHART_COLORS = ["#3f7fe0", "#7256c8", "#35a99a", "#e58b48", "#d45f8d", "#6f879f"]
-const SERVICE_CODE_BUDGETS = [
-  { serviceCode: "athenz", label: "Athenz", budget: 0.0024, fractionDigits: 5 },
-  { serviceCode: "spire", label: "Spire", budget: 0.004, fractionDigits: 3 },
-]
 
 type DailyModelUsage = ModelTokenUsage & {
   date: string
+  estimatedCost: number
   lastUsage: string
 }
 
 type SystemCodeUsage = {
   dailyEstimatedCost: number
+  dailyLimit: number
+  fractionDigits: number
   name: string
 }
 
@@ -92,19 +86,19 @@ export function MonitoringDashboard({
 }
 
 function SpendingLimits({ systemCodes }: { systemCodes: SystemCodeUsage[] }) {
-  const rows = SERVICE_CODE_BUDGETS.flatMap((limit) => {
-    const usage = systemCodes.find((item) => item.name.toLowerCase() === limit.serviceCode)
-    if (!usage) return []
-
+  const rows = systemCodes.map((usage) => {
     const spent = usage.dailyEstimatedCost
-    const usedPercent = limit.budget > 0 ? (spent / limit.budget) * 100 : 0
-    return [{
-      ...limit,
+    const usedPercent = usage.dailyLimit > 0 ? (spent / usage.dailyLimit) * 100 : 0
+    return {
+      budget: usage.dailyLimit,
+      fractionDigits: usage.fractionDigits,
+      label: displayServiceCode(usage.name),
+      serviceCode: usage.name,
       spent,
       usedPercent,
       barPercent: Math.min(usedPercent, 100),
-      remaining: Math.max(limit.budget - spent, 0),
-    }]
+      remaining: Math.max(usage.dailyLimit - spent, 0),
+    }
   })
 
   return (
@@ -218,7 +212,7 @@ function CostIncurredChart({ days }: { days: DailyModelUsage[] }) {
       formatAxis={formatCurrency}
       formatValue={(value) => `${formatCurrency(value)} incurred`}
       minimumMax={Number.EPSILON}
-      valueFor={estimatedCost}
+      valueFor={(day) => day.estimatedCost}
     />
   )
 }
@@ -399,24 +393,30 @@ function EmptyChart() {
 function buildDashboardData(usage: GenAIUsageResponse, user: string) {
   const days: DailyModelUsage[] = []
   const systemCodes: SystemCodeUsage[] = []
-  const today = currentJstDate()
 
   for (const project of usage.projects) {
     const entries = project.users.filter((entry) => entry.sub === user)
     if (!entries.length) continue
 
-    let dailyProjectCost = 0
     for (const entry of entries) {
       for (const token of normalizedModels(entry)) {
-        days.push({ ...token, date: entry.date, lastUsage: entry.last_usage })
-        if (entry.date === today) dailyProjectCost += estimatedCost(token)
+        days.push({
+          ...token,
+          date: entry.date,
+          estimatedCost: token.estimated_cost_usd ?? 0,
+          lastUsage: entry.last_usage,
+        })
       }
     }
 
-    systemCodes.push({
-      dailyEstimatedCost: dailyProjectCost,
-      name: project.project,
-    })
+    if (typeof project.daily_limit_usd === "number") {
+      systemCodes.push({
+        dailyEstimatedCost: project.daily_spend_usd ?? 0,
+        dailyLimit: project.daily_limit_usd,
+        fractionDigits: project.daily_limit_fraction_digits ?? 4,
+        name: project.project,
+      })
+    }
   }
 
   return {
@@ -456,7 +456,7 @@ function aggregateDailyModelDetails(days: DailyModelUsage[]) {
       requests: 0,
       total: 0,
     }
-    detail.cost += estimatedCost(day)
+    detail.cost += day.estimatedCost
     detail.input += day.input
     detail.lastUsage = detail.lastUsage.localeCompare(day.lastUsage) >= 0 ? detail.lastUsage : day.lastUsage
     detail.output += day.output
@@ -493,13 +493,15 @@ function lastJstDates(count: number) {
   })
 }
 
-function estimatedCost(model: Pick<ModelTokenUsage, "model" | "input" | "output">) {
-  const price = MODEL_PRICES[model.model] ?? FALLBACK_PRICE
-  return (model.input * price.input + model.output * price.output) / 1_000_000
-}
-
 function currentJstDate() {
   return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+function displayServiceCode(value: string) {
+  return value
+    .split("-")
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ")
 }
 
 function formatCompact(value: number) {

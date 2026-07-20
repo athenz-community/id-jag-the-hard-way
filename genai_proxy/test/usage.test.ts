@@ -197,3 +197,27 @@ test("tracks multiple models independently within a daily user entry", () => {
     { model: "gemma4:31b", requests: 1, input: 7, output: 11, total: 18 },
   ])
 })
+
+test("aggregates current daily model usage across users for service-code limits", () => {
+  const store = new UsageStore({ now: () => new Date("2026-07-20T12:00:00Z") })
+  for (const [subject, promptTokens, completionTokens] of [
+    ["user.alice", 2, 3],
+    ["user.bob", 5, 7],
+  ] as const) {
+    store.record({
+      project: "gen-ai.services.athenz",
+      subject,
+      clientId: `home.${subject.slice("user.".length)}.local.athenzd`,
+      model: "gemma4:26b",
+      scope: "gen-ai.services.athenz:role.gen-ai-users",
+    }, { promptTokens, completionTokens, totalTokens: promptTokens + completionTokens })
+  }
+
+  assert.deepEqual(store.currentDailyModels("gen-ai.services.athenz"), [{
+    model: "gemma4:26b",
+    requests: 2,
+    promptTokens: 7,
+    completionTokens: 10,
+    totalTokens: 17,
+  }])
+})

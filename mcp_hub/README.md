@@ -27,13 +27,13 @@ Use the product switcher in the top bar to move between **MCP hub** and **Gen AI
 - associated system codes derived from the GenAI proxy projects
 - rolling 30-day JST token usage grouped by model
 - rolling 30-day JST estimated cost incurred by the current user, grouped by model
-- fixed daily service-code spending limits of `$0.00240` for Athenz and `$0.004` for Spire, reset at `00:00 JST` and shown for service codes present in the user's usage
+- proxy-owned daily service-code spending limits, currently `$0.00240` for Athenz and `$0.002` for Spire, reset at `00:00 JST`
 - per-model totals, starting with `gemma4:26b` and automatically including additional reported models
 
 The dashboard reads the GenAI proxy usage endpoint through the Next.js server. The default is:
 
 ```text
-http://127.0.0.1:64443/api/users
+http://127.0.0.1:64443/api/users/idjag-learner
 ```
 
 Override the proxy origin when needed:
