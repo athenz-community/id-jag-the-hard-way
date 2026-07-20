@@ -1,0 +1,131 @@
+# Local GenAI Proxy
+
+`genai-proxy` is a minimal locally run proxy in front of Ollama. It preserves the native Ollama request path, method, query, body, response status, headers, and streaming response body, so both `/api/*` and Ollama's OpenAI-compatible `/v1/*` APIs work through it.
+
+The proxy verifies each Athenz Bearer access token with the local ZTS public key. The signed `aud` claim must identify one `gen-ai.services.<project>` project, the signed `sub` must identify a human user, `client_id` must identify the calling workload, and the token must grant the `gen-ai-users` scope. It never logs or stores the AT and removes the `Authorization` header before forwarding to Ollama.
+
+Successful generation responses are metered using the token counts reported by Ollama. Counters are held only in memory, grouped by the signed project and user claims, and reset whenever the proxy restarts.
+
+## Run locally
+
+Ollama must already be listening on its default API address, `http://127.0.0.1:11434`. The local Athenz distribution must provide the ZTS public key at `athenz_dist/keys/zts.public.pem`.
+
+```sh
+make -C genai_proxy local
+```
+
+The proxy listens on `0.0.0.0` so clients running in local Docker or kind containers can reach it through `host.docker.internal`. It uses the repository port allocation:
+
+```sh
+./tools/port.sh genai-proxy
+# 64443
+```
+
+The service binds to every host interface for local container access. Run it only on a trusted development machine and do not expose port `64443` to the internet.
+
+Override either endpoint when needed:
+
+```sh
+make -C genai_proxy local PORT=65000 OLLAMA_BASE_URL=http://127.0.0.1:11434
+```
+
+Override the ZTS public key when needed:
+
+```sh
+make -C genai_proxy local ATHENZ_PUBLIC_KEY_PATH=/path/to/zts.public.pem
+```
+
+To restrict the proxy to host-only clients instead, override the bind address:
+
+```sh
+make -C genai_proxy local HOST=127.0.0.1
+```
+
+## Connect Open WebUI
+
+When Open WebUI runs in the local kind cluster, add an external Ollama connection with these values:
+
+- URL: `http://host.docker.internal:64443`
+- Auth: `Bearer`
+- API Key: the active Athenz AT
+- Prefix ID: empty
+- Model IDs: empty
+- Tags: optional
+
+Paste the raw AT into API Key. Open WebUI adds the `Bearer` authorization scheme.
+
+## Call Ollama with the active `athenzd` AT
+
+The example below reads the cached token without printing it, calls Ollama's native tags endpoint through the proxy, and then clears the shell variable:
+
+```sh
+_athenz_at="$(jq -r '.access_token.token' ~/.cache/athenzd/idjag-learner.json)"
+_genai_proxy_port="$(./tools/port.sh genai-proxy)"
+
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer ${_athenz_at}" \
+  "http://127.0.0.1:${_genai_proxy_port}/api/tags" | jq
+
+unset _athenz_at _genai_proxy_port
+```
+
+## Read project usage
+
+`GET /api/users` is an unauthenticated local reporting endpoint. It returns all in-memory counters grouped by the signed project from each generation request:
+
+```sh
+_genai_proxy_port="$(./tools/port.sh genai-proxy)"
+
+curl --fail --silent --show-error \
+  "http://127.0.0.1:${_genai_proxy_port}/api/users" | jq
+
+unset _genai_proxy_port
+```
+
+Example response:
+
+```json
+{
+  "projects": [
+    {
+      "project": "athenz",
+      "scope": "gen-ai.services.athenz:role.gen-ai-users",
+      "users": [
+        {
+          "sub": "user.idjag-learner",
+          "client_id": "home.idjag-learner.local.athenzd",
+          "scope": "gen-ai.services.athenz:role.gen-ai-users",
+          "requests": 1,
+          "input_tokens": 12,
+          "output_tokens": 20,
+          "total_tokens": 32
+        }
+      ]
+    }
+  ]
+}
+```
+
+These are model-usage tokens reported by Ollama, not Athenz access tokens. The proxy stores no prompts, generated content, or credentials. Because this endpoint intentionally has no authentication, keep port `64443` limited to the trusted local development environment.
+
+For a small non-streaming Gemma request:
+
+```sh
+_athenz_at="$(jq -r '.access_token.token' ~/.cache/athenzd/idjag-learner.json)"
+_genai_proxy_port="$(./tools/port.sh genai-proxy)"
+
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer ${_athenz_at}" \
+  -H "Content-Type: application/json" \
+  --data '{"model":"gemma4:26b","messages":[{"role":"user","content":"Say hello in one sentence."}],"stream":false}' \
+  "http://127.0.0.1:${_genai_proxy_port}/api/chat" | jq
+
+unset _athenz_at _genai_proxy_port
+```
+
+## Validate
+
+```sh
+make -C genai_proxy check
+make -C genai_proxy test
+```

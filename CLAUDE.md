@@ -26,6 +26,8 @@ The repository contains these runtime components and supporting plugins:
 
 6. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
 
+7. **`genai_proxy/`** — Minimal locally run Node.js proxy that validates Athenz Bearer tokens with the ZTS public key, requires a `gen-ai.services.<project>` audience and `gen-ai-users` scope, and forwards native Ollama `/api/*` and compatible `/v1/*` requests to the workstation's Ollama API. It keeps per-project, per-user model-token counters in memory and exposes all projects at unauthenticated `GET /api/users`.
+
 **Default ports** — local (`make local`) vs. Kubernetes port-forward (`keep-k8s-port-forward.sh`):
 
 | Component         | Local port | K8s port-forward | K8s container port |
@@ -41,6 +43,7 @@ The repository contains these runtime components and supporting plugins:
 | Keycloak HTTPS    | —          | `34444`          | `8443`             |
 | AI Client Gateway | —          | `44443`          | `3101`             |
 | Open WebUI        | —          | `54443`          | `8080`             |
+| GenAI Proxy       | `64443`    | —                | —                  |
 | Ollama Server     | `11434`    | —                | —                  |
 
 ## Prerequisites
@@ -75,9 +78,12 @@ make -C keycloak_token_exchange_provider build
 
 # Local workload instance provider — build and test; deployment is opt-in through the athenzd FAQ
 make -C local_workload_instance_provider build
+
+# Local GenAI proxy (port 64443 → Ollama on 11434)
+make -C genai_proxy local
 ```
 
-Node.js components use `npx tsx` (no compile step required) and `npm install` is run as part of `make local`.
+The existing Express-based Node.js components use `npx tsx` and install their dependencies as part of `make local`. The dependency-free local GenAI proxy runs TypeScript directly with Node.js type stripping.
 
 ## Building Docker Images
 
@@ -99,6 +105,7 @@ The provider Dockerfiles are export-only — they copy their built JARs into a m
 | `ai_client_gateway`                | TypeScript | Node.js 22, Express                     |
 | `keycloak_token_exchange_provider` | Java 11    | Maven, Keycloak SPI                     |
 | `local_workload_instance_provider` | Java 17    | Maven, Athenz InstanceProvider SPI      |
+| `genai_proxy`                       | TypeScript | Node.js 22 built-in HTTP/fetch APIs     |
 
 ## Key Architectural Concepts
 
@@ -154,6 +161,6 @@ rm -rf ~/id_jag_the_hard_way_workspace
 
 **IMPORTANT for AI assistants**: Do not run these commands unless the user explicitly asks to tear down or clean up the entire environment. These are irreversible — they delete the cluster and all local tutorial files.
 
-## No Test Suite
+## Test Suites
 
-There are no automated tests in this repository. The `test` script in all `package.json` files exits with an error. Validation is done manually by following the tutorials.
+Most tutorial components are validated manually by following the tutorials. `athenzd` has a Go test and coverage gate (`make -C athenzd test`), and the local GenAI proxy has focused Node.js checks (`make -C genai_proxy test`). Some older `package.json` test scripts still exit with an error by design.
