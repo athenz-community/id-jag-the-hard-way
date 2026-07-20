@@ -113,6 +113,13 @@ test("records Ollama token usage by project and exposes all projects without an 
         input_tokens: 3,
         output_tokens: 5,
         total_tokens: 8,
+        tokens: [{
+          model: "gemma4:26b",
+          requests: 1,
+          input: 3,
+          output: 5,
+          total: 8,
+        }],
       }],
     }],
   })

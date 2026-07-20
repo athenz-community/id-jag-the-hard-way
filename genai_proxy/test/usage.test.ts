@@ -46,6 +46,13 @@ test("aggregates users separately within each project", () => {
     input_tokens: 9,
     output_tokens: 14,
     total_tokens: 23,
+    tokens: [{
+      model: "gemma4:26b",
+      requests: 2,
+      input: 9,
+      output: 14,
+      total: 23,
+    }],
   }])
   assert.equal(store.list("gen-ai.services.spire")[0].sub, "user.bob")
   assert.deepEqual(store.listProjects().map(({ project, scope }) => ({ project, scope })), [
@@ -78,6 +85,13 @@ test("persists usage across store instances", () => {
       input_tokens: 2,
       output_tokens: 3,
       total_tokens: 5,
+      tokens: [{
+        model: "gemma4:26b",
+        requests: 1,
+        input: 2,
+        output: 3,
+        total: 5,
+      }],
     }])
   } finally {
     rmSync(directory, { recursive: true, force: true })
@@ -164,4 +178,22 @@ test("loads version 2 daily data with a JST last-usage time", () => {
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }
+})
+
+test("tracks multiple models independently within a daily user entry", () => {
+  const store = new UsageStore({ now: () => new Date("2026-07-20T12:00:00Z") })
+  const identity = {
+    project: "gen-ai.services.athenz",
+    subject: "user.alice",
+    clientId: "home.alice.local.athenzd",
+    scope: "gen-ai.services.athenz:role.gen-ai-users",
+  }
+
+  store.record({ ...identity, model: "gemma4:26b" }, { promptTokens: 2, completionTokens: 3, totalTokens: 5 })
+  store.record({ ...identity, model: "gemma4:31b" }, { promptTokens: 7, completionTokens: 11, totalTokens: 18 })
+
+  assert.deepEqual(store.list("gen-ai.services.athenz")[0].tokens, [
+    { model: "gemma4:26b", requests: 1, input: 2, output: 3, total: 5 },
+    { model: "gemma4:31b", requests: 1, input: 7, output: 11, total: 18 },
+  ])
 })

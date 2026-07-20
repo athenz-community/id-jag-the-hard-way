@@ -19,6 +19,31 @@ make local
 
 `make local` uses port `3102` by default.
 
+## Gen AI Product
+
+Use the product switcher in the top bar to move between **MCP hub** and **Gen AI**. The Gen AI product currently provides:
+
+- a monitoring dashboard for the fixed tutorial identity `user.idjag-learner`
+- associated system codes derived from the GenAI proxy projects
+- rolling 30-day JST token usage grouped by model
+- rolling 30-day JST estimated cost incurred by the current user, grouped by model
+- fixed daily service-code spending limits of `$0.00240` for Athenz and `$0.004` for Spire, reset at `00:00 JST` and shown for service codes present in the user's usage
+- per-model totals, starting with `gemma4:26b` and automatically including additional reported models
+
+The dashboard reads the GenAI proxy usage endpoint through the Next.js server. The default is:
+
+```text
+http://127.0.0.1:64443/api/users
+```
+
+Override the proxy origin when needed:
+
+```sh
+make local GENAI_PROXY_URL=http://127.0.0.1:65000
+```
+
+The local cost values are explicitly estimates based on fixed demo rates; they are not billing data.![alt text](image.png)
+
 ## Data Source
 
 The page fetches data from the local Next API route:

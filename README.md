@@ -17,7 +17,7 @@ Or with OpenWebUI CLI flow:
 ![ID-JAG The Hard Way Demo](./assets/id-jag-demo.gif)
 
 where:
-
+![alt text](image.png)
 1. **You** send a real prompt to an AI agent.
 1. The **AI agent** calls a real protected MCP server on your behalf.
 1. The **Resource Server** authorizes the request using real tokens and least-privilege policies for each transaction.

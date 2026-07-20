@@ -7,10 +7,16 @@ export type TokenUsage = {
   totalTokens: number
 }
 
+type ModelUsage = TokenUsage & {
+  model: string
+  requests: number
+}
+
 type UserUsage = TokenUsage & {
   clientId: string
   date: string
   lastUsage: string
+  models: ModelUsage[]
   requests: number
   scope: string
   subject: string
@@ -18,6 +24,7 @@ type UserUsage = TokenUsage & {
 
 export type UsageIdentity = {
   clientId: string
+  model?: string
   project: string
   scope: string
   subject: string
@@ -29,12 +36,14 @@ type UsageStoreOptions = {
 }
 
 type UsageSnapshot = {
-  version: 3
+  version: 4
   projects: Array<{
     project: string
     users: UserUsage[]
   }>
 }
+
+export const DEFAULT_MODEL = "gemma4:26b"
 
 export class UsageStore {
   private readonly projects = new Map<string, Map<string, UserUsage>>()
@@ -56,6 +65,7 @@ export class UsageStore {
     const current = users.get(key) ?? {
       date,
       lastUsage,
+      models: [],
       subject: identity.subject,
       clientId: identity.clientId,
       scope: identity.scope,
@@ -69,6 +79,19 @@ export class UsageStore {
     current.completionTokens += usage.completionTokens
     current.totalTokens += usage.totalTokens
     current.lastUsage = lastUsage
+    const modelName = identity.model?.trim() || DEFAULT_MODEL
+    const model = current.models.find((item) => item.model === modelName) ?? {
+      model: modelName,
+      requests: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    }
+    model.requests += 1
+    model.promptTokens += usage.promptTokens
+    model.completionTokens += usage.completionTokens
+    model.totalTokens += usage.totalTokens
+    if (!current.models.includes(model)) current.models.push(model)
     users.set(key, current)
     this.projects.set(identity.project, users)
     this.persist()
@@ -90,6 +113,16 @@ export class UsageStore {
         input_tokens: usage.promptTokens,
         output_tokens: usage.completionTokens,
         total_tokens: usage.totalTokens,
+        tokens: usage.models
+          .slice()
+          .sort((left, right) => left.model.localeCompare(right.model))
+          .map((model) => ({
+            model: model.model,
+            requests: model.requests,
+            input: model.promptTokens,
+            output: model.completionTokens,
+            total: model.totalTokens,
+          })),
       }))
   }
 
@@ -148,7 +181,7 @@ export class UsageStore {
 
   private snapshot(): UsageSnapshot {
     return {
-      version: 3,
+      version: 4,
       projects: [...this.projects.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([project, users]) => ({
@@ -165,11 +198,11 @@ export class UsageStore {
 }
 
 function parseSnapshot(value: unknown, modifiedAt: Date): UsageSnapshot {
-  if (!isRecord(value) || ![1, 2, 3].includes(value.version as number) || !Array.isArray(value.projects)) {
-    throw new Error("expected a version 1, 2, or 3 usage snapshot")
+  if (!isRecord(value) || ![1, 2, 3, 4].includes(value.version as number) || !Array.isArray(value.projects)) {
+    throw new Error("expected a version 1, 2, 3, or 4 usage snapshot")
   }
 
-  const version = value.version as 1 | 2 | 3
+  const version = value.version as 1 | 2 | 3 | 4
   const legacyDate = jstDate(modifiedAt)
   const projects = value.projects.map((entry) => {
     if (!isRecord(entry) || !Array.isArray(entry.users)) throw new Error("invalid project entry")
@@ -183,28 +216,51 @@ function parseSnapshot(value: unknown, modifiedAt: Date): UsageSnapshot {
     throw new Error("duplicate project entry")
   }
 
-  return { version: 3, projects }
+  return { version: 4, projects }
 }
 
 function parseUserUsage(
   value: unknown,
-  migration: { version: 1 | 2 | 3; legacyDate: string; modifiedAt: Date },
+  migration: { version: 1 | 2 | 3 | 4; legacyDate: string; modifiedAt: Date },
 ): UserUsage {
   if (!isRecord(value)) throw new Error("invalid user usage entry")
   const date = requiredUsageDate(value.date ?? (migration.version === 1 ? migration.legacyDate : undefined))
+  const requests = requiredNonNegativeInteger(value.requests, "requests")
+  const promptTokens = requiredNonNegativeInteger(value.promptTokens, "promptTokens")
+  const completionTokens = requiredNonNegativeInteger(value.completionTokens, "completionTokens")
+  const totalTokens = requiredNonNegativeInteger(value.totalTokens, "totalTokens")
   return {
     date,
-    lastUsage: migration.version === 3
+    lastUsage: migration.version >= 3
       ? requiredJstTimestamp(value.lastUsage, date)
       : migratedLastUsage(date, migration.modifiedAt),
+    models: migration.version === 4
+      ? parseModelUsageList(value.models)
+      : [{ model: DEFAULT_MODEL, requests, promptTokens, completionTokens, totalTokens }],
     subject: requiredString(value.subject, "subject"),
     clientId: requiredString(value.clientId, "clientId"),
     scope: requiredString(value.scope, "scope"),
-    requests: requiredNonNegativeInteger(value.requests, "requests"),
-    promptTokens: requiredNonNegativeInteger(value.promptTokens, "promptTokens"),
-    completionTokens: requiredNonNegativeInteger(value.completionTokens, "completionTokens"),
-    totalTokens: requiredNonNegativeInteger(value.totalTokens, "totalTokens"),
+    requests,
+    promptTokens,
+    completionTokens,
+    totalTokens,
   }
+}
+
+function parseModelUsageList(value: unknown): ModelUsage[] {
+  if (!Array.isArray(value)) throw new Error("models must be an array")
+  const models = value.map((entry) => {
+    if (!isRecord(entry)) throw new Error("invalid model usage entry")
+    return {
+      model: requiredString(entry.model, "model"),
+      requests: requiredNonNegativeInteger(entry.requests, "model requests"),
+      promptTokens: requiredNonNegativeInteger(entry.promptTokens, "model promptTokens"),
+      completionTokens: requiredNonNegativeInteger(entry.completionTokens, "model completionTokens"),
+      totalTokens: requiredNonNegativeInteger(entry.totalTokens, "model totalTokens"),
+    }
+  })
+  if (new Set(models.map(({ model }) => model)).size !== models.length) throw new Error("duplicate model usage entry")
+  return models
 }
 
 function jstDate(value: Date) {

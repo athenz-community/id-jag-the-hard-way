@@ -117,7 +117,16 @@ Example response:
           "requests": 1,
           "input_tokens": 12,
           "output_tokens": 20,
-          "total_tokens": 32
+          "total_tokens": 32,
+          "tokens": [
+            {
+              "model": "gemma4:26b",
+              "requests": 1,
+              "input": 12,
+              "output": 20,
+              "total": 32
+            }
+          ]
         }
       ]
     }
@@ -125,7 +134,7 @@ Example response:
 }
 ```
 
-These are model-usage tokens reported by Ollama, not Athenz access tokens. The proxy stores no prompts, generated content, or credentials. Because this endpoint intentionally has no authentication, keep port `64443` limited to the trusted local development environment.
+These are model-usage tokens reported by Ollama, not Athenz access tokens. Each daily user entry includes per-model totals so dashboards can display `gemma4:26b` now and additional models independently when they are used. The proxy stores no prompts, generated content, or credentials. Because this endpoint intentionally has no authentication, keep port `64443` limited to the trusted local development environment.
 
 For a small non-streaming Gemma request:
 

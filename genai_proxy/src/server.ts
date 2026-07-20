@@ -62,6 +62,7 @@ async function handleRequest(
   usageStore: UsageStore,
 ) {
   const requestUrl = new URL(req.url ?? "/", "http://genai-proxy.local")
+  const isMeteredRequest = meteredPaths.has(requestUrl.pathname)
 
   if (requestUrl.pathname === "/healthz") {
     sendJson(res, 200, { status: "ok", upstream: "ollama" })
@@ -94,11 +95,21 @@ async function handleRequest(
   }
 
   const upstreamUrl = new URL(requestUrl.pathname + requestUrl.search, ollamaBaseUrl)
-  const body = ["GET", "HEAD"].includes(req.method ?? "") ? undefined : Readable.toWeb(req)
+  let model: string | undefined
+  let body: BodyInit | undefined
+  if (!["GET", "HEAD"].includes(req.method ?? "")) {
+    if (isMeteredRequest) {
+      const requestBody = await readRequestBody(req)
+      model = requestModel(requestBody)
+      body = requestBody as BodyInit
+    } else {
+      body = Readable.toWeb(req) as BodyInit
+    }
+  }
   const response = await fetchImpl(upstreamUrl, {
     method: req.method,
     headers: forwardedRequestHeaders(req.headers),
-    body: body as BodyInit | undefined,
+    body,
     duplex: body ? "half" : undefined,
     redirect: "manual",
   } as RequestInit)
@@ -116,7 +127,7 @@ async function handleRequest(
   }
 
   const upstream = Readable.fromWeb(response.body)
-  if (response.ok && meteredPaths.has(requestUrl.pathname)) {
+  if (response.ok && isMeteredRequest) {
     let tail = Buffer.alloc(0)
     upstream.on("data", (chunk: Buffer | string) => {
       tail = appendTail(tail, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
@@ -129,6 +140,7 @@ async function handleRequest(
             project: auth.audience,
             subject: auth.subject,
             clientId: auth.clientId,
+            model,
             scope: auth.scope,
           }, usage)
         } catch (error) {
@@ -139,6 +151,21 @@ async function handleRequest(
     })
   }
   upstream.on("error", () => res.destroy()).pipe(res)
+}
+
+async function readRequestBody(req: IncomingMessage) {
+  const chunks: Buffer[] = []
+  for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  return Buffer.concat(chunks)
+}
+
+function requestModel(body: Buffer) {
+  try {
+    const value = JSON.parse(body.toString("utf8")) as Record<string, unknown>
+    return typeof value.model === "string" ? value.model.trim() || undefined : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function normalizeOllamaBaseUrl(value: string) {
