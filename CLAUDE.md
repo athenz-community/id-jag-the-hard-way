@@ -44,6 +44,7 @@ The repository contains these runtime components and supporting plugins:
 | AI Client Gateway | —          | `44443`          | `3101`             |
 | Open WebUI        | —          | `54443`          | `8080`             |
 | GenAI Proxy       | `64443`    | —                | —                  |
+| athenzd-managed GenAI Proxy | `65443` | —             | —                  |
 | Ollama Server     | `11434`    | —                | —                  |
 
 ## Prerequisites

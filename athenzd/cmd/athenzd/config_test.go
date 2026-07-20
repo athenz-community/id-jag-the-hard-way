@@ -31,6 +31,7 @@ gen_ai:
   domain: gen-ai.services.{{project}}
   role: gen-ai-users
   default_project: docs
+  proxy: {}
 services:
   - name: my-service
     athenz:
@@ -69,6 +70,9 @@ services:
 	}
 	if !strings.Contains(out, "gen_ai.default_project:") || !strings.Contains(out, "docs") {
 		t.Errorf("expected GenAI config in output, got: %q", out)
+	}
+	if !strings.Contains(out, "0.0.0.0:65443 -> http://127.0.0.1:64443") {
+		t.Errorf("expected GenAI proxy defaults in output, got: %q", out)
 	}
 	if !strings.Contains(out, "identity: copperargos") || !strings.Contains(out, "instance: workstation") {
 		t.Errorf("expected identity enrollment config in output, got: %q", out)

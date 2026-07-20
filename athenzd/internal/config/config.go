@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -28,9 +29,22 @@ type Config struct {
 type GenAIConfig struct {
 	// Domain must contain exactly one {{project}} (or {{.project}}) placeholder
 	// whenever GenAI project discovery is enabled.
-	Domain         string `mapstructure:"domain"`
-	Role           string `mapstructure:"role"`
-	DefaultProject string `mapstructure:"default_project"`
+	Domain         string            `mapstructure:"domain"`
+	Role           string            `mapstructure:"role"`
+	DefaultProject string            `mapstructure:"default_project"`
+	Proxy          *GenAIProxyConfig `mapstructure:"proxy"`
+}
+
+const (
+	DefaultGenAIProxyPort        = 65443
+	DefaultGenAIProxyUpstreamURL = "http://127.0.0.1:64443"
+)
+
+// GenAIProxyConfig enables the local athenzd-managed credential-injecting
+// daemon when present under gen_ai. Zero values receive the tutorial defaults.
+type GenAIProxyConfig struct {
+	Port        int    `mapstructure:"port"`
+	UpstreamURL string `mapstructure:"upstream_url"`
 }
 
 type AthenzCore struct {
@@ -106,7 +120,15 @@ var getwd = os.Getwd
 // The returned Path is always absolute so callers can print it unambiguously.
 func Resolve(explicit string) (*ResolveResult, error) {
 	if explicit != "" {
-		return &ResolveResult{Path: explicit, Source: SourceExplicit}, nil
+		path := explicit
+		if !filepath.IsAbs(path) {
+			cwd, err := getwd()
+			if err != nil {
+				return nil, fmt.Errorf("resolving working dir: %w", err)
+			}
+			path = filepath.Join(cwd, path)
+		}
+		return &ResolveResult{Path: filepath.Clean(path), Source: SourceExplicit}, nil
 	}
 	if _, err := os.Stat(".athenzd/config.yaml"); err == nil {
 		cwd, err := getwd()
@@ -150,19 +172,27 @@ func LoadResolved(r *ResolveResult) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("inspecting config structure: %w", err)
 	}
+	genAIProxyConfigured, err := configPathPresent(r.Path, "gen_ai", "proxy")
+	if err != nil {
+		return nil, fmt.Errorf("inspecting config structure: %w", err)
+	}
 
-	return loadFromViper(v, genAIConfigured)
+	return loadFromViper(v, genAIConfigured, genAIProxyConfigured)
 }
 
 // loadFromViper unmarshals and validates from an already-read Viper instance.
 // Extracted so tests can inject a pre-populated Viper without touching the filesystem.
-func loadFromViper(v *viper.Viper, genAIConfigured bool) (*Config, error) {
-	return parse(v.Unmarshal, genAIConfigured)
+func loadFromViper(v *viper.Viper, genAIConfigured, genAIProxyConfigured bool) (*Config, error) {
+	return parse(v.Unmarshal, genAIConfigured, genAIProxyConfigured)
 }
 
 var readConfigForPresence = os.ReadFile
 
 func configKeyPresent(path, key string) (bool, error) {
+	return configPathPresent(path, key)
+}
+
+func configPathPresent(path string, keys ...string) (bool, error) {
 	data, err := readConfigForPresence(path)
 	if err != nil {
 		return false, err
@@ -174,11 +204,25 @@ func configKeyPresent(path, key string) (bool, error) {
 	if len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
 		return false, nil
 	}
-	root := document.Content[0]
-	for i := 0; i+1 < len(root.Content); i += 2 {
-		if root.Content[i].Value == key {
+	mapping := document.Content[0]
+	for index, key := range keys {
+		var value *yaml.Node
+		for i := 0; i+1 < len(mapping.Content); i += 2 {
+			if mapping.Content[i].Value == key {
+				value = mapping.Content[i+1]
+				break
+			}
+		}
+		if value == nil {
+			return false, nil
+		}
+		if index == len(keys)-1 {
 			return true, nil
 		}
+		if value.Kind != yaml.MappingNode {
+			return false, nil
+		}
+		mapping = value
 	}
 	return false, nil
 }
@@ -186,13 +230,16 @@ func configKeyPresent(path, key string) (bool, error) {
 // Parse runs unmarshalFn into a Config and validates it.
 // Exported so tests can inject a failing unmarshal to cover the error branch.
 func Parse(unmarshalFn func(any, ...viper.DecoderConfigOption) error) (*Config, error) {
-	return parse(unmarshalFn, false)
+	return parse(unmarshalFn, false, false)
 }
 
-func parse(unmarshalFn func(any, ...viper.DecoderConfigOption) error, genAIConfigured bool) (*Config, error) {
+func parse(unmarshalFn func(any, ...viper.DecoderConfigOption) error, genAIConfigured, genAIProxyConfigured bool) (*Config, error) {
 	var cfg Config
 	if err := unmarshalFn(&cfg); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
+	}
+	if genAIProxyConfigured && cfg.GenAI.Proxy == nil {
+		cfg.GenAI.Proxy = &GenAIProxyConfig{}
 	}
 
 	if err := validate(&cfg, genAIConfigured); err != nil {
@@ -206,7 +253,7 @@ func validate(cfg *Config, genAIConfigured bool) error {
 	if cfg.Athenz.ZTS == "" {
 		return fmt.Errorf("athenz.zts is required")
 	}
-	if genAIConfigured || cfg.GenAI.Domain != "" || cfg.GenAI.Role != "" || cfg.GenAI.DefaultProject != "" {
+	if genAIConfigured || cfg.GenAI.Domain != "" || cfg.GenAI.Role != "" || cfg.GenAI.DefaultProject != "" || cfg.GenAI.Proxy != nil {
 		if cfg.GenAI.Domain == "" {
 			return fmt.Errorf("gen_ai.domain is required when another gen_ai setting is set")
 		}
@@ -222,6 +269,21 @@ func validate(cfg *Config, genAIConfigured bool) error {
 		if cfg.GenAI.DefaultProject != "" {
 			if err := genai.ValidateService(cfg.GenAI.DefaultProject); err != nil {
 				return fmt.Errorf("gen_ai.default_project: %w", err)
+			}
+		}
+		if cfg.GenAI.Proxy != nil {
+			if cfg.GenAI.Proxy.Port == 0 {
+				cfg.GenAI.Proxy.Port = DefaultGenAIProxyPort
+			}
+			if cfg.GenAI.Proxy.Port < 1 || cfg.GenAI.Proxy.Port > 65535 {
+				return fmt.Errorf("gen_ai.proxy.port must be between 1 and 65535")
+			}
+			if cfg.GenAI.Proxy.UpstreamURL == "" {
+				cfg.GenAI.Proxy.UpstreamURL = DefaultGenAIProxyUpstreamURL
+			}
+			upstream, err := url.Parse(cfg.GenAI.Proxy.UpstreamURL)
+			if err != nil || (upstream.Scheme != "http" && upstream.Scheme != "https") || upstream.Host == "" || upstream.User != nil || upstream.RawQuery != "" || upstream.Fragment != "" {
+				return fmt.Errorf("gen_ai.proxy.upstream_url must be an http(s) base URL without credentials, query, or fragment")
 			}
 		}
 	}

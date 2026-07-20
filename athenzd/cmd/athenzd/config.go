@@ -44,6 +44,10 @@ func newConfigValidateCmd() *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "  gen_ai.domain:              %s\n", cfg.GenAI.Domain)
 				fmt.Fprintf(cmd.OutOrStdout(), "  gen_ai.role:                %s\n", cfg.GenAI.Role)
 				fmt.Fprintf(cmd.OutOrStdout(), "  gen_ai.default_project: %s\n", cfg.GenAI.DefaultProject)
+				if cfg.GenAI.Proxy != nil {
+					fmt.Fprintf(cmd.OutOrStdout(), "  gen_ai.proxy:          0.0.0.0:%d -> %s\n",
+						cfg.GenAI.Proxy.Port, cfg.GenAI.Proxy.UpstreamURL)
+				}
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "  services (%d):\n", len(cfg.Services))
 			for _, svc := range cfg.Services {

@@ -13,7 +13,7 @@ current_service: ""             # active profile and token-cache key; not the At
 
 # ── GenAI ID-JAG ──────────────────────────────────────────────────────────────
 # Omit this entire block to disable GenAI project discovery. When gen_ai is
-# present, domain and role are required; only default_project is optional.
+# present, domain and role are required; default_project and proxy are optional.
 # gen_ai:
 #   # Each matching domain is one service project. A user may belong to several;
 #   # athenzd issues one ID-JAG per project with all mutually eligible roles.
@@ -24,6 +24,12 @@ current_service: ""             # active profile and token-cache key; not the At
 #   # Run `athenzd set genai-project` later to refresh eligible roles and choose
 #   # another active project and scope.
 #   default_project: athenz
+#   # Presence makes `athenzd login` ensure this config directory's separate
+#   # proxy daemon is running. Open WebUI calls port 65443 without Auth; the
+#   # daemon injects the active cached AT and forwards to port 64443.
+#   proxy:
+#     port: 65443
+#     upstream_url: http://127.0.0.1:64443
 
 # ── Services ──────────────────────────────────────────────────────────────────
 services:

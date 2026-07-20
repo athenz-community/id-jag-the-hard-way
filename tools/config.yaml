@@ -14,6 +14,7 @@ ports:
   ai-client-gateway-codex: 44444
   open-webui: 54443
   genai-proxy: 64443
+  athenzd-genai-proxy: 65443
 
 keycloak:
   realm: master

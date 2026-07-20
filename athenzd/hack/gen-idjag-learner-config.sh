@@ -9,6 +9,8 @@ OUT="$ATHENZD_DIR/.athenzd/config.yaml"
 ZTS=$("$PORT" zts)
 ZMS=$("$PORT" zms)
 KEYCLOAK=$("$PORT" keycloak-https)
+GENAI_PROXY=$("$PORT" genai-proxy)
+ATHENZD_GENAI_PROXY=$("$PORT" athenzd-genai-proxy)
 # The local Keycloak HTTPS cert is signed by the Athenz tutorial CA, so athenzd
 # must trust that CA to complete the token exchange over the keycloak.idp host
 # mapped to the local Keycloak HTTPS port-forward.
@@ -44,6 +46,9 @@ current_service: idjag-learner
 gen_ai:
   domain: gen-ai.services.{{project}}
   role: gen-ai-users
+  proxy:
+    port: ${ATHENZD_GENAI_PROXY}
+    upstream_url: http://127.0.0.1:${GENAI_PROXY}
 
 services:
   - name: idjag-learner

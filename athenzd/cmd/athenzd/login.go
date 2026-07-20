@@ -12,6 +12,7 @@ import (
 	"github.com/AthenZ/athenzd/internal/cache"
 	"github.com/AthenZ/athenzd/internal/config"
 	"github.com/AthenZ/athenzd/internal/genai"
+	"github.com/AthenZ/athenzd/internal/genaiproxy"
 	"github.com/AthenZ/athenzd/internal/jwt"
 	"github.com/AthenZ/athenzd/internal/login"
 	"github.com/AthenZ/athenzd/internal/zms"
@@ -28,6 +29,10 @@ func newLoginCmdWithBrowser(browserFn func(string) error) *cobra.Command {
 }
 
 func newLoginCmdWithBrowserAndSelector(browserFn func(string) error, selector projectSelector) *cobra.Command {
+	return newLoginCmdWithDependencies(browserFn, selector, genaiproxy.EnsureDaemon)
+}
+
+func newLoginCmdWithDependencies(browserFn func(string) error, selector projectSelector, proxyManager genAIProxyManager) *cobra.Command {
 	var file string
 
 	cmd := &cobra.Command{
@@ -118,7 +123,7 @@ func newLoginCmdWithBrowserAndSelector(browserFn func(string) error, selector pr
 
 			if svc.Identity.Mode != config.IdentityModeCopperArgos {
 				fmt.Fprintf(cmd.OutOrStdout(), "✓ Ready: %s\n", target.ServiceIdentity)
-				return nil
+				return ensureConfiguredGenAIProxy(cmd.Context(), cfg, resolved.Path, &cacheEntry, cmd.OutOrStdout(), proxyManager)
 			}
 
 			providerAuthorized, err := zmsClient.EnsureProviderAuthorization(
@@ -211,7 +216,7 @@ func newLoginCmdWithBrowserAndSelector(browserFn func(string) error, selector pr
 				}
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Ready: %s\n", target.ServiceIdentity)
-			return nil
+			return ensureConfiguredGenAIProxy(cmd.Context(), cfg, resolved.Path, &cacheEntry, cmd.OutOrStdout(), proxyManager)
 		},
 	}
 

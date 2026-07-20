@@ -34,6 +34,12 @@ func SaveDefaultProject(path, project string) error {
 	if genAI == nil || genAI.Kind != yaml.MappingNode {
 		return fmt.Errorf("config gen_ai must be a YAML mapping")
 	}
+	currentProject := mappingValue(genAI, "default_project")
+	legacyProject := mappingValue(genAI, "default_domain_role")
+	if currentProject != nil && currentProject.Kind == yaml.ScalarNode &&
+		currentProject.Value == project && legacyProject == nil {
+		return nil
+	}
 	setMappingValue(genAI, "default_project", project)
 	removeMappingValue(genAI, "default_domain_role")
 

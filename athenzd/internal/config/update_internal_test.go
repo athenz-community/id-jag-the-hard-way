@@ -32,6 +32,33 @@ func TestSaveDefaultProjectWriteErrors(t *testing.T) {
 	}
 }
 
+func TestSaveDefaultProjectIsIdempotent(t *testing.T) {
+	path := writeUpdateTestConfig(t)
+	if err := SaveDefaultProject(path, "docs"); err != nil {
+		t.Fatal(err)
+	}
+
+	originalMarshal, originalStat, originalWrite := marshalYAML, statConfigFile, writeConfigFile
+	t.Cleanup(func() {
+		marshalYAML, statConfigFile, writeConfigFile = originalMarshal, originalStat, originalWrite
+	})
+	marshalYAML = func(any) ([]byte, error) {
+		t.Fatal("idempotent update must not encode the config")
+		return nil, nil
+	}
+	statConfigFile = func(string) (os.FileInfo, error) {
+		t.Fatal("idempotent update must not stat for a write")
+		return nil, nil
+	}
+	writeConfigFile = func(string, []byte, os.FileMode) error {
+		t.Fatal("idempotent update must not rewrite the config")
+		return nil
+	}
+	if err := SaveDefaultProject(path, "docs"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func writeUpdateTestConfig(t *testing.T) string {
 	t.Helper()
 	file, err := os.CreateTemp(t.TempDir(), "config-*.yaml")

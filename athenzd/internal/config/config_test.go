@@ -42,6 +42,9 @@ gen_ai:
   domain: gen-ai.services.{{project}}
   role: gen-ai-users
   default_project: athenz
+  proxy:
+    port: 65442
+    upstream_url: http://127.0.0.1:64442
 services:
   - name: my-service
     athenz:
@@ -81,6 +84,9 @@ services:
 	if cfg.GenAI.Domain != "gen-ai.services.{{project}}" || cfg.GenAI.Role != "gen-ai-users" ||
 		cfg.GenAI.DefaultProject != "athenz" {
 		t.Errorf("unexpected GenAI config: %+v", cfg.GenAI)
+	}
+	if cfg.GenAI.Proxy == nil || cfg.GenAI.Proxy.Port != 65442 || cfg.GenAI.Proxy.UpstreamURL != "http://127.0.0.1:64442" {
+		t.Errorf("unexpected GenAI proxy config: %+v", cfg.GenAI.Proxy)
 	}
 	if cfg.Services[0].Name != "my-service" {
 		t.Errorf("unexpected service name: %q", cfg.Services[0].Name)
@@ -127,6 +133,47 @@ services:
 	}
 }
 
+func TestLoad_GenAIProxyDefaults(t *testing.T) {
+	path := writeTemp(t, `
+athenz:
+  zts: https://zts.example.com:4443/zts/v1
+gen_ai:
+  domain: gen-ai.services.{{project}}
+  role: gen-ai-users
+  proxy: {}
+`)
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.GenAI.Proxy == nil || cfg.GenAI.Proxy.Port != config.DefaultGenAIProxyPort ||
+		cfg.GenAI.Proxy.UpstreamURL != config.DefaultGenAIProxyUpstreamURL {
+		t.Fatalf("unexpected proxy defaults: %+v", cfg.GenAI.Proxy)
+	}
+}
+
+func TestLoad_RejectsInvalidGenAIProxy(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		proxy string
+	}{
+		{"negative port", "port: -1"},
+		{"large port", "port: 65536"},
+		{"non-http upstream", "upstream_url: file:///tmp/ollama"},
+		{"missing upstream host", "upstream_url: http:///ollama"},
+		{"upstream credentials", "upstream_url: http://user@localhost:64443"},
+		{"upstream query", "upstream_url: http://localhost:64443?x=1"},
+		{"upstream fragment", "upstream_url: http://localhost:64443#x"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := writeTemp(t, "athenz:\n  zts: https://zts.example.com:4443/zts/v1\ngen_ai:\n  domain: gen-ai.services.{{project}}\n  role: gen-ai-users\n  proxy:\n    "+test.proxy+"\n")
+			if _, err := config.Load(path); err == nil || !strings.Contains(err.Error(), "gen_ai.proxy") {
+				t.Fatalf("expected GenAI proxy error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestLoad_RejectsInvalidGenAIConfig(t *testing.T) {
 	for _, test := range []struct {
 		name   string
@@ -135,6 +182,7 @@ func TestLoad_RejectsInvalidGenAIConfig(t *testing.T) {
 	}{
 		{"empty section", "{}", "gen_ai.domain"},
 		{"null section", "null", "gen_ai.domain"},
+		{"proxy without domain", "proxy: {}", "gen_ai.domain"},
 		{"missing domain", "role: gen-ai-users", "gen_ai.domain"},
 		{"missing role", "domain: gen-ai.services.{{project}}", "gen_ai.role"},
 		{"domain missing project placeholder", "domain: gen-ai.services\n  role: gen-ai-users", "exactly one {{project}} placeholder"},
@@ -353,6 +401,17 @@ func TestResolve_Explicit(t *testing.T) {
 	}
 	if got.Source != config.SourceExplicit {
 		t.Errorf("expected source %q, got: %q", config.SourceExplicit, got.Source)
+	}
+}
+
+func TestResolve_RelativeExplicitIsAbsolute(t *testing.T) {
+	t.Chdir(t.TempDir())
+	got, err := config.Resolve("configs/athenzd.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !filepath.IsAbs(got.Path) || filepath.Base(got.Path) != "athenzd.yaml" {
+		t.Fatalf("expected absolute explicit path, got %q", got.Path)
 	}
 }
 

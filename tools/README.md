@@ -34,7 +34,8 @@ Prints the effective port for a given service. Reads `config.local.yaml` first, 
 ./tools/port.sh open-webui      # → 54443
 ./tools/port.sh keycloak        # → 34443
 ./tools/port.sh keycloak-https  # → 34444
-./tools/port.sh genai-proxy     # → 64443
+./tools/port.sh genai-proxy          # → 64443
+./tools/port.sh athenzd-genai-proxy  # → 65443
 ```
 
 Used inside other scripts and tutorials to avoid hardcoded port numbers.
@@ -121,6 +122,7 @@ ports:
   ai-client-gateway-codex: 44444
   open-webui: 54443
   genai-proxy: 64443
+  athenzd-genai-proxy: 65443
 ```
 
 ### `config.local.yaml` _(gitignored)_

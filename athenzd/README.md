@@ -1,15 +1,16 @@
 # athenzd
 
-`athenzd` is currently a CLI for browser login, idempotent ZMS service registration, opt-in Copper Argos X.509 enrollment, ID-JAG issuance for GenAI service projects, and selection of one active GenAI access-token scope. It is not yet a long-running daemon and does not run a proxy or rotate credentials.
+`athenzd` is currently a manager CLI for browser login, idempotent ZMS service registration, opt-in Copper Argos X.509 enrollment, ID-JAG issuance for GenAI service projects, and selection of one active GenAI access-token scope. When `gen_ai.proxy` is configured, login ensures a separate directory-level `athenzd-genai-proxy` daemon is running and then exits normally. The daemon does not rotate credentials.
 
 # Current behavior
 
-`athenzd login` performs two required operations and up to two optional operations:
+`athenzd login` performs two required operations and up to three optional operations:
 
 1. Runs the OAuth 2.0 Authorization Code flow with PKCE, receives an ID token, and caches it locally.
 2. Reads `preferred_username` from that token and ensures the configured Athenz service exists in ZMS.
 3. When `identity.mode` is `copperargos`, generates a private key and CSR, submits the ID token to the configured ZTS instance provider as attestation, and writes the issued service certificate and signer CA.
 4. When both `gen_ai.domain` and `gen_ai.role` are configured, uses that X.509 identity to issue and cache one all-eligible-roles ID-JAG per associated service project, then issues one access token for the selected `gen_ai.default_project` using that project's baseline `gen_ai.role` scope.
+5. When `gen_ai.proxy` is present, ensures the current config directory's detached local daemon is healthy on the configured workstation port. That daemon injects the latest active cached GenAI access token into requests forwarded to the protected GenAI proxy.
 
 After login establishes that baseline access token, `athenzd set genai-project` refreshes the human and workload role memberships from ZMS, lets the user choose a currently eligible project and scope, and replaces the active cached access token.
 
@@ -38,6 +39,7 @@ It never creates the reserved `home` top-level domain or the personal parent `ho
 - The configured callback port must be available on localhost. The default is `8250`.
 - The workstation must be able to resolve and reach the configured IdP and ZMS URLs.
 - The workstation must be able to reach ZTS when certificate enrollment is enabled.
+- The configured GenAI injector port must be available when `gen_ai.proxy` is present. Its default is `65443`.
 - Any private certificate authority used by the IdP, ZMS, or ZTS must be available as a PEM file.
 
 ## Identity provider
@@ -80,6 +82,9 @@ gen_ai:
   domain: gen-ai.services.{{project}}
   role: gen-ai-users
   default_project: athenz
+  proxy:
+    port: 65443
+    upstream_url: http://127.0.0.1:64443
 ```
 
 maps `gen-ai.services.athenz` to service key `athenz` and `gen-ai.services.mail` to service key `mail`. A signed-in user may be a `gen-ai-users` member in both projects.
@@ -132,7 +137,7 @@ ID-JAG issuance additionally requires ZTS to load a token-exchange identity prov
 Go 1.25 or later is required by the current module.
 
 ```sh
-go install ./cmd/athenzd
+go install ./cmd/athenzd ./cmd/athenzd-genai-proxy
 ```
 
 Confirm the installed binary is available:
@@ -187,9 +192,15 @@ services:
 
 `current_service` selects a local profile and its token-cache filename. It is not an Athenz service identity.
 
-Omit the entire `gen_ai` block to disable GenAI project discovery. Once `gen_ai` is present, `domain` and `role` are required; only `default_project` is optional. `gen_ai.domain` must contain exactly one `{{project}}` placeholder; `{{.project}}` is accepted as an equivalent spelling. `gen_ai.role` is the simple baseline role name, not a fully qualified Athenz scope.
+Omit the entire `gen_ai` block to disable GenAI project discovery. Once `gen_ai` is present, `domain` and `role` are required; `default_project` and `proxy` are optional. `gen_ai.domain` must contain exactly one `{{project}}` placeholder; `{{.project}}` is accepted as an equivalent spelling. `gen_ai.role` is the simple baseline role name, not a fully qualified Athenz scope.
 
 `gen_ai.default_project` is the project key represented by `{{project}}`, such as `athenz` or `mail`. After issuing the per-project ID-JAGs, login uses the selected project's ID-JAG to request one access token for the baseline role configured by `gen_ai.role`. For example, project `athenz` derives the scope `gen-ai.services.athenz:role.gen-ai-users`. If this setting is absent, an interactive arrow-key prompt lists only the eligible project names from the freshly issued ID-JAGs. The selected project is saved into the active config file: the explicit `-f` file, the current directory's `.athenzd/config.yaml`, or the user-level `~/.athenzd/config.yaml`.
+
+Presence of `gen_ai.proxy` makes `athenzd login` manage a separate `athenzd-genai-proxy` process after it caches the default access token. The daemon instance belongs to the directory containing the resolved config file, normally the current project's `.athenzd/` directory. Login reuses that directory's healthy matching daemon or launches one, waits for its identifying `/healthz` response, records its PID and settings beside the config, and exits. The daemon listens on `0.0.0.0:<port>`, reloads the active cached token for every request, replaces any caller-supplied `Authorization` header, and forwards the request to `upstream_url`. Empty values use port `65443` and `http://127.0.0.1:64443`. This lets Open WebUI in the local kind cluster use `http://host.docker.internal:65443` with authentication disabled; the protected GenAI resource proxy on port `64443` still validates the injected AT and removes it before calling Ollama.
+
+Each directory-level daemon has a non-secret identity derived from its config directory. If another project already owns the configured port, login fails instead of reusing that project's credentials. Give concurrently active projects different `gen_ai.proxy.port` values.
+
+ID-JAG does not have a network port. Port `65443` belongs to the client-side `athenzd` injector, while port `64443` belongs to the GenAI resource proxy. Both listeners bind to the workstation for local container access, so use this setup only on a trusted development machine and do not expose either port to the internet.
 
 `athenz.service` is the complete desired Athenz identity. It uses Go `text/template` syntax, matching the template family used by `kubectl -o go-template`. The currently supported dynamic field is:
 
@@ -245,7 +256,7 @@ Step 3/3 — Enroll X.509 identity through sys.auth.localworkload
 ✓ Ready: home.alice.local.athenzd
 ```
 
-Running login again is safe. It obtains a fresh ID token, verifies or recreates only missing child resources, requests a new certificate when Copper Argos is enabled, and replaces the cached per-project ID-JAGs when GenAI issuance is configured.
+Running login again is safe. Login obtains a fresh ID token, verifies or recreates only missing child resources, requests a new certificate when Copper Argos is enabled, replaces the cached per-project ID-JAGs when GenAI issuance is configured, and reuses the current directory's matching proxy daemon. It rejects a configured port owned by another service, another project directory, or a proxy targeting a different upstream.
 
 # ID-JAG login step
 
@@ -265,7 +276,17 @@ Step 4/4 — Issue ID-JAGs for all eligible GenAI service-project roles
 
 If you want to change the active GenAI project or scope later, run:
   athenzd set genai-project
+
+✓ athenzd GenAI proxy daemon started on port 65443 (PID 12345)
+  Open WebUI: http://host.docker.internal:65443 (Auth disabled)
+  Upstream: http://127.0.0.1:64443
+  Project config: /workspace/my-project/.athenzd/config.yaml
+  Log: /workspace/my-project/.athenzd/genai-proxy.log
 ```
+
+Login exits after the daemon becomes healthy. In Open WebUI, add an external Ollama connection using URL `http://host.docker.internal:65443`, leave Auth disabled, and leave Model IDs empty. Open WebUI never receives or stores the Athenz AT.
+
+The daemon reloads `~/.cache/athenzd/<current_service>.json` for every request. Its directory-level runtime files are `.athenzd/genai-proxy.log` and `.athenzd/genai-proxy-state.json` beside the active project config. Run `athenzd set genai-project` to change the project or scope without restarting it. If the active access token expires, requests receive HTTP 401 with instructions to refresh the project or log in again.
 
 The cache stores a JSON object keyed by service project:
 
@@ -301,7 +322,7 @@ The cache stores a JSON object keyed by service project:
 
 Login prints the user's eligible project roles before attempting the ZTS exchanges, then prints successful issuance details. This keeps the discovered role associations visible even when an exchange fails. It never prints raw ID-JAG or access-token values.
 
-ID-JAG and access-token issuance are best-effort. If no project is eligible, login logs a friendly message such as `↷ ID-JAG skipped — no eligible GenAI roles found for user.alice`. Discovery, exchange, prompt, config-save, or cache failures are also logged as skipped, and login still succeeds with the cached ID token and enrolled X.509 identity.
+ID-JAG and access-token issuance are best-effort when the injector is disabled. If no project is eligible, login logs a friendly message such as `↷ ID-JAG skipped — no eligible GenAI roles found for user.alice`. Discovery, exchange, prompt, config-save, or cache failures are also logged as skipped, and login still succeeds with the cached ID token and enrolled X.509 identity. When `gen_ai.proxy` is present, login instead returns an error if it could not issue the default AT because the injector must not start without a credential.
 
 # Change the active GenAI project or scope
 
@@ -346,13 +367,19 @@ athenzd whoami
 
 `config` may also be abbreviated as `cfg`.
 
+# Idempotency
+
+Normal `athenzd` commands are designed to converge safely when repeated. `config` and `whoami` commands are read-only. `athenzd login` ensures missing Athenz resources without duplicating existing ones and reuses the current project's healthy proxy daemon instead of launching another. If the recorded daemon has stopped, the next login starts one replacement and overwrites its stale state. `athenzd set genai-project` refreshes current authorization data but does not rewrite the config when the selected default project is already set.
+
+Credential issuance is the intentional exception: login and project selection may issue fresh ID tokens, certificates, ID-JAGs, or access tokens because those credentials expire. Repetition preserves the same desired configuration while refreshing time-bound credentials. A port owned by another service or project is reported as an error and is never stopped or replaced automatically.
+
 # Current limitations
 
 - IdP endpoint construction currently assumes Keycloak-compatible paths.
 - Only `preferred_username` is exposed to the service template.
 - Optional administrators are added to the child domain but are never removed by login.
 - Copper Argos is the only supported certificate-enrollment mode, and enrollment currently uses an RSA 2048-bit key with Athenz-compatible SPIFFE and instance-ID URI SANs.
-- There is no automatic certificate rotation, token renewal, logout, ZMS cleanup, proxy, or daemon loop yet.
+- There is no automatic certificate rotation, token renewal, logout, ZMS cleanup, or proxy stop/restart command yet. Login can ensure the detached GenAI proxy is running, and the daemon reloads cache changes without restart.
 
 # Package boundaries
 
@@ -363,7 +390,9 @@ ID-JAG support is split into focused modules:
 - `internal/zts` performs the mTLS OAuth token exchange and validates the returned token scopes.
 - `internal/idjag` coordinates one exchange per project without knowing about CLI config, output, or cache files.
 - `internal/accesstoken` separately coordinates narrowing one ID-JAG into one role access token.
-- `cmd/athenzd` keeps ID-JAG and access-token command helpers separate while handling configuration, persistence, and user-facing output.
+- `internal/genaiproxy` provides the directory-level daemon lifecycle and streams local client requests to the configured GenAI resource proxy after injecting the latest active cached access token.
+- `cmd/athenzd` is the manager CLI; it handles configuration, credentials, persistence, and daemon health checks but never serves proxy traffic.
+- `cmd/athenzd-genai-proxy` is the separately installed request-serving daemon managed by `athenzd`.
 
 # Development
 

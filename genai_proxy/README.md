@@ -43,16 +43,17 @@ make -C genai_proxy local HOST=127.0.0.1
 
 ## Connect Open WebUI
 
-When Open WebUI runs in the local kind cluster, add an external Ollama connection with these values:
+The recommended flow uses the directory-level `athenzd-genai-proxy` client-side injector daemon. Add `gen_ai.proxy` to the project's `.athenzd/config.yaml` and run `athenzd login` from that directory. The manager ensures the separate daemon is healthy and then exits. Add an external Ollama connection in Open WebUI with these values:
 
-- URL: `http://host.docker.internal:64443`
-- Auth: `Bearer`
-- API Key: the active Athenz AT
+- URL: `http://host.docker.internal:65443`
+- Auth: disabled
 - Prefix ID: empty
 - Model IDs: empty
 - Tags: optional
 
-Paste the raw AT into API Key. Open WebUI adds the `Bearer` authorization scheme.
+The injector reloads the active `athenzd` cache on each request and sends the AT to this protected proxy. Open WebUI does not need to store the credential.
+
+For direct troubleshooting without the injector, connect to `http://host.docker.internal:64443`, select Bearer auth, and paste the raw active AT into API Key.
 
 ## Call Ollama with the active `athenzd` AT
 
