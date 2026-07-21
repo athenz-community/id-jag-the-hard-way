@@ -1,13 +1,12 @@
 import type { GenAIUsageResponse } from "@/features/genai/types/usage"
 
 const DEFAULT_GENAI_PROXY_URL = "http://127.0.0.1:64443"
-const REPORT_USER = "idjag-learner"
 
-export async function fetchGenAIUsage(): Promise<GenAIUsageResponse> {
+export async function fetchGenAIUsage(username: string): Promise<GenAIUsageResponse> {
   const baseUrl = (process.env.GENAI_PROXY_URL ?? DEFAULT_GENAI_PROXY_URL).replace(/\/+$/, "")
 
   try {
-    const response = await fetch(`${baseUrl}/api/users/${encodeURIComponent(REPORT_USER)}`, {
+    const response = await fetch(`${baseUrl}/api/users/${encodeURIComponent(username)}`, {
       cache: "no-store",
       signal: AbortSignal.timeout(3000),
     })

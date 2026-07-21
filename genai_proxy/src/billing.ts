@@ -13,7 +13,7 @@ const modelPricesUsdPerMillion: Record<string, ModelPrice> = {
 const fallbackPriceUsdPerMillion: ModelPrice = { input: 0.1, output: 0.3 }
 
 export const dailyServiceCodeLimits: Readonly<Record<string, { amountUsd: number; fractionDigits: number }>> = {
-  athenz: { amountUsd: 0.0024, fractionDigits: 5 },
+  athenz: { amountUsd: 0.24, fractionDigits: 2 },
   spire: { amountUsd: 0.002, fractionDigits: 3 },
 }
 

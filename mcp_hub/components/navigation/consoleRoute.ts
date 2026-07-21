@@ -2,7 +2,6 @@ export const DEFAULT_PROJECT = "k8s-docs-server"
 export const DEFAULT_PRODUCT = "mcp-hub"
 export const DEFAULT_SECTION = "catalog"
 export const GENAI_PRODUCT = "gen-ai"
-export const CURRENT_USER = "user.idjag-learner"
 
 export type ConsoleSection =
   | "catalog"

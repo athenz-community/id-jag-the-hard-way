@@ -1,9 +1,12 @@
 import { readFile } from "node:fs/promises"
 import https from "node:https"
 import path from "node:path"
+import { auth } from "@/features/auth/lib/auth"
 
 const DEFAULT_ZTS_URL = "https://localhost:8443/zts/v1"
+const DEFAULT_ZTS_AUDIENCE = "https://athenz-zts-server.athenz:4443/zts/v1"
 const TOKEN_EXPIRY_SKEW_MS = 60_000
+const MAX_CACHED_USERS = 100
 
 type AthenzTokenResponse = {
   access_token?: string
@@ -13,57 +16,93 @@ type AthenzTokenResponse = {
 }
 
 type CachedToken = {
-  scope: string
   token: string
   expiresAtMs: number
 }
 
-let cachedToken: CachedToken | null = null
+const cachedTokens = new Map<string, CachedToken>()
 
 export async function getMcpAccessToken(): Promise<string | null> {
   const scope = (process.env.MCP_HUB_MCP_ACCESS_SCOPE ?? "").trim()
   if (!scope) return null
 
+  const session = await auth()
+  const idToken = session?.idToken
+  const subject = session?.user?.subject ?? session?.user?.username
+  if (!idToken || !subject) throw new Error("Authentication with the configured IdP is required")
+
   const now = Date.now()
-  if (cachedToken?.scope === scope && cachedToken.expiresAtMs > now + TOKEN_EXPIRY_SKEW_MS) {
+  const cacheKey = `${subject}\u0000${scope}`
+  const cachedToken = cachedTokens.get(cacheKey)
+  if (cachedToken && cachedToken.expiresAtMs > now + TOKEN_EXPIRY_SKEW_MS) {
     return cachedToken.token
   }
 
-  const tokenResponse = await requestAthenzAccessToken(scope)
+  const tokenResponse = await requestAthenzAccessToken(scope, idToken)
   if (!tokenResponse.access_token) {
     const message = tokenResponse.error_description ?? tokenResponse.error ?? "ZTS did not return an access token"
-    throw new Error(`Failed to issue MCP Hub access token for ${scope}: ${message}`)
+    throw new Error(`Failed to issue a user-scoped MCP access token for ${scope}: ${message}`)
   }
 
   const expiresInSeconds = tokenResponse.expires_in ?? 3600
-  cachedToken = {
-    scope,
+  pruneTokenCache(now)
+  cachedTokens.set(cacheKey, {
     token: tokenResponse.access_token,
     expiresAtMs: now + expiresInSeconds * 1000,
-  }
+  })
 
-  return cachedToken.token
+  return tokenResponse.access_token
 }
 
-async function requestAthenzAccessToken(scope: string): Promise<AthenzTokenResponse> {
+async function requestAthenzAccessToken(scope: string, idToken: string): Promise<AthenzTokenResponse> {
   const certPath = certFilePath("MCP_HUB_ATHENZ_CERT_PATH", "mcp-hub-ui.crt")
   const keyPath = certFilePath("MCP_HUB_ATHENZ_KEY_PATH", "mcp-hub-ui.key")
   const caPath = certFilePath("MCP_HUB_ATHENZ_CA_PATH", "ca.crt")
   const ztsUrl = (process.env.MCP_HUB_ZTS_URL ?? DEFAULT_ZTS_URL).replace(/\/+$/, "")
   const endpoint = `${ztsUrl}/oauth2/token`
+  const audience = process.env.MCP_HUB_ZTS_AUDIENCE ?? DEFAULT_ZTS_AUDIENCE
 
   const [cert, key, ca] = await Promise.all([
     readFile(/* turbopackIgnore: true */ certPath),
     readFile(/* turbopackIgnore: true */ keyPath),
     readFile(/* turbopackIgnore: true */ caPath),
   ])
-  const body = new URLSearchParams({
-    grant_type: "client_credentials",
+  const idJagBody = new URLSearchParams({
+    grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+    requested_token_type: "urn:ietf:params:oauth:token-type:id-jag",
+    subject_token_type: "urn:ietf:params:oauth:token-type:id_token",
+    subject_token: idToken,
+    scope,
+    audience,
+    expires_in: process.env.MCP_HUB_ACCESS_TOKEN_EXPIRES_IN ?? "3600",
+  }).toString()
+
+  const idJagResponse = await postForm(endpoint, idJagBody, cert, key, ca)
+  if (!idJagResponse.access_token) {
+    const message = idJagResponse.error_description ?? idJagResponse.error ?? "ZTS did not return an ID-JAG token"
+    throw new Error(`Failed to exchange the IdP token for ID-JAG: ${message}`)
+  }
+
+  const accessTokenBody = new URLSearchParams({
+    grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    assertion: idJagResponse.access_token,
     scope,
     expires_in: process.env.MCP_HUB_ACCESS_TOKEN_EXPIRES_IN ?? "3600",
   }).toString()
 
-  return postForm(endpoint, body, cert, key, ca)
+  return postForm(endpoint, accessTokenBody, cert, key, ca)
+}
+
+function pruneTokenCache(now: number) {
+  for (const [key, value] of cachedTokens) {
+    if (value.expiresAtMs <= now + TOKEN_EXPIRY_SKEW_MS) cachedTokens.delete(key)
+  }
+
+  while (cachedTokens.size >= MAX_CACHED_USERS) {
+    const oldestKey = cachedTokens.keys().next().value as string | undefined
+    if (!oldestKey) break
+    cachedTokens.delete(oldestKey)
+  }
 }
 
 function certFilePath(envName: string, fileName: string): string {

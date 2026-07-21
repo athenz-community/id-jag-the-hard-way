@@ -106,8 +106,8 @@ test("returns user-specific project usage, limits, spend, and model costs withou
     projects: [{
       project: "athenz",
       scope: "gen-ai.services.athenz:role.gen-ai-users",
-      daily_limit_usd: 0.0024,
-      daily_limit_fraction_digits: 5,
+      daily_limit_usd: 0.24,
+      daily_limit_fraction_digits: 2,
       daily_spend_usd: 0.0000018,
       users: [{
         date: "2026-07-20",
@@ -150,7 +150,7 @@ test("rejects generation requests with 429 after a service code exceeds its dail
     clientId: "home.idjag-learner.local.athenzd",
     model: "gemma4:26b",
     scope: "gen-ai.services.athenz:role.gen-ai-users",
-  }, { promptTokens: 0, completionTokens: 8_001, totalTokens: 8_001 })
+  }, { promptTokens: 0, completionTokens: 800_001, totalTokens: 800_001 })
   usageStore.record({
     project: "gen-ai.services.spire",
     subject: "user.idjag-learner",
@@ -161,7 +161,7 @@ test("rejects generation requests with 429 after a service code exceeds its dail
   const proxy = await listen(createGenAIProxy({ authenticate, ollamaBaseUrl: url(ollama, "/"), usageStore }))
 
   for (const [authorization, serviceCode, limit] of [
-    ["Bearer secret-athenz-at", "athenz", 0.0024],
+    ["Bearer secret-athenz-at", "athenz", 0.24],
     ["Bearer project-spire", "spire", 0.002],
   ] as const) {
     const response = await fetch(url(proxy, "/api/chat"), {

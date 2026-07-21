@@ -1,18 +1,19 @@
 "use client"
 
-import { ArrowUpRight, Bell, Boxes, BrainCircuit, ChevronDown, Grip, Sparkles, TerminalSquare } from "lucide-react"
+import { ArrowUpRight, Bell, Boxes, BrainCircuit, Check, ChevronDown, Grip, LogIn, LogOut, Sparkles, TerminalSquare } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useRef } from "react"
 import {
-  CURRENT_USER,
   DEFAULT_PRODUCT,
   displayProduct,
   GENAI_PRODUCT,
   parseConsoleRoute,
   productHref,
 } from "@/components/navigation/consoleRoute"
+import { signInAsDifferentUser, signOutFromIdp, switchIdpUser } from "@/features/auth/actions/idp"
+import type { HubAccountSummary } from "@/features/auth/types/accounts"
 
 const PRODUCTS = [
   {
@@ -31,19 +32,43 @@ const PRODUCTS = [
   },
 ]
 
-export function AppBar() {
-  const route = parseConsoleRoute(usePathname())
+type AppBarUser = {
+  name?: string | null
+  email?: string | null
+  username: string
+  subject?: string
+}
+
+function initials(value: string) {
+  return value
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "U"
+}
+
+export function AppBar({ user, accounts }: { user: AppBarUser; accounts: HubAccountSummary[] }) {
+  const pathname = usePathname()
+  const route = parseConsoleRoute(pathname)
   const productSwitcher = useRef<HTMLDetailsElement>(null)
+  const userMenu = useRef<HTMLDetailsElement>(null)
 
   useEffect(() => {
     function closeOnOutsideClick(event: PointerEvent) {
       if (productSwitcher.current?.open && !productSwitcher.current.contains(event.target as Node)) {
         productSwitcher.current.removeAttribute("open")
       }
+      if (userMenu.current?.open && !userMenu.current.contains(event.target as Node)) {
+        userMenu.current.removeAttribute("open")
+      }
     }
 
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") productSwitcher.current?.removeAttribute("open")
+      if (event.key === "Escape") {
+        productSwitcher.current?.removeAttribute("open")
+        userMenu.current?.removeAttribute("open")
+      }
     }
 
     document.addEventListener("pointerdown", closeOnOutsideClick)
@@ -131,10 +156,52 @@ export function AppBar() {
         <button className="icon-button" aria-label="Notifications" type="button" disabled>
           <Bell size={16} aria-hidden="true" />
         </button>
-        <div className="current-user" aria-label={`Current user ${CURRENT_USER}`}>
-          <div className="avatar" aria-hidden="true">ID</div>
-          <span>{CURRENT_USER.replace(/^user\./, "")}</span>
-        </div>
+        <details className="user-menu" ref={userMenu}>
+          <summary className="current-user" aria-label={`Current user ${user.username}`}>
+            <div className="avatar" aria-hidden="true">{initials(user.username)}</div>
+            <span>{user.username}</span>
+            <ChevronDown size={12} aria-hidden="true" />
+          </summary>
+          <div className="user-menu-panel">
+            <div className="user-menu-heading">
+              <small>Signed-in users</small>
+              <span>Select an account to switch instantly.</span>
+            </div>
+            <div className="user-account-list">
+              {accounts.map((account) => {
+                const active = account.subject === user.subject
+                return (
+                  <form action={switchIdpUser} key={account.subject}>
+                    <input name="subject" type="hidden" value={account.subject} />
+                    <input name="returnTo" type="hidden" value={pathname} />
+                    <button className={`user-account-option ${active ? "active" : ""}`} type="submit" disabled={active}>
+                      <span className="avatar" aria-hidden="true">{initials(account.username)}</span>
+                      <span className="user-account-copy">
+                        <strong>{account.username}</strong>
+                        {account.email ? <small>{account.email}</small> : null}
+                      </span>
+                      {active ? <Check size={15} aria-label="Current user" /> : null}
+                    </button>
+                  </form>
+                )
+              })}
+            </div>
+            <div className="user-menu-actions">
+              <form action={signInAsDifferentUser}>
+                <button type="submit">
+                  <LogIn size={14} aria-hidden="true" />
+                  Sign in as a different user
+                </button>
+              </form>
+              <form action={signOutFromIdp}>
+                <button className="danger" type="submit">
+                  <LogOut size={14} aria-hidden="true" />
+                  Sign out
+                </button>
+              </form>
+            </div>
+          </div>
+        </details>
         <button className="icon-button" aria-label="App menu" type="button" disabled>
           <Grip size={16} aria-hidden="true" />
         </button>

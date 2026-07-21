@@ -10,6 +10,7 @@ import {
 } from "@/features/catalog/components/McpServerClientConfigurationPage"
 import { fetchCatalog } from "@/features/catalog/lib/fetchCatalog"
 import { resolveMcpDisplayUrl } from "@/features/catalog/lib/mcpTools"
+import { requireHubSession } from "@/features/auth/lib/session"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -19,6 +20,7 @@ export default async function McpServerClientConfigurationRoute({
 }: {
   params: Promise<{ project: string; product: string; id: string }>
 }) {
+  await requireHubSession()
   const { project, product, id } = await params
   const serverId = decodeRouteParam(id)
   const catalog = await fetchCatalog()

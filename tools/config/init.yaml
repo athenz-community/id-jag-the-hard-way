@@ -87,12 +87,13 @@ roles:
       - allow: zts.jag_exchange
         on: role.docs-getter
 
-  # mcp-accessor-jag-exchanger: AI agents => JAG exchange into mcp-accessor on the user's behalf
+  # mcp-accessor-jag-exchanger: AI agents and MCP Hub => JAG exchange into mcp-accessor on the user's behalf
   - name: mcp-accessor-jag-exchanger
     members:
       - human.idjag-learner.claude
       - human.idjag-learner.codex
       - ai.open-webui
+      - mcp-hub.hub-ui
     policies:
       - allow: zts.jag_exchange
         on: role.mcp-accessor

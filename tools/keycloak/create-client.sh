@@ -16,6 +16,7 @@ web_origin=${3:-$(echo "$redirect_uri" | sed 's|/[^/]*$||' | sed 's|/[^/]*$||')}
 client_type=${4:-confidential}
 direct_access_grants=${KEYCLOAK_DIRECT_ACCESS_GRANTS:-false}
 client_secret=${KEYCLOAK_CLIENT_SECRET:-}
+post_logout_redirect_uri=${KEYCLOAK_POST_LOGOUT_REDIRECT_URI:-}
 
 case "$client_type" in
   public)
@@ -50,6 +51,14 @@ if [ -n "$client_secret" ]; then
   secret_line="  \"secret\": \"${client_secret}\","
 fi
 
+post_logout_line=""
+if [ -n "$post_logout_redirect_uri" ]; then
+  post_logout_line=",
+  \"attributes\": {
+    \"post.logout.redirect.uris\": \"${post_logout_redirect_uri}\"
+  }"
+fi
+
 client_payload=$(
   cat <<EOF
 {
@@ -61,7 +70,7 @@ ${secret_line}
   "standardFlowEnabled": true,
   "directAccessGrantsEnabled": ${direct_access_grants},
   "redirectUris": ["${redirect_uri}"],
-  "webOrigins": ["${web_origin}"]
+  "webOrigins": ["${web_origin}"]${post_logout_line}
 }
 EOF
 )

@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server"
+import { auth } from "@/features/auth/lib/auth"
 import { listMcpServersFromKubernetes } from "@/features/catalog/api/kubernetesCatalog"
 import type { CatalogResponse } from "@/features/catalog/types/catalog"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
+  const session = await auth()
+  if (!session?.user) {
+    return NextResponse.json({ servers: [], error: "Authentication required" }, { status: 401 })
+  }
+
   try {
     const servers = await listMcpServersFromKubernetes()
     return NextResponse.json<CatalogResponse>(

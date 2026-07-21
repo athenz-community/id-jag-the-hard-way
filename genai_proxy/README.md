@@ -6,7 +6,7 @@ The proxy verifies each Athenz Bearer access token with the local ZTS public key
 
 Successful generation responses are metered using the token counts reported by Ollama and grouped by JST date, signed project, and user claims. Each daily entry includes the most recent usage time in JST using `HH:mm:ss` format. With `make local`, counters are stored in the gitignored `athenzd/.athenzd/genai-proxy-data/usage.json` file and survive container restarts.
 
-Before forwarding a metered generation request, the proxy totals the service code's recorded spend for the current JST day. Athenz has a `$0.00240` daily limit and Spire has a `$0.002` daily limit. Once a limit is reached, later generation requests return `429 Too Many Requests` with a `Retry-After` header and are not forwarded to Ollama. Ollama reports tokens only after a response completes, so the request that crosses a limit completes; enforcement begins with the next request. Limits reset at `00:00 JST`.
+Before forwarding a metered generation request, the proxy totals the service code's recorded spend for the current JST day. Athenz has a `$0.24` daily limit and Spire has a `$0.002` daily limit. Once a limit is reached, later generation requests return `429 Too Many Requests` with a `Retry-After` header and are not forwarded to Ollama. Ollama reports tokens only after a response completes, so the request that crosses a limit completes; enforcement begins with the next request. Limits reset at `00:00 JST`.
 
 ## Run locally
 
@@ -109,8 +109,8 @@ Example response:
     {
       "project": "athenz",
       "scope": "gen-ai.services.athenz:role.gen-ai-users",
-      "daily_limit_usd": 0.0024,
-      "daily_limit_fraction_digits": 5,
+      "daily_limit_usd": 0.24,
+      "daily_limit_fraction_digits": 2,
       "daily_spend_usd": 0.0000072,
       "users": [
         {

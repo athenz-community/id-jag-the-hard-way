@@ -19,18 +19,47 @@ make local
 
 `make local` uses port `3102` by default.
 
+## Authentication and Multiple Users
+
+MCP Hub requires OpenID Connect login before rendering the console. The default local IdP is Keycloak, but the provider is configured with environment variables:
+
+```text
+MCP_HUB_IDP_NAME
+MCP_HUB_IDP_ISSUER
+MCP_HUB_IDP_PUBLIC_ISSUER
+MCP_HUB_IDP_WELL_KNOWN
+MCP_HUB_IDP_AUTHORIZATION_ENDPOINT
+MCP_HUB_IDP_CLIENT_ID
+MCP_HUB_IDP_CLIENT_SECRET
+MCP_HUB_IDP_TOKEN_ENDPOINT
+MCP_HUB_IDP_END_SESSION_ENDPOINT
+MCP_HUB_ACCOUNT_CACHE_SIZE
+AUTH_SECRET
+```
+
+Register the default local Keycloak client, then run the hub:
+
+```sh
+make -C mcp_hub register-idp-client
+make -C mcp_hub local OPEN_UI=true
+```
+
+Each browser can keep up to five IdP sessions by default. The app bar lists the cached users for one-click switching; **Sign in as a different user** goes through Keycloak only when adding an account that is not already sessioned. Set `MCP_HUB_ACCOUNT_CACHE_SIZE` from `1` to `8` to change the limit. Identity claims and refresh tokens remain inside the encrypted, HTTP-only Auth.js cookie, while the UI receives only account display summaries. Signing out clears the full browser account cache and signs the current account out through the IdP.
+
+MCP Hub does not generate a private key or user certificate in the browser session. Its `mcp-hub.hub-ui` workload certificate stays server-side and exchanges the signed-in user's ID token through ID-JAG. Resulting Athenz access tokens are cached separately per OIDC subject and scope.
+
 ## Gen AI Product
 
 Use the product switcher in the top bar to move between **MCP hub** and **Gen AI**. The Gen AI product currently provides:
 
-- a monitoring dashboard for the fixed tutorial identity `user.idjag-learner`
+- a monitoring dashboard for the currently signed-in user's `user.<preferred_username>` identity
 - associated system codes derived from the GenAI proxy projects
 - rolling 30-day JST token usage grouped by model
 - rolling 30-day JST estimated cost incurred by the current user, grouped by model
-- proxy-owned daily service-code spending limits, currently `$0.00240` for Athenz and `$0.002` for Spire, reset at `00:00 JST`
+- proxy-owned daily service-code spending limits, currently `$0.24` for Athenz and `$0.002` for Spire, reset at `00:00 JST`
 - per-model totals, starting with `gemma4:26b` and automatically including additional reported models
 
-The dashboard reads the GenAI proxy usage endpoint through the Next.js server. The default is:
+The dashboard reads the signed-in user's GenAI proxy usage endpoint through the Next.js server. For `idjag-learner`, this is:
 
 ```text
 http://127.0.0.1:64443/api/users/idjag-learner

@@ -10,8 +10,10 @@ export async function fetchCatalog(): Promise<CatalogResponse> {
   }
 
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "http"
+  const cookie = requestHeaders.get("cookie")
   const response = await fetch(`${protocol}://${host}/api/mcp-servers`, {
     cache: "no-store",
+    headers: cookie ? { cookie } : undefined,
   })
 
   if (!response.ok) {
