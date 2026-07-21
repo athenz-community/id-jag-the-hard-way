@@ -53,7 +53,7 @@ type NoEligibleProjectsError struct {
 }
 
 func (e *NoEligibleProjectsError) Error() string {
-	return fmt.Sprintf("no GenAI service project matching %q grants role %q to %s and corresponding -jag-exchanger access to %s",
+	return fmt.Sprintf("no GenAI service project matching %q grants role %q to %s and the corresponding -jag-exchangers role to %s",
 		e.DomainTemplate, e.BaselineRole, e.UserPrincipal, e.WorkloadPrincipal)
 }
 

@@ -2,8 +2,8 @@
     "templates": {
         "gen_ai_users_delegation": {
             "metadata": {
-                "latestVersion": 1,
-                "timestamp": "2026-07-17T00:00:00.000Z",
+                "latestVersion": 2,
+                "timestamp": "2026-07-21T00:00:00.000Z",
                 "description": "gen ai users delegation template",
                 "keywordsToReplace": "_cost_accountable_admin_",
                 "autoUpdate": false
@@ -19,7 +19,7 @@
                     ]
                 },
                 {
-                    "name": "_domain_:role.gen-ai-users-manager",
+                    "name": "_domain_:role.gen-ai-users-managers",
                     "modified": "1970-01-01T00:00:00.000Z",
                     "roleMembers": []
                 },
@@ -29,7 +29,7 @@
                     "roleMembers": []
                 },
                 {
-                    "name": "_domain_:role.gen-ai-users-jag-exchanger",
+                    "name": "_domain_:role.gen-ai-users-jag-exchangers",
                     "modified": "1970-01-01T00:00:00.000Z",
                     "roleMembers": [
                         {
@@ -50,7 +50,7 @@
                     "modified": "1970-01-01T00:00:00.000Z",
                     "assertions": [
                         {
-                            "resource": "_domain_:role.gen-ai-users-manager",
+                            "resource": "_domain_:role.gen-ai-users-managers",
                             "role": "_domain_:role.cost-accountable-admins",
                             "action": "update_members"
                         },
@@ -62,23 +62,23 @@
                     ]
                 },
                 {
-                    "name": "_domain_:policy.gen-ai-users-manager-policy",
+                    "name": "_domain_:policy.gen-ai-users-managers-policy",
                     "modified": "1970-01-01T00:00:00.000Z",
                     "assertions": [
                         {
                             "resource": "_domain_:role.gen-ai-users",
-                            "role": "_domain_:role.gen-ai-users-manager",
+                            "role": "_domain_:role.gen-ai-users-managers",
                             "action": "update_members"
                         }
                     ]
                 },
                 {
-                    "name": "_domain_:policy.gen-ai-users-jag-exchanger-policy",
+                    "name": "_domain_:policy.gen-ai-users-jag-exchangers-policy",
                     "modified": "1970-01-01T00:00:00.000Z",
                     "assertions": [
                         {
                             "resource": "_domain_:role.gen-ai-users",
-                            "role": "_domain_:role.gen-ai-users-jag-exchanger",
+                            "role": "_domain_:role.gen-ai-users-jag-exchangers",
                             "action": "zts.jag_exchange"
                         }
                     ]

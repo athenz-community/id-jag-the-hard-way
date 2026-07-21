@@ -14,7 +14,7 @@ import (
 
 // DiscoverGenAIScopes discovers every service project where the logged-in user
 // has the configured baseline role. For each project it intersects all user
-// roles with the local workload's matching <role>-jag-exchanger memberships.
+// roles with the local workload's matching <role>-jag-exchangers memberships.
 func (c *Client) DiscoverGenAIScopes(ctx context.Context, idToken, userPrincipal, workloadPrincipal, domainTemplate, baselineRole string) ([]genai.ServiceScopes, error) {
 	if strings.TrimSpace(idToken) == "" {
 		return nil, fmt.Errorf("ID token is required")

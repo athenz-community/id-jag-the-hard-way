@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const ExchangerSuffix = "-jag-exchanger"
+const ExchangerSuffix = "-jag-exchangers"
 
 var (
 	serviceNamePattern = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_-]*$`)
@@ -102,7 +102,7 @@ func SplitScope(scope string) (string, string, bool) {
 	return parts[0], parts[1], true
 }
 
-// TargetFromExchanger maps <role>-jag-exchanger membership in domain to the
+// TargetFromExchanger maps <role>-jag-exchangers membership in domain to the
 // target role that can be requested as an ID-JAG scope.
 func TargetFromExchanger(domain, exchangerRole string) (string, bool) {
 	roleDomain, roleName, ok := SplitScope(exchangerRole)

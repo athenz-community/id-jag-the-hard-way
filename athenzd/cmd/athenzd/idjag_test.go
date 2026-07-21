@@ -199,7 +199,7 @@ func newIDJAGZMSServer(t *testing.T, status int, includeRoles bool) *httptest.Se
 		case includeRoles && r.URL.Path == "/domain/gen-ai.services.athenz/member":
 			json.NewEncoder(w).Encode(map[string]any{"members": []map[string]any{{
 				"memberName":  "home.*",
-				"memberRoles": []map[string]string{{"roleName": testBaselineRole + "-jag-exchanger"}},
+				"memberRoles": []map[string]string{{"roleName": testBaselineRole + "-jag-exchangers"}},
 			}}})
 		default:
 			json.NewEncoder(w).Encode(map[string]any{"memberRoles": roles})

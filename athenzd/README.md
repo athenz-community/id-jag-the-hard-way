@@ -94,13 +94,13 @@ The two Athenz principals remain distinct throughout this flow. The ID token's `
 Within each matching project, `athenzd` computes the intersection of:
 
 - every role held by the signed-in user; and
-- every `<role>-jag-exchanger` role held by the local X.509 workload.
+- every `<role>-jag-exchangers` role held by the local X.509 workload.
 
-The configured baseline role must be present on both sides: the user must hold `<domain>:role.<gen_ai.role>`, and the workload must hold `<domain>:role.<gen_ai.role>-jag-exchanger`, either through exact/expanded membership or an applicable Athenz suffix wildcard. `home.*` is a valid broad grant for the local demo; an infix pattern such as `home.*.local.athenzd` is not valid Athenz syntax. Each exchanger role must have a policy granting `zts.jag_exchange` on its corresponding target role. The workload's Athenz service metadata must also set `clientId` to the ID token audience, normally the configured `idp.client_id`.
+The configured baseline role must be present on both sides: the user must hold `<domain>:role.<gen_ai.role>`, and the workload must hold `<domain>:role.<gen_ai.role>-jag-exchangers`, either through exact/expanded membership or an applicable Athenz suffix wildcard. `home.*` is a valid broad grant for the local demo; an infix pattern such as `home.*.local.athenzd` is not valid Athenz syntax. Each `<role>-jag-exchangers` role must have a policy granting `zts.jag_exchange` on its corresponding target role. The workload's Athenz service metadata must also set `clientId` to the ID token audience, normally the configured `idp.client_id`.
 
 Roles from different project domains are never combined. Current ZTS scope parsing accepts only one role domain per ID-JAG, so a user associated with two services receives two independently scoped tokens.
 
-For example, if `user.alice` holds `gen-ai-users` and `docs-reader` in the Athenz project, while `home.alice.local.athenzd` holds the matching `gen-ai-users-jag-exchanger` and `docs-reader-jag-exchanger` roles, the Athenz-project ID-JAG contains both target scopes. A separate Mail-project membership produces a separate Mail-project ID-JAG.
+For example, if `user.alice` holds `gen-ai-users` and `docs-reader` in the Athenz project, while `home.alice.local.athenzd` holds the matching `gen-ai-users-jag-exchangers` and `docs-reader-jag-exchangers` roles, the Athenz-project ID-JAG contains both target scopes. A separate Mail-project membership produces a separate Mail-project ID-JAG.
 
 ## Athenz namespace
 
@@ -332,7 +332,7 @@ Run this after login whenever the active access token should use another eligibl
 athenzd set genai-project
 ```
 
-The command does not trust the ID-JAG roles already in the cache. It uses the cached, unexpired ID token to query ZMS again for the human's current role memberships and the local workload's current matching `-jag-exchanger` memberships, then issues fresh per-project ID-JAGs from their intersection. The prompts contain only the projects and scopes eligible at that moment.
+The command does not trust the ID-JAG roles already in the cache. It uses the cached, unexpired ID token to query ZMS again for the human's current role memberships and the local workload's current matching `-jag-exchangers` memberships, then issues fresh per-project ID-JAGs from their intersection. The prompts contain only the projects and scopes eligible at that moment.
 
 Choose a project first. When that project has exactly one eligible scope, `athenzd` uses it immediately without showing a redundant scope prompt; when it has multiple scopes, choose one in a second prompt. Focused choices and the login command hint use the Athenz blue `#215af2`. After selection, `athenzd` narrows the freshly issued project ID-JAG into a one-scope access token, replaces the cached ID-JAGs and access token, and saves the selected project as `gen_ai.default_project` in the active config file.
 

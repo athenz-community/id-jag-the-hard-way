@@ -56,8 +56,8 @@ kubectl -n athenz get configmap athenz-zms-custom-solution-templates -o json | j
 #   "templates": {
 #     "gen_ai_users_delegation": {
 #       "metadata": {
-#         "latestVersion": 1,
-#         "timestamp": "2026-07-17T00:00:00.000Z",
+#         "latestVersion": 2,
+#         "timestamp": "2026-07-21T00:00:00.000Z",
 #         "keywordsToReplace": "_cost_accountable_admin_",
 #         ...
 ```
@@ -97,8 +97,8 @@ kubectl -n athenz exec deployment/athenz-zms-server -- jq -e '.templates.gen_ai_
 ```sh
 # {
 #   "metadata": {
-#     "latestVersion": 1,
-#     "timestamp": "2026-07-17T00:00:00.000Z",
+#     "latestVersion": 2,
+#     "timestamp": "2026-07-21T00:00:00.000Z",
 #     "description": "gen ai users delegation template",
 #     "keywordsToReplace": "_cost_accountable_admin_",
 #     "autoUpdate": false
@@ -225,12 +225,12 @@ It creates the standard GenAI roles and policies for a service domain:
 
 - `role.cost-accountable-admins`
 - `role.gen-ai-users`
-- `role.gen-ai-users-manager`
-- `role.gen-ai-users-jag-exchanger` with `flava.context-ai.*`, `flava.mcp-hub.*`, and `home.*` as default members
-- `policy.cost-accountable-admins-policy` lets `cost-accountable-admins` update `gen-ai-users-manager` and `gen-ai-users`
-- `policy.gen-ai-users-manager-policy` lets `gen-ai-users-manager` update `gen-ai-users`
-- `policy.gen-ai-users-jag-exchanger-policy` grants `zts.jag_exchange` into `gen-ai-users`
-- The template does not grant membership updates on `gen-ai-users-jag-exchanger`
+- `role.gen-ai-users-managers`
+- `role.gen-ai-users-jag-exchangers` with `flava.context-ai.*`, `flava.mcp-hub.*`, and `home.*` as default members
+- `policy.cost-accountable-admins-policy` lets `cost-accountable-admins` update `gen-ai-users-managers` and `gen-ai-users`
+- `policy.gen-ai-users-managers-policy` lets `gen-ai-users-managers` update `gen-ai-users`
+- `policy.gen-ai-users-jag-exchangers-policy` grants `zts.jag_exchange` into `gen-ai-users`
+- The template does not grant membership updates on `gen-ai-users-jag-exchangers`
 
 **How do I remove the custom template?**
 

@@ -345,9 +345,9 @@ func newSetGenAIZMSServerWithOptionalDocs(t *testing.T, includeDocs bool) *httpt
 			}
 			json.NewEncoder(w).Encode(map[string]any{"memberRoles": roles})
 		case r.URL.Path == "/zms/v1/role" && r.URL.Query().Get("principal") == "home.alice.local.athenzd":
-			roles := []map[string]string{{"domainName": "gen-ai.services.athenz", "roleName": testBaselineRole + "-jag-exchanger"}}
+			roles := []map[string]string{{"domainName": "gen-ai.services.athenz", "roleName": testBaselineRole + "-jag-exchangers"}}
 			if includeDocs {
-				roles = append(roles, map[string]string{"domainName": "gen-ai.services.athenz", "roleName": "docs-reader-jag-exchanger"})
+				roles = append(roles, map[string]string{"domainName": "gen-ai.services.athenz", "roleName": "docs-reader-jag-exchangers"})
 			}
 			json.NewEncoder(w).Encode(map[string]any{"memberRoles": roles})
 		case r.URL.Path == "/zms/v1/domain/gen-ai.services.athenz/member":

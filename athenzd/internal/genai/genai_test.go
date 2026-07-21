@@ -44,7 +44,7 @@ func TestRoleAndScopeHelpers(t *testing.T) {
 	if err := ValidateRole(" gen-ai-users "); err != nil {
 		t.Fatal(err)
 	}
-	for _, role := range []string{"", "bad+role", "reader-jag-exchanger"} {
+	for _, role := range []string{"", "bad+role", "reader-jag-exchangers"} {
 		if err := ValidateRole(role); err == nil || !strings.Contains(err.Error(), "GenAI role") {
 			t.Fatalf("expected role error for %q, got %v", role, err)
 		}
@@ -64,14 +64,14 @@ func TestRoleAndScopeHelpers(t *testing.T) {
 }
 
 func TestTargetFromExchanger(t *testing.T) {
-	if scope, ok := TargetFromExchanger("gen-ai.services.athenz", "gen-ai.services.athenz:role.docs-reader-jag-exchanger"); !ok || scope != "gen-ai.services.athenz:role.docs-reader" {
+	if scope, ok := TargetFromExchanger("gen-ai.services.athenz", "gen-ai.services.athenz:role.docs-reader-jag-exchangers"); !ok || scope != "gen-ai.services.athenz:role.docs-reader" {
 		t.Fatalf("scope=%q ok=%v", scope, ok)
 	}
 	for _, role := range []string{
 		"not-a-scope",
-		"gen-ai.services.mail:role.docs-reader-jag-exchanger",
+		"gen-ai.services.mail:role.docs-reader-jag-exchangers",
 		"gen-ai.services.athenz:role.docs-reader",
-		"gen-ai.services.athenz:role.-jag-exchanger",
+		"gen-ai.services.athenz:role.-jag-exchangers",
 	} {
 		if scope, ok := TargetFromExchanger("gen-ai.services.athenz", role); ok || scope != "" {
 			t.Fatalf("expected %q not to map, got %q", role, scope)

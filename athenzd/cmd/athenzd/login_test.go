@@ -469,16 +469,16 @@ func TestLoginCmd_CopperArgosSuccess(t *testing.T) {
 			}
 			if domain == "gen-ai.services.athenz" {
 				fmt.Fprint(w, `{"memberRoles":[
-					{"domainName":"gen-ai.services.athenz","roleName":"docs-reader-jag-exchanger"}
+					{"domainName":"gen-ai.services.athenz","roleName":"docs-reader-jag-exchangers"}
 				]}`)
 				return
 			}
 			fmt.Fprint(w, `{"memberRoles":[
-				{"domainName":"gen-ai.services.mail","roleName":"writer-jag-exchanger"}
+				{"domainName":"gen-ai.services.mail","roleName":"writer-jag-exchangers"}
 			]}`)
 		case r.Method == http.MethodGet && (r.URL.Path == "/zms/v1/domain/gen-ai.services.athenz/member" || r.URL.Path == "/zms/v1/domain/gen-ai.services.mail/member"):
 			fmt.Fprint(w, `{"members":[
-				{"memberName":"home.*","memberRoles":[{"roleName":"gen-ai-users-jag-exchanger"}]}
+				{"memberName":"home.*","memberRoles":[{"roleName":"gen-ai-users-jag-exchangers"}]}
 			]}`)
 		default:
 			http.NotFound(w, r)

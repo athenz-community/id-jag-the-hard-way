@@ -39,26 +39,26 @@ func TestDiscoverGenAIScopesMultipleServices(t *testing.T) {
 			]}`)
 		case r.URL.Path == "/zms/v1/role" && r.URL.Query().Get("expand") == "true" && principal == "home.alice.local.athenzd" && domain == "gen-ai.services.athenz":
 			fmt.Fprint(w, `{"memberRoles":[
-				{"domainName":"gen-ai.services.athenz","roleName":"docs-reader-jag-exchanger"},
+				{"domainName":"gen-ai.services.athenz","roleName":"docs-reader-jag-exchangers"},
 				{"domainName":"gen-ai.services.athenz","roleName":"admin"},
-				{"domainName":"gen-ai.services.athenz","roleName":"unused-jag-exchanger"},
-				{"domainName":"gen-ai.services.mail","roleName":"writer-jag-exchanger"}
+				{"domainName":"gen-ai.services.athenz","roleName":"unused-jag-exchangers"},
+				{"domainName":"gen-ai.services.mail","roleName":"writer-jag-exchangers"}
 			]}`)
 		case r.URL.Path == "/zms/v1/domain/gen-ai.services.athenz/member":
 			fmt.Fprint(w, `{"members":[
-				{"memberName":"home.*","memberRoles":[{"roleName":"gen-ai.services.athenz:role.gen-ai-users-jag-exchanger"}]},
-				{"memberName":"other.*","memberRoles":[{"roleName":"unused-jag-exchanger"}]},
-				{"memberName":"home.alice.local.athenzd","memberRoles":[{"roleName":"ignored-exact-jag-exchanger"}]}
+				{"memberName":"home.*","memberRoles":[{"roleName":"gen-ai.services.athenz:role.gen-ai-users-jag-exchangers"}]},
+				{"memberName":"other.*","memberRoles":[{"roleName":"unused-jag-exchangers"}]},
+				{"memberName":"home.alice.local.athenzd","memberRoles":[{"roleName":"ignored-exact-jag-exchangers"}]}
 			]}`)
 		case r.URL.Path == "/zms/v1/role" && r.URL.Query().Get("expand") == "true" && principal == "home.alice.local.athenzd" && domain == "gen-ai.services.mail":
 			fmt.Fprint(w, `{"memberRoles":[
-				{"roleName":"gen-ai.services.mail:role.writer-jag-exchanger"},
+				{"roleName":"gen-ai.services.mail:role.writer-jag-exchangers"},
 				{"roleName":"bad-role"}
 			]}`)
 		case r.URL.Path == "/zms/v1/domain/gen-ai.services.mail/member":
 			fmt.Fprint(w, `{"members":[
-				{"memberName":"home.alice*","memberRoles":[{"roleName":"gen-ai-users-jag-exchanger"}]},
-				{"memberName":"home.bob*","memberRoles":[{"roleName":"writer-jag-exchanger"}]}
+				{"memberName":"home.alice*","memberRoles":[{"roleName":"gen-ai-users-jag-exchangers"}]},
+				{"memberName":"home.bob*","memberRoles":[{"roleName":"writer-jag-exchangers"}]}
 			]}`)
 		default:
 			t.Errorf("unexpected request: %s?%s", r.URL.Path, r.URL.RawQuery)
