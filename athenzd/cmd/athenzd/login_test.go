@@ -70,40 +70,47 @@ func TestEnsureState(t *testing.T) {
 	}
 }
 
-func TestEnrollWithPolicySync(t *testing.T) {
+func TestEnrollWithZMSSync(t *testing.T) {
+	if ztsSyncAttempts != 5 || ztsSyncInterval != 3*time.Second {
+		t.Fatalf("unexpected ZTS sync policy: attempts=%d interval=%s", ztsSyncAttempts, ztsSyncInterval)
+	}
 	expected := &zts.Identity{Name: "home.idjag-learner.local.athenzd"}
-	attempts := 0
-	identity, err := enrollWithPolicySync(context.Background(), true, 0, func() (*zts.Identity, error) {
-		attempts++
-		if attempts < 3 {
-			return nil, &zts.RegistrationError{StatusCode: http.StatusForbidden, Message: "policy not visible"}
+	for _, status := range []int{http.StatusForbidden, http.StatusNotFound} {
+		attempts := 0
+		identity, err := enrollWithZMSSync(context.Background(), true, 0, func() (*zts.Identity, error) {
+			attempts++
+			if attempts < 3 {
+				return nil, &zts.RegistrationError{StatusCode: status, Message: "ZMS state not visible"}
+			}
+			return expected, nil
+		})
+		if err != nil || identity != expected || attempts != 3 {
+			t.Fatalf("status=%d identity=%v attempts=%d err=%v", status, identity, attempts, err)
 		}
-		return expected, nil
-	})
-	if err != nil || identity != expected || attempts != 3 {
-		t.Fatalf("retry result: identity=%v attempts=%d err=%v", identity, attempts, err)
 	}
 
-	attempts = 0
-	_, err = enrollWithPolicySync(context.Background(), false, 0, func() (*zts.Identity, error) {
+	attempts := 0
+	_, err := enrollWithZMSSync(context.Background(), false, 0, func() (*zts.Identity, error) {
 		attempts++
-		return nil, &zts.RegistrationError{StatusCode: http.StatusForbidden}
+		return nil, &zts.RegistrationError{StatusCode: http.StatusNotFound}
 	})
 	if err == nil || attempts != 1 {
-		t.Fatalf("expected no retry without a new authorization: attempts=%d err=%v", attempts, err)
+		t.Fatalf("expected no retry without a ZMS change: attempts=%d err=%v", attempts, err)
 	}
 
 	attempts = 0
-	_, err = enrollWithPolicySync(context.Background(), true, 0, func() (*zts.Identity, error) {
+	_, err = enrollWithZMSSync(context.Background(), true, 0, func() (*zts.Identity, error) {
 		attempts++
-		return nil, &zts.RegistrationError{StatusCode: http.StatusForbidden}
+		return nil, &zts.RegistrationError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 	})
-	if err == nil || attempts != ztsPolicySyncAttempts {
-		t.Fatalf("expected retry limit: attempts=%d err=%v", attempts, err)
+	if err == nil || attempts != ztsSyncAttempts ||
+		!strings.Contains(err.Error(), "after 5 attempts at 0s intervals") ||
+		!strings.Contains(err.Error(), "domain not found") {
+		t.Fatalf("expected retry summary: attempts=%d err=%v", attempts, err)
 	}
 
 	attempts = 0
-	_, err = enrollWithPolicySync(context.Background(), true, 0, func() (*zts.Identity, error) {
+	_, err = enrollWithZMSSync(context.Background(), true, 0, func() (*zts.Identity, error) {
 		attempts++
 		return nil, fmt.Errorf("network error")
 	})
@@ -113,7 +120,7 @@ func TestEnrollWithPolicySync(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = enrollWithPolicySync(ctx, true, time.Hour, func() (*zts.Identity, error) {
+	_, err = enrollWithZMSSync(ctx, true, time.Hour, func() (*zts.Identity, error) {
 		return nil, &zts.RegistrationError{StatusCode: http.StatusForbidden}
 	})
 	if !errors.Is(err, context.Canceled) {

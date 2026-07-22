@@ -15,6 +15,7 @@
    - The configured Go template `home.{{.preferred_username}}.local.athenzd` is the complete service identity. It is rendered from the fresh ID token and parsed into the required parent, child domain, and simple service name.
    - If the personal parent is absent, athenzd creates it with ZMS's dedicated `POST /userdomain/<user>` API. It never creates or modifies the reserved `home` top-level domain.
    - Note: this is a **ZMS** operation. Copper Argos (`POST /instance` on ZTS) does **not** create domains/services — it only issues X.509 certs, and requires the service to already exist. Cert issuance (via ID-token attestation) is a **later** step.
+   - When ZMS changed the personal domain, child domain, service, or provider authorization, certificate enrollment silently retries ZTS HTTP 404/403 propagation failures up to five times at three-second intervals. Future ZMS-write/ZTS-read flows should reuse this policy.
 
 ### Prerequisites
 

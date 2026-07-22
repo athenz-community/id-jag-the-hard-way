@@ -24,13 +24,17 @@ func TestEnsureConfiguredGenAIProxyDisabled(t *testing.T) {
 	}
 }
 
-func TestEnsureConfiguredGenAIProxyRequiresAccessToken(t *testing.T) {
+func TestEnsureConfiguredGenAIProxySkipsWithoutAccessToken(t *testing.T) {
 	cfg := proxyTestConfig()
 	for _, entry := range []*cache.TokenEntry{{}, {AccessToken: &cache.AccessTokenEntry{}}} {
+		runs := 0
 		err := ensureConfiguredGenAIProxy(context.Background(), cfg, "/config", entry, &bytes.Buffer{},
-			func(context.Context, genaiproxy.DaemonOptions) (*genaiproxy.DaemonResult, error) { return nil, nil })
-		if err == nil || !strings.Contains(err.Error(), "no default GenAI access token") {
-			t.Fatalf("unexpected error: %v", err)
+			func(context.Context, genaiproxy.DaemonOptions) (*genaiproxy.DaemonResult, error) {
+				runs++
+				return nil, nil
+			})
+		if err != nil || runs != 0 {
+			t.Fatalf("err=%v runs=%d", err, runs)
 		}
 	}
 }

@@ -19,7 +19,7 @@ func ensureConfiguredGenAIProxy(ctx context.Context, cfg *config.Config, configP
 		return nil
 	}
 	if entry.AccessToken == nil || entry.AccessToken.Token == "" {
-		return fmt.Errorf("gen_ai.proxy is configured but no default GenAI access token was issued")
+		return nil
 	}
 	logPath, statePath := genAIProxyDaemonPaths(configPath)
 	result, err := manager(ctx, genaiproxy.DaemonOptions{

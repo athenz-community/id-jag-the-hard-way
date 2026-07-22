@@ -412,7 +412,6 @@ Step 2/3 — Ensure Athenz service home.idjag-learner.local.athenzd
 ✓ Optional administrator user.athenz_admin: already present
 ✓ Service home.idjag-learner.local.athenzd: created
 ✓ Provider launch authorization sys.auth.localworkload: applied
-  Waiting up to 60s for ZTS to observe the new authorization...
 
 Step 3/3 — Enroll X.509 identity through sys.auth.localworkload
 ✓ Certificate issued: home.idjag-learner.local.athenzd (instance idjag-learner-athenzd)
@@ -422,7 +421,7 @@ Step 3/3 — Enroll X.509 identity through sys.auth.localworkload
 ✓ Ready: home.idjag-learner.local.athenzd
 ```
 
-`athenzd` applies the target domain's `identity_provisioning` solution template after creating the service. If that authorization changed, it retries an HTTP 403 from ZTS for up to 60 seconds while ZTS refreshes its policy cache. Other errors fail immediately.
+`athenzd` applies the target domain's `identity_provisioning` solution template after creating the service. Any personal-domain, child-domain, service, or provider-authorization change may take a short time to reach ZTS, so enrollment silently retries HTTP 404 and 403 responses up to five times at three-second intervals. Other errors fail immediately. If propagation still fails, the final error includes the attempt count and interval.
 
 The one service identity is separated internally into:
 
@@ -871,14 +870,18 @@ Only certificate issuance is remote. `athenzd` generates and retains the private
 
 The published image is a JAR carrier rather than a long-running service. Its init container copies the JAR into an `emptyDir` shared with ZTS before ZTS starts, so the class is available on `USER_CLASSPATH` without a workstation build or a custom ZTS image.
 
-**Why might the first ZTS registration briefly return HTTP 403?**
+**Why might the first ZTS registration briefly return HTTP 404 or 403?**
 
-ZMS has already accepted the target `identity_provisioning` template, but ZTS may not have refreshed that domain in its policy cache yet. When `athenzd` applied the authorization during the same login, it retries only HTTP 403 responses for up to 60 seconds. A persistent 403 means the provider or target launch authorization is genuinely missing; inspect the focused ZTS log without printing the ID token:
+ZMS may already have accepted the new domain, service, or `identity_provisioning` template while ZTS has not refreshed that state yet. When login changed any of those ZMS resources, `athenzd` silently retries HTTP 404 and 403 registration responses up to five times at three-second intervals. A persistent failure reports those retry details; then inspect the focused ZTS log without printing the ID token:
 
 ```sh
 kubectl -n athenz logs deployment/athenz-zts-server --since=5m \
-  | grep -E 'not authorized to launch|unable to get instance for provider|unable to verify attestation data|CSR validation failed'
+  | grep -E 'Domain not found|not authorized to launch|unable to get instance for provider|unable to verify attestation data|CSR validation failed'
 ```
+
+**Why does login skip ID-JAG issuance when the user has no eligible GenAI roles?**
+
+This is an expected authorization state for a new user. Login keeps the cached ID token and issued X.509 identity, prints the single `ID-JAG skipped` explanation, leaves the configured GenAI proxy stopped because no access token exists, and exits successfully. Assign the required human and workload roles, then run `athenzd login` again.
 
 **Can `idp_user=idjag-learner` choose or override the authenticated user?**
 

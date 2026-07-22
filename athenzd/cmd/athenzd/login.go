@@ -134,9 +134,6 @@ func newLoginCmdWithDependencies(browserFn func(string) error, selector projectS
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Provider launch authorization %s: %s\n",
 				svc.Athenz.Provider, authorizationState(providerAuthorized))
-			if providerAuthorized {
-				fmt.Fprintln(cmd.OutOrStdout(), "  Waiting up to 60s for ZTS to observe the new authorization...")
-			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "\nStep 3/%d — Enroll X.509 identity through %s\n", stepCount, svc.Athenz.Provider)
 			ztsClient, err := zts.NewClient(cfg.Athenz.ZTS, cfg.Athenz.CAFile)
@@ -154,7 +151,8 @@ func newLoginCmdWithDependencies(browserFn func(string) error, selector projectS
 				KeyFile:         svc.Identity.KeyFile,
 				CAFile:          svc.Identity.CAFile,
 			}
-			identity, err := enrollWithPolicySync(cmd.Context(), providerAuthorized, 5*time.Second,
+			zmsChanged := report.HomeDomainCreated || report.SubdomainCreated || report.ServiceCreated || providerAuthorized
+			identity, err := enrollWithZMSSync(cmd.Context(), zmsChanged, ztsSyncInterval,
 				func() (*zts.Identity, error) {
 					return ztsClient.Enroll(cmd.Context(), enrollRequest)
 				})
@@ -232,13 +230,19 @@ func cacheLoginIDJAGs(serviceName string, entry *cache.TokenEntry, idJAGs map[st
 	return nil
 }
 
-const ztsPolicySyncAttempts = 13
+const (
+	ztsSyncAttempts = 5
+	ztsSyncInterval = 3 * time.Second
+)
 
-func enrollWithPolicySync(ctx context.Context, authorizationChanged bool, retryDelay time.Duration,
+// enrollWithZMSSync absorbs the short propagation window after a ZMS write.
+// Future enrollment paths that immediately consume new ZMS state through ZTS
+// should reuse this policy instead of adding their own sleeps or retry loops.
+func enrollWithZMSSync(ctx context.Context, zmsChanged bool, retryInterval time.Duration,
 	enroll func() (*zts.Identity, error)) (*zts.Identity, error) {
 	attempts := 1
-	if authorizationChanged {
-		attempts = ztsPolicySyncAttempts
+	if zmsChanged {
+		attempts = ztsSyncAttempts
 	}
 	for attempt := 1; ; attempt++ {
 		identity, err := enroll()
@@ -246,11 +250,17 @@ func enrollWithPolicySync(ctx context.Context, authorizationChanged bool, retryD
 			return identity, nil
 		}
 		var registrationError *zts.RegistrationError
-		if !errors.As(err, &registrationError) || registrationError.StatusCode != http.StatusForbidden || attempt == attempts {
+		retryable := errors.As(err, &registrationError) &&
+			(registrationError.StatusCode == http.StatusForbidden || registrationError.StatusCode == http.StatusNotFound)
+		if !retryable || attempt == attempts {
+			if attempt > 1 {
+				return nil, fmt.Errorf("ZTS enrollment failed after %d attempts at %s intervals while waiting for recent ZMS changes to propagate: %w",
+					attempt, retryInterval, err)
+			}
 			return nil, err
 		}
 
-		timer := time.NewTimer(retryDelay)
+		timer := time.NewTimer(retryInterval)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
