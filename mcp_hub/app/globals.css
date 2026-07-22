@@ -1751,6 +1751,208 @@ input:disabled {
   font-weight: 650;
 }
 
+.accountable-role-list {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.accountable-role-card {
+  margin-bottom: 0;
+  border-color: #d8e4f2;
+}
+
+.accountable-role-head {
+  background: #f7faff;
+}
+
+.accountable-role-heading {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.accountable-role-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: #e8f3ff;
+  color: #23659e;
+}
+
+.accountable-role-kicker {
+  display: block;
+  margin-bottom: 2px;
+  color: #6e7d8d;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.accountable-service-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  border: 1px solid #bad4ee;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #e8f3ff;
+  color: #23659e;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.accountable-role-card--manager {
+  border-color: #d5e7e2;
+}
+
+.accountable-role-card--manager .accountable-role-head {
+  background: #f6fbf9;
+}
+
+.accountable-role-card--manager .accountable-role-icon,
+.accountable-role-card--manager .accountable-service-count {
+  border-color: #b9ddd3;
+  background: #e8f6f1;
+  color: #267563;
+}
+
+.accountable-role-card--manager .accountable-service-icon {
+  background: #eaf6f2;
+  color: #2f7d6b;
+}
+
+.accountable-service-list {
+  padding: 0 18px;
+}
+
+.accountable-service-card {
+  min-width: 0;
+  min-height: 66px;
+  display: grid;
+  grid-template-columns: minmax(190px, 0.8fr) minmax(260px, 1.6fr) auto;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid #e5e9ee;
+  padding: 11px 0;
+  background: #fff;
+}
+
+.accountable-service-card:last-child {
+  border-bottom: 0;
+}
+
+.accountable-service-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.accountable-service-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  background: #e9f3fc;
+  color: #2d79b6;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.accountable-service-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  flex: 1;
+}
+
+.accountable-service-copy strong {
+  color: #1a2029;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.accountable-service-copy code {
+  overflow: hidden;
+  color: #737b86;
+  font-size: 9px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accountable-service-members {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.accountable-members-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  color: #66717e;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.accountable-member-list {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.accountable-member-list code {
+  border: 1px solid #d8e2ec;
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: #f4f8fc;
+  color: #385873;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.accountable-member-list small {
+  color: #9299a3;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.accountable-manage-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 30px;
+  border: 1px solid #b8c9dc;
+  border-radius: 5px;
+  padding: 0 10px;
+  background: #fff;
+  color: #245d91;
+  font-size: 10px;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.accountable-manage-button:hover {
+  border-color: #7fa5ca;
+  background: #f3f8fd;
+}
+
 .chart-wrap {
   position: relative;
   min-height: 290px;
@@ -2308,6 +2510,22 @@ input:disabled {
 
   .metric-card {
     min-height: 96px;
+  }
+
+  .accountable-role-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .accountable-service-card {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 14px 0;
+  }
+
+  .accountable-manage-button {
+    width: max-content;
+    margin-left: 42px;
   }
 
   .spending-panel-head,

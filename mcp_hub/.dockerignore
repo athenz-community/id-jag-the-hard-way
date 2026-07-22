@@ -1,0 +1,6 @@
+.git
+.next
+node_modules
+certs
+*.log
+.DS_Store

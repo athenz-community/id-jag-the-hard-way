@@ -1,13 +1,42 @@
 "use client"
 
 import { Fragment, useState } from "react"
-import { Activity, Bot, Home } from "lucide-react"
+import { Activity, ArrowUpRight, Bot, Home, ShieldCheck, Users } from "lucide-react"
 import Link from "next/link"
 import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
+import type {
+  CostAccountableDomain,
+  GenAIAdministratorRole,
+} from "@/features/genai/types/access"
 import type { GenAIUsageResponse, ModelTokenUsage, UserUsage } from "@/features/genai/types/usage"
 
 const DEFAULT_MODEL = "gemma4:26b"
 const MODEL_CHART_COLORS = ["#3f7fe0", "#7256c8", "#35a99a", "#e58b48", "#d45f8d", "#6f879f"]
+const ADMINISTRATOR_BOXES: ReadonlyArray<{
+  description: string
+  emptyLabel: string
+  membersLabel: string
+  role: GenAIAdministratorRole
+  title: string
+  tone: "accountable" | "manager"
+}> = [
+  {
+    role: "cost-accountable-admins",
+    title: "Cost accountable admin",
+    description: "Services where you assign and oversee Gen AI user managers.",
+    membersLabel: "Assigned Gen AI user managers",
+    emptyLabel: "No Gen AI user managers assigned",
+    tone: "accountable",
+  },
+  {
+    role: "gen-ai-users-managers",
+    title: "Gen AI user manager",
+    description: "Services where you assign and oversee Gen AI users.",
+    membersLabel: "Gen AI users",
+    emptyLabel: "No Gen AI users assigned",
+    tone: "manager",
+  },
+]
 
 type DailyModelUsage = ModelTokenUsage & {
   date: string
@@ -42,11 +71,13 @@ type ChartTooltip = {
 }
 
 export function MonitoringDashboard({
+  costAccountableDomains,
   project,
   product,
   user,
   usage,
 }: {
+  costAccountableDomains: CostAccountableDomain[]
   project: string
   product: string
   user: string
@@ -72,6 +103,8 @@ export function MonitoringDashboard({
         </div>
       ) : null}
 
+      <CostAccountableServices domains={costAccountableDomains} user={user} />
+
       <DashboardPanel title="Token usage by model" subtitle="Daily combined input + output tokens for the last 30 days (JST)">
         <TokenUsageChart days={dashboard.days} />
       </DashboardPanel>
@@ -82,6 +115,82 @@ export function MonitoringDashboard({
 
       <SpendingLimits systemCodes={dashboard.systemCodes} />
     </>
+  )
+}
+
+function CostAccountableServices({
+  domains,
+  user,
+}: {
+  domains: CostAccountableDomain[]
+  user: string
+}) {
+  if (domains.length === 0) return null
+
+  const boxes = ADMINISTRATOR_BOXES.map((box) => ({
+    ...box,
+    services: domains.flatMap((domain) => {
+      const responsibility = domain.responsibilities.find(({ role }) => role === box.role)
+      return responsibility ? [{ ...domain, responsibility }] : []
+    }),
+  })).filter(({ services }) => services.length > 0)
+
+  return (
+    <section className="accountable-role-list" aria-label={`Gen AI administrator responsibilities for ${user}`}>
+      {boxes.map(({ description, emptyLabel, membersLabel, role, services, title, tone }) => (
+        <article className={`dashboard-panel accountable-role-card accountable-role-card--${tone}`} key={role}>
+          <div className="dashboard-panel-head accountable-role-head">
+            <div className="accountable-role-heading">
+              <span className="accountable-role-icon" aria-hidden="true">
+                <ShieldCheck size={16} />
+              </span>
+              <div>
+                <span className="accountable-role-kicker">Your role</span>
+                <h2>{title}</h2>
+                <p>{description}</p>
+              </div>
+            </div>
+            <span className="accountable-service-count">
+              {services.length} {services.length === 1 ? "service" : "services"}
+            </span>
+          </div>
+          <div className="accountable-service-list">
+            {services.map(({ domain, responsibility, service }) => (
+              <div className="accountable-service-card" key={domain}>
+                <div className="accountable-service-identity">
+                  <span className="accountable-service-icon" aria-hidden="true">
+                    {service.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="accountable-service-copy">
+                    <strong>{displayServiceCode(service)}</strong>
+                    <code>{domain}</code>
+                  </span>
+                </div>
+                <div className="accountable-service-members">
+                  <span className="accountable-members-label">
+                    <Users size={13} aria-hidden="true" /> {membersLabel}
+                  </span>
+                  <span className="accountable-member-list">
+                    {responsibility.members.length > 0
+                      ? responsibility.members.map((member) => <code key={member}>{member}</code>)
+                      : <small>{emptyLabel}</small>}
+                  </span>
+                </div>
+                <Link
+                  className="accountable-manage-button"
+                  href={responsibility.manageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Manage members
+                  <ArrowUpRight size={13} aria-hidden="true" />
+                </Link>
+              </div>
+            ))}
+          </div>
+        </article>
+      ))}
+    </section>
   )
 }
 
