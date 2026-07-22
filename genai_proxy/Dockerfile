@@ -6,8 +6,7 @@ COPY --chown=node:node package.json ./
 COPY --chown=node:node src ./src
 
 ENV PORT=8080 \
-    HOST=0.0.0.0 \
-    OLLAMA_BASE_URL=http://host.docker.internal:11434
+    HOST=0.0.0.0
 
 EXPOSE 8080
 

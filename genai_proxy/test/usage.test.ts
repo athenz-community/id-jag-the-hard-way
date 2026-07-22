@@ -19,6 +19,15 @@ test("extracts OpenAI-compatible usage", () => {
   ), { promptTokens: 2, completionTokens: 4, totalTokens: 6 })
 })
 
+test("extracts Responses API usage from a completed streaming event", () => {
+  assert.deepEqual(extractTokenUsage([
+    'data: {"type":"response.output_text.delta","delta":"hello"}',
+    'data: {"type":"response.completed","response":{"usage":{"input_tokens":7,"output_tokens":11,"total_tokens":18}}}',
+    "data: [DONE]",
+    "",
+  ].join("\n\n")), { promptTokens: 7, completionTokens: 11, totalTokens: 18 })
+})
+
 test("aggregates users separately within each project", () => {
   const store = new UsageStore({ now: () => new Date("2026-07-20T12:00:00Z") })
   const alice = {
@@ -47,7 +56,7 @@ test("aggregates users separately within each project", () => {
     output_tokens: 14,
     total_tokens: 23,
     tokens: [{
-      model: "gemma4:26b",
+      model: "gpt-5.6-luna",
       requests: 2,
       input: 9,
       output: 14,
@@ -86,7 +95,7 @@ test("persists usage across store instances", () => {
       output_tokens: 3,
       total_tokens: 5,
       tokens: [{
-        model: "gemma4:26b",
+        model: "gpt-5.6-luna",
         requests: 1,
         input: 2,
         output: 3,
@@ -189,12 +198,12 @@ test("tracks multiple models independently within a daily user entry", () => {
     scope: "gen-ai.services.athenz:role.gen-ai-users",
   }
 
-  store.record({ ...identity, model: "gemma4:26b" }, { promptTokens: 2, completionTokens: 3, totalTokens: 5 })
-  store.record({ ...identity, model: "gemma4:31b" }, { promptTokens: 7, completionTokens: 11, totalTokens: 18 })
+  store.record({ ...identity, model: "gpt-5.6-luna" }, { promptTokens: 2, completionTokens: 3, totalTokens: 5 })
+  store.record({ ...identity, model: "gpt-5.6-terra" }, { promptTokens: 7, completionTokens: 11, totalTokens: 18 })
 
   assert.deepEqual(store.list("gen-ai.services.athenz")[0].tokens, [
-    { model: "gemma4:26b", requests: 1, input: 2, output: 3, total: 5 },
-    { model: "gemma4:31b", requests: 1, input: 7, output: 11, total: 18 },
+    { model: "gpt-5.6-luna", requests: 1, input: 2, output: 3, total: 5 },
+    { model: "gpt-5.6-terra", requests: 1, input: 7, output: 11, total: 18 },
   ])
 })
 
@@ -208,13 +217,13 @@ test("aggregates current daily model usage across users for service-code limits"
       project: "gen-ai.services.athenz",
       subject,
       clientId: `home.${subject.slice("user.".length)}.local.athenzd`,
-      model: "gemma4:26b",
+      model: "gpt-5.6-luna",
       scope: "gen-ai.services.athenz:role.gen-ai-users",
     }, { promptTokens, completionTokens, totalTokens: promptTokens + completionTokens })
   }
 
   assert.deepEqual(store.currentDailyModels("gen-ai.services.athenz"), [{
-    model: "gemma4:26b",
+    model: "gpt-5.6-luna",
     requests: 2,
     promptTokens: 7,
     completionTokens: 10,

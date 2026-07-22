@@ -10,7 +10,7 @@ import type {
 } from "@/features/genai/types/access"
 import type { GenAIUsageResponse, ModelTokenUsage, UserUsage } from "@/features/genai/types/usage"
 
-const DEFAULT_MODEL = "gemma4:26b"
+const DEFAULT_MODEL = "gpt-5.6-luna"
 const MODEL_CHART_COLORS = ["#3f7fe0", "#7256c8", "#35a99a", "#e58b48", "#d45f8d", "#6f879f"]
 const ADMINISTRATOR_BOXES: ReadonlyArray<{
   description: string
@@ -197,7 +197,8 @@ function CostAccountableServices({
 function SpendingLimits({ systemCodes }: { systemCodes: SystemCodeUsage[] }) {
   const rows = systemCodes.map((usage) => {
     const spent = usage.dailyEstimatedCost
-    const usedPercent = usage.dailyLimit > 0 ? (spent / usage.dailyLimit) * 100 : 0
+    const calculatedPercent = usage.dailyLimit > 0 ? (spent / usage.dailyLimit) * 100 : 0
+    const usedPercent = Math.min(Math.max(calculatedPercent, 0), 100)
     return {
       budget: usage.dailyLimit,
       fractionDigits: usage.fractionDigits,
@@ -205,7 +206,6 @@ function SpendingLimits({ systemCodes }: { systemCodes: SystemCodeUsage[] }) {
       serviceCode: usage.name,
       spent,
       usedPercent,
-      barPercent: Math.min(usedPercent, 100),
       remaining: Math.max(usage.dailyLimit - spent, 0),
     }
   })
@@ -244,7 +244,7 @@ function SpendingLimits({ systemCodes }: { systemCodes: SystemCodeUsage[] }) {
               >
                 <span
                   className={`spending-bar-used ${row.spent > 0 ? "has-spend" : ""}`}
-                  style={{ width: `${row.barPercent}%` }}
+                  style={{ width: `${row.usedPercent}%` }}
                 />
                 <span className="spending-bar-remaining" />
               </div>

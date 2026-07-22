@@ -43,7 +43,7 @@ type UsageSnapshot = {
   }>
 }
 
-export const DEFAULT_MODEL = "gemma4:26b"
+export const DEFAULT_MODEL = "gpt-5.6-luna"
 
 export class UsageStore {
   private readonly projects = new Map<string, Map<string, UserUsage>>()
@@ -361,17 +361,26 @@ export function extractTokenUsage(responseTail: string): TokenUsage | undefined 
     }
   }
 
-  const promptTokens = lastInteger(responseTail, /"(?:prompt_eval_count|prompt_tokens)"\s*:\s*(\d+)/g)
-  const completionTokens = lastInteger(responseTail, /"(?:eval_count|completion_tokens)"\s*:\s*(\d+)/g)
+  const promptTokens = lastInteger(responseTail, /"(?:prompt_eval_count|prompt_tokens|input_tokens)"\s*:\s*(\d+)/g)
+  const completionTokens = lastInteger(responseTail, /"(?:eval_count|completion_tokens|output_tokens)"\s*:\s*(\d+)/g)
   const totalTokens = lastInteger(responseTail, /"total_tokens"\s*:\s*(\d+)/g)
   return normalizedUsage(promptTokens, completionTokens, totalTokens)
 }
 
 function usageFromObject(value: Record<string, unknown>) {
+  const response = value.response
+  if (response && typeof response === "object" && !Array.isArray(response)) {
+    const usage = usageFromObject(response as Record<string, unknown>)
+    if (usage) return usage
+  }
   const openAIUsage = value.usage
   if (openAIUsage && typeof openAIUsage === "object" && !Array.isArray(openAIUsage)) {
     const usage = openAIUsage as Record<string, unknown>
-    return normalizedUsage(usage.prompt_tokens, usage.completion_tokens, usage.total_tokens)
+    return normalizedUsage(
+      usage.prompt_tokens ?? usage.input_tokens,
+      usage.completion_tokens ?? usage.output_tokens,
+      usage.total_tokens,
+    )
   }
   return normalizedUsage(value.prompt_eval_count, value.eval_count, undefined)
 }

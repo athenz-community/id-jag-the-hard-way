@@ -8,12 +8,19 @@ type Fetch = typeof globalThis.fetch
 
 type ProxyOptions = {
   authenticate: TokenVerifier
-  ollamaBaseUrl?: string
+  upstreamBaseUrl: string
+  upstreamApiKey?: string
   fetchImpl?: Fetch
   usageStore?: UsageStore
 }
 
-const meteredPaths = new Set(["/api/chat", "/api/generate", "/v1/chat/completions", "/v1/completions"])
+const meteredPaths = new Set([
+  "/api/chat",
+  "/api/generate",
+  "/v1/chat/completions",
+  "/v1/completions",
+  "/v1/responses",
+])
 const maxUsageTailBytes = 128 * 1024
 
 const requestHeadersToStrip = new Set([
@@ -34,18 +41,26 @@ const responseHeadersToStrip = new Set([
 ])
 
 export function createGenAIProxy(options: ProxyOptions) {
-  const ollamaBaseUrl = normalizeOllamaBaseUrl(options.ollamaBaseUrl ?? "http://127.0.0.1:11434")
+  const upstreamBaseUrl = normalizeUpstreamBaseUrl(options.upstreamBaseUrl)
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
   const usageStore = options.usageStore ?? new UsageStore()
 
   return http.createServer((req, res) => {
-    void handleRequest(req, res, ollamaBaseUrl, fetchImpl, options.authenticate, usageStore).catch((error) => {
+    void handleRequest(
+      req,
+      res,
+      upstreamBaseUrl,
+      options.upstreamApiKey,
+      fetchImpl,
+      options.authenticate,
+      usageStore,
+    ).catch((error) => {
       const message = error instanceof Error ? error.message : "Unknown upstream error"
       console.error("GenAI proxy request failed", { method: req.method, url: req.url, message })
       if (!res.headersSent) {
         sendJson(res, 502, {
-          error: "ollama_upstream_unavailable",
-          message: "The local Ollama API could not be reached.",
+          error: "genai_upstream_unavailable",
+          message: "The configured GenAI upstream could not be reached.",
         })
       } else {
         res.destroy()
@@ -57,7 +72,8 @@ export function createGenAIProxy(options: ProxyOptions) {
 async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
-  ollamaBaseUrl: URL,
+  upstreamBaseUrl: URL,
+  upstreamApiKey: string | undefined,
   fetchImpl: Fetch,
   authenticate: TokenVerifier,
   usageStore: UsageStore,
@@ -66,7 +82,7 @@ async function handleRequest(
   const isMeteredRequest = meteredPaths.has(requestUrl.pathname)
 
   if (requestUrl.pathname === "/healthz") {
-    sendJson(res, 200, { status: "ok", upstream: "ollama" })
+    sendJson(res, 200, { status: "ok", upstream: "openai-compatible" })
     return
   }
 
@@ -123,7 +139,7 @@ async function handleRequest(
     }
   }
 
-  const upstreamUrl = new URL(requestUrl.pathname + requestUrl.search, ollamaBaseUrl)
+  const upstreamUrl = new URL(requestUrl.pathname + requestUrl.search, upstreamBaseUrl)
   let model: string | undefined
   let body: BodyInit | undefined
   if (!["GET", "HEAD"].includes(req.method ?? "")) {
@@ -137,7 +153,7 @@ async function handleRequest(
   }
   const response = await fetchImpl(upstreamUrl, {
     method: req.method,
-    headers: forwardedRequestHeaders(req.headers),
+    headers: forwardedRequestHeaders(req.headers, upstreamApiKey),
     body,
     duplex: body ? "half" : undefined,
     redirect: "manual",
@@ -233,21 +249,22 @@ function projectUsageReport(usageStore: UsageStore, subject: string) {
   })
 }
 
-function normalizeOllamaBaseUrl(value: string) {
+function normalizeUpstreamBaseUrl(value: string) {
   const url = new URL(value)
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`OLLAMA_BASE_URL must use http or https, got ${url.protocol}`)
+    throw new Error(`GENAI_UPSTREAM_BASE_URL must use http or https, got ${url.protocol}`)
   }
   url.pathname = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`
   return url
 }
 
-function forwardedRequestHeaders(headers: IncomingHttpHeaders) {
+function forwardedRequestHeaders(headers: IncomingHttpHeaders, upstreamApiKey: string | undefined) {
   const forwarded = new Headers()
   for (const [key, value] of Object.entries(headers)) {
     if (!value || requestHeadersToStrip.has(key.toLowerCase())) continue
     forwarded.set(key, Array.isArray(value) ? value.join(", ") : value)
   }
+  if (upstreamApiKey) forwarded.set("authorization", `Bearer ${upstreamApiKey}`)
   return forwarded
 }
 

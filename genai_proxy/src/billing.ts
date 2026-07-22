@@ -6,14 +6,15 @@ type ModelPrice = {
 }
 
 const modelPricesUsdPerMillion: Record<string, ModelPrice> = {
-  "gemma4:26b": { input: 0.1, output: 0.3 },
-  "gemma4:31b": { input: 0.12, output: 0.36 },
+  "gpt-5.6-sol": { input: 5, output: 30 },
+  "gpt-5.6-terra": { input: 2.5, output: 15 },
+  "gpt-5.6-luna": { input: 1, output: 6 },
 }
 
 const fallbackPriceUsdPerMillion: ModelPrice = { input: 0.1, output: 0.3 }
 
 export const dailyServiceCodeLimits: Readonly<Record<string, { amountUsd: number; fractionDigits: number }>> = {
-  athenz: { amountUsd: 0.24, fractionDigits: 2 },
+  athenz: { amountUsd: 240, fractionDigits: 2 },
   spire: { amountUsd: 0.002, fractionDigits: 3 },
 }
 

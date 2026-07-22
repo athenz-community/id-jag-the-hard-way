@@ -12,20 +12,20 @@ afterEach(async () => {
 })
 
 test("healthz is available without an access token", async () => {
-  const proxy = await listen(createGenAIProxy({ authenticate }))
+  const proxy = await listen(createGenAIProxy({ authenticate, upstreamBaseUrl: "http://127.0.0.1:1" }))
   const response = await fetch(url(proxy, "/healthz"))
 
   assert.equal(response.status, 200)
-  assert.deepEqual(await response.json(), { status: "ok", upstream: "ollama" })
+  assert.deepEqual(await response.json(), { status: "ok", upstream: "openai-compatible" })
 })
 
-test("Ollama requests require a Bearer access token", async () => {
+test("upstream requests require an Athenz Bearer access token", async () => {
   let upstreamCalled = false
   const ollama = await listen(http.createServer((_req, res) => {
     upstreamCalled = true
     res.end()
   }))
-  const proxy = await listen(createGenAIProxy({ authenticate, ollamaBaseUrl: url(ollama, "/") }))
+  const proxy = await listen(createGenAIProxy({ authenticate, upstreamBaseUrl: url(ollama, "/") }))
 
   const response = await fetch(url(proxy, "/api/tags"))
 
@@ -35,7 +35,7 @@ test("Ollama requests require a Bearer access token", async () => {
   assert.equal((await response.json() as { error: string }).error, "missing_access_token")
 })
 
-test("forwards native Ollama requests without leaking the AT upstream", async () => {
+test("forwards requests without leaking the Athenz AT upstream", async () => {
   let received: { method?: string; url?: string; authorization?: string; body?: string; requestId?: string } = {}
   const ollama = await listen(http.createServer(async (req, res) => {
     received = {
@@ -52,7 +52,7 @@ test("forwards native Ollama requests without leaking the AT upstream", async ()
     res.end('{"done":true}\n')
   }))
   const usageStore = new UsageStore({ now: () => new Date("2026-07-20T12:00:00Z") })
-  const proxy = await listen(createGenAIProxy({ authenticate, ollamaBaseUrl: url(ollama, "/"), usageStore }))
+  const proxy = await listen(createGenAIProxy({ authenticate, upstreamBaseUrl: url(ollama, "/"), usageStore }))
 
   const response = await fetch(url(proxy, "/api/chat?trace=yes"), {
     method: "POST",
@@ -61,7 +61,7 @@ test("forwards native Ollama requests without leaking the AT upstream", async ()
       "content-type": "application/json",
       "x-request-id": "request-1",
     },
-    body: JSON.stringify({ model: "gemma4:26b", messages: [{ role: "user", content: "hi" }] }),
+    body: JSON.stringify({ model: "gpt-5.6-luna", messages: [{ role: "user", content: "hi" }] }),
   })
 
   assert.equal(response.status, 201)
@@ -72,7 +72,7 @@ test("forwards native Ollama requests without leaking the AT upstream", async ()
   assert.equal(received.authorization, undefined)
   assert.equal(received.requestId, "request-1")
   assert.deepEqual(JSON.parse(received.body ?? ""), {
-    model: "gemma4:26b",
+    model: "gpt-5.6-luna",
     messages: [{ role: "user", content: "hi" }],
   })
 
@@ -84,6 +84,48 @@ test("forwards native Ollama requests without leaking the AT upstream", async ()
   assert.equal(missingUser.status, 400)
 })
 
+test("replaces the Athenz AT with the configured upstream API key and meters Responses API usage", async () => {
+  let receivedAuthorization: string | undefined
+  const upstream = await listen(http.createServer(async (req, res) => {
+    receivedAuthorization = req.headers.authorization
+    await readBody(req)
+    res.setHeader("content-type", "text/event-stream")
+    res.end([
+      'data: {"type":"response.output_text.delta","delta":"hello"}',
+      'data: {"type":"response.completed","response":{"usage":{"input_tokens":7,"output_tokens":11,"total_tokens":18}}}',
+      "data: [DONE]",
+      "",
+    ].join("\n\n"))
+  }))
+  const usageStore = new UsageStore({ now: () => new Date("2026-07-20T12:00:00Z") })
+  const proxy = await listen(createGenAIProxy({
+    authenticate,
+    upstreamBaseUrl: url(upstream, "/v1"),
+    upstreamApiKey: "upstream-secret",
+    usageStore,
+  }))
+
+  const response = await fetch(url(proxy, "/v1/responses"), {
+    method: "POST",
+    headers: {
+      authorization: "Bearer secret-athenz-at",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ model: "gpt-5.6-luna", input: "hi", stream: true }),
+  })
+  assert.equal(response.status, 200)
+  await response.arrayBuffer()
+  assert.equal(receivedAuthorization, "Bearer upstream-secret")
+
+  const users = await fetch(url(proxy, "/api/users/idjag-learner"))
+  const payload = await users.json() as {
+    projects: Array<{ users: Array<{ input_tokens: number; output_tokens: number; total_tokens: number }> }>
+  }
+  assert.equal(payload.projects[0].users[0].input_tokens, 7)
+  assert.equal(payload.projects[0].users[0].output_tokens, 11)
+  assert.equal(payload.projects[0].users[0].total_tokens, 18)
+})
+
 test("returns user-specific project usage, limits, spend, and model costs without an AT", async () => {
   const ollama = await listen(http.createServer((_req, res) => {
     res.setHeader("content-type", "application/x-ndjson")
@@ -91,7 +133,7 @@ test("returns user-specific project usage, limits, spend, and model costs withou
     res.end('{"done":true,"prompt_eval_count":3,"eval_count":5}\n')
   }))
   const usageStore = new UsageStore({ now: () => new Date("2026-07-20T12:00:00Z") })
-  const proxy = await listen(createGenAIProxy({ authenticate, ollamaBaseUrl: url(ollama, "/"), usageStore }))
+  const proxy = await listen(createGenAIProxy({ authenticate, upstreamBaseUrl: url(ollama, "/"), usageStore }))
 
   const generated = await fetch(url(proxy, "/api/chat"), {
     method: "POST",
@@ -106,9 +148,9 @@ test("returns user-specific project usage, limits, spend, and model costs withou
     projects: [{
       project: "athenz",
       scope: "gen-ai.services.athenz:role.gen-ai-users",
-      daily_limit_usd: 0.24,
+      daily_limit_usd: 240,
       daily_limit_fraction_digits: 2,
-      daily_spend_usd: 0.0000018,
+      daily_spend_usd: 0.000033,
       users: [{
         date: "2026-07-20",
         last_usage: "21:00:00",
@@ -119,14 +161,14 @@ test("returns user-specific project usage, limits, spend, and model costs withou
         input_tokens: 3,
         output_tokens: 5,
         total_tokens: 8,
-        estimated_cost_usd: 0.0000018,
+        estimated_cost_usd: 0.000033,
         tokens: [{
-          model: "gemma4:26b",
+          model: "gpt-5.6-luna",
           requests: 1,
           input: 3,
           output: 5,
           total: 8,
-          estimated_cost_usd: 0.0000018,
+          estimated_cost_usd: 0.000033,
         }],
       }],
     }],
@@ -148,26 +190,26 @@ test("rejects generation requests with 429 after a service code exceeds its dail
     project: "gen-ai.services.athenz",
     subject: "user.idjag-learner",
     clientId: "home.idjag-learner.local.athenzd",
-    model: "gemma4:26b",
+    model: "gpt-5.6-luna",
     scope: "gen-ai.services.athenz:role.gen-ai-users",
-  }, { promptTokens: 0, completionTokens: 800_001, totalTokens: 800_001 })
+  }, { promptTokens: 0, completionTokens: 40_000_001, totalTokens: 40_000_001 })
   usageStore.record({
     project: "gen-ai.services.spire",
     subject: "user.idjag-learner",
     clientId: "home.idjag-learner.local.athenzd",
-    model: "gemma4:31b",
+    model: "gpt-5.6-terra",
     scope: "gen-ai.services.spire:role.gen-ai-users",
-  }, { promptTokens: 0, completionTokens: 12_000, totalTokens: 12_000 })
-  const proxy = await listen(createGenAIProxy({ authenticate, ollamaBaseUrl: url(ollama, "/"), usageStore }))
+  }, { promptTokens: 0, completionTokens: 134, totalTokens: 134 })
+  const proxy = await listen(createGenAIProxy({ authenticate, upstreamBaseUrl: url(ollama, "/"), usageStore }))
 
   for (const [authorization, serviceCode, limit] of [
-    ["Bearer secret-athenz-at", "athenz", 0.24],
+    ["Bearer secret-athenz-at", "athenz", 240],
     ["Bearer project-spire", "spire", 0.002],
   ] as const) {
     const response = await fetch(url(proxy, "/api/chat"), {
       method: "POST",
       headers: { authorization, "content-type": "application/json" },
-      body: JSON.stringify({ model: "gemma4:26b", messages: [] }),
+      body: JSON.stringify({ model: "gpt-5.6-luna", messages: [] }),
     })
 
     assert.equal(response.status, 429)
@@ -182,15 +224,15 @@ test("rejects generation requests with 429 after a service code exceeds its dail
   assert.equal(upstreamCalls, 0)
 })
 
-test("returns a redacted 502 when Ollama is unavailable", async () => {
-  const proxy = await listen(createGenAIProxy({ authenticate, ollamaBaseUrl: "http://127.0.0.1:1" }))
+test("returns a redacted 502 when the GenAI upstream is unavailable", async () => {
+  const proxy = await listen(createGenAIProxy({ authenticate, upstreamBaseUrl: "http://127.0.0.1:1" }))
   const response = await fetch(url(proxy, "/v1/models"), {
     headers: { authorization: "Bearer must-not-appear" },
   })
 
   assert.equal(response.status, 502)
   const body = await response.text()
-  assert.match(body, /ollama_upstream_unavailable/)
+  assert.match(body, /genai_upstream_unavailable/)
   assert.doesNotMatch(body, /must-not-appear/)
 })
 

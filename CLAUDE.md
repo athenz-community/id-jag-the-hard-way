@@ -26,7 +26,7 @@ The repository contains these runtime components and supporting plugins:
 
 6. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
 
-7. **`genai_proxy/`** — Minimal locally run Node.js proxy that validates Athenz Bearer tokens with the ZTS public key, requires a `gen-ai.services.<project>` audience and `gen-ai-users` scope, and forwards native Ollama `/api/*` and compatible `/v1/*` requests to the workstation's Ollama API. It keeps daily JST per-project, per-user and per-model token counters with a JST `last_usage` time in `HH:mm:ss` format, owns and enforces per-service-code daily spending limits with HTTP 429 responses, persists counters under the gitignored `athenzd/.athenzd/` directory for `make local`, and exposes user-specific projects, limits, spend, and costs at unauthenticated `GET /api/users/{user}`.
+7. **`genai_proxy/`** — Minimal locally run Node.js proxy that validates Athenz Bearer tokens with the ZTS public key, requires a `gen-ai.services.<project>` audience and `gen-ai-users` scope, replaces that token with `OPENAI_CODEX_API_KEY`, and forwards OpenAI-compatible `/v1/*` requests to the gateway configured by `GENAI_UPSTREAM_BASE_URL`. It meters both Chat Completions and Responses API token fields, keeps daily JST per-project, per-user and per-model counters with a JST `last_usage` time in `HH:mm:ss` format, owns and enforces per-service-code daily spending limits with HTTP 429 responses, persists counters under the gitignored `athenzd/.athenzd/` directory for `make local`, and exposes user-specific projects, limits, spend, and costs at unauthenticated `GET /api/users/{user}`.
 
 **Default ports** — local (`make local`) vs. Kubernetes port-forward (`keep-k8s-port-forward.sh`):
 
@@ -45,7 +45,6 @@ The repository contains these runtime components and supporting plugins:
 | Open WebUI        | —          | `54443`          | `8080`             |
 | GenAI Proxy       | `64443`    | —                | —                  |
 | athenzd-managed GenAI Proxy | `65443` | —             | —                  |
-| Ollama Server     | `11434`    | —                | —                  |
 
 ## Prerequisites
 
@@ -80,8 +79,8 @@ make -C keycloak_token_exchange_provider build
 # Local workload instance provider — build and test; deployment is opt-in through the athenzd FAQ
 make -C local_workload_instance_provider build
 
-# Local GenAI proxy (port 64443 → Ollama on 11434)
-make -C genai_proxy local
+# Local GenAI proxy (port 64443 → configured OpenAI-compatible gateway)
+OPENAI_CODEX_API_KEY='<upstream API key>' make -C genai_proxy local
 ```
 
 The existing Express-based Node.js components use `npx tsx` and install their dependencies as part of `make local`. The dependency-free local GenAI proxy runs TypeScript directly with Node.js type stripping.

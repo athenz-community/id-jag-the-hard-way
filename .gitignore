@@ -45,5 +45,6 @@ keys/
 
 tools/config.local.yaml
 tools/.port-forward.pid
+genai_proxy/.env.local
 
 venv/
