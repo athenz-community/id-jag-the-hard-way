@@ -2,6 +2,7 @@ package cache
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -77,6 +78,22 @@ func Load(service string) (*TokenEntry, error) {
 		return nil, err
 	}
 	return readFile(p)
+}
+
+// Delete removes all cached bearer credentials for the given service. It is
+// idempotent so logout can safely be repeated.
+func Delete(service string) (bool, error) {
+	p, err := PathFor(service)
+	if err != nil {
+		return false, err
+	}
+	if err := os.Remove(p); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("deleting cache: %w", err)
+	}
+	return true, nil
 }
 
 func readFile(p string) (*TokenEntry, error) {

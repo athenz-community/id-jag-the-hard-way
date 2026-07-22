@@ -88,6 +88,50 @@ func TestLoad_MissingFile(t *testing.T) {
 	}
 }
 
+// TestDelete checks that deleting a cache removes it and remains safe to repeat.
+func TestDelete(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := cache.Save("my-service", cache.TokenEntry{IDToken: "token"}); err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := cache.Delete("my-service")
+	if err != nil || !removed {
+		t.Fatalf("Delete failed: removed=%v err=%v", removed, err)
+	}
+	removed, err = cache.Delete("my-service")
+	if err != nil || removed {
+		t.Fatalf("repeated Delete must be a no-op: removed=%v err=%v", removed, err)
+	}
+}
+
+// TestDelete_HomeUnresolvable checks the cache-path error.
+func TestDelete_HomeUnresolvable(t *testing.T) {
+	t.Setenv("HOME", "")
+	if _, err := cache.Delete("my-service"); err == nil {
+		t.Fatal("expected error when HOME is unset")
+	}
+}
+
+// TestDelete_RemoveError checks errors other than a missing cache file.
+func TestDelete_RemoveError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	cachePath, err := cache.PathFor("my-service")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(cachePath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cachePath, "child"), []byte("x"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cache.Delete("my-service"); err == nil {
+		t.Fatal("expected error deleting a non-empty directory")
+	}
+}
+
 // TestLoad_CorruptFile checks that a corrupt cache file returns a parse error.
 func TestLoad_CorruptFile(t *testing.T) {
 	home := t.TempDir()

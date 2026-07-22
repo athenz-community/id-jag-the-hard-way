@@ -1,6 +1,6 @@
 # athenzd
 
-`athenzd` is currently a manager CLI for browser login, idempotent ZMS service registration, opt-in Copper Argos X.509 enrollment, ID-JAG issuance for GenAI service projects, and selection of one active GenAI access-token scope. When `gen_ai.proxy` is configured and a default GenAI access token is issued, login ensures a separate directory-level `athenzd-genai-proxy` daemon is running and then exits normally. The daemon does not rotate credentials.
+`athenzd` is currently a manager CLI for browser login and logout, idempotent ZMS service registration, opt-in Copper Argos X.509 enrollment, ID-JAG issuance for GenAI service projects, and selection of one active GenAI access-token scope. When `gen_ai.proxy` is configured and a default GenAI access token is issued, login ensures a separate directory-level `athenzd-genai-proxy` daemon is running and then exits normally. The daemon does not rotate credentials.
 
 # Current behavior
 
@@ -259,6 +259,16 @@ Step 3/3 — Enroll X.509 identity through sys.auth.localworkload
 
 Running login again is safe. Login obtains a fresh ID token, verifies or recreates missing personal-domain and child resources, requests a new certificate when Copper Argos is enabled, replaces the cached per-project ID-JAGs when GenAI issuance is configured, and reuses the current directory's matching proxy daemon. It rejects a configured port owned by another service, another project directory, or a proxy targeting a different upstream.
 
+# Logout
+
+```sh
+athenzd logout
+```
+
+Logout removes the current service profile's cached ID token, ID-JAGs, and access token, then opens the system browser at the configured Keycloak-compatible IdP logout endpoint. When an ID token was cached, it is sent to the IdP as `id_token_hint` without being printed. If the cache is already absent, the browser logout still opens for the configured client.
+
+Logout does not delete the enrolled X.509 identity or any Athenz domains, services, roles, or policies. A configured GenAI proxy daemon may remain running, but it can no longer inject credentials after the cache is removed. Use `-f /path/to/config.yaml` to log out the profile selected by an explicit config.
+
 # ID-JAG login step
 
 With Copper Argos and GenAI configuration enabled, login continues with a fourth step after certificate enrollment:
@@ -362,6 +372,7 @@ athenzd version
 athenzd config current-config
 athenzd config validate
 athenzd login
+athenzd logout
 athenzd set genai-project
 athenzd whoami
 ```
@@ -380,7 +391,7 @@ Credential issuance is the intentional exception: login and project selection ma
 - Only `preferred_username` is exposed to the service template.
 - Optional administrators are added to the child domain but are never removed by login.
 - Copper Argos is the only supported certificate-enrollment mode, and enrollment currently uses an RSA 2048-bit key with Athenz-compatible SPIFFE and instance-ID URI SANs.
-- There is no automatic certificate rotation, token renewal, logout, ZMS cleanup, or proxy stop/restart command yet. Login can ensure the detached GenAI proxy is running, and the daemon reloads cache changes without restart.
+- There is no automatic certificate rotation, token renewal, ZMS cleanup, or proxy stop/restart command yet. Login can ensure the detached GenAI proxy is running, logout clears its credential source, and the daemon reloads cache changes without restart.
 
 # Package boundaries
 
