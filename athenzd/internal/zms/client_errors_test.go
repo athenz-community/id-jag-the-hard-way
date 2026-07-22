@@ -26,7 +26,7 @@ func TestEnsurePropagatesStageErrors(t *testing.T) {
 		{
 			name:  "parent request",
 			steps: []transportStep{{err: errors.New("parent transport")}},
-			want:  "checking required personal home domain",
+			want:  "checking personal home domain",
 		},
 		{
 			name:  "parent status",
@@ -72,6 +72,45 @@ func TestEnsurePropagatesStageErrors(t *testing.T) {
 			script.assertComplete()
 		})
 	}
+}
+
+func TestEnsureHomeDomainErrors(t *testing.T) {
+	tests := []struct {
+		name  string
+		steps []transportStep
+		want  string
+	}{
+		{"lookup request", []transportStep{{err: errors.New("lookup transport")}}, "checking personal home domain"},
+		{"lookup status", []transportStep{{status: http.StatusForbidden}}, "HTTP 403"},
+		{"create request", []transportStep{{status: http.StatusNotFound}, {err: errors.New("create transport")}}, "creating personal home domain"},
+		{"create status", []transportStep{{status: http.StatusNotFound}, {status: http.StatusBadRequest, body: "bad create"}}, "bad create"},
+		{"verify request", []transportStep{{status: http.StatusNotFound}, {status: http.StatusConflict}, {err: errors.New("verify transport")}}, "verifying personal home domain"},
+		{"verify status", []transportStep{{status: http.StatusNotFound}, {status: http.StatusConflict}, {status: http.StatusNotFound, body: "still absent"}}, "still absent"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client, script := newScriptedClient(t, test.steps...)
+			_, err := client.ensureHomeDomain(context.Background(), testToken, mustTarget(t))
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("expected %q error, got %v", test.want, err)
+			}
+			script.assertComplete()
+		})
+	}
+}
+
+func TestEnsureHomeDomainHandlesCreationConflict(t *testing.T) {
+	client, script := newScriptedClient(t,
+		transportStep{status: http.StatusNotFound},
+		transportStep{status: http.StatusConflict},
+		transportStep{status: http.StatusOK},
+	)
+	created, err := client.ensureHomeDomain(context.Background(), testToken, mustTarget(t))
+	if err != nil || created {
+		t.Fatalf("expected verified conflict to be unchanged, created=%v err=%v", created, err)
+	}
+	script.assertComplete()
 }
 
 func TestEnsureSubdomainErrors(t *testing.T) {

@@ -11,7 +11,7 @@ Test `athenzd` against the local ID-JAG The Hard Way environment: configure Keyc
 - [Step 5. Mount the published provider JAR into ZTS](#step-5-mount-the-published-provider-jar-into-zts)
 - [Step 6. Configure the provider in ZTS](#step-6-configure-the-provider-in-zts)
 - [Step 7. Register and authorize the provider in Athenz](#step-7-register-and-authorize-the-provider-in-athenz)
-- [Step 8. Confirm the personal parent domain exists](#step-8-confirm-the-personal-parent-domain-exists)
+- [Step 8. Confirm the reserved home domain exists](#step-8-confirm-the-reserved-home-domain-exists)
 - [Step 9. Generate and validate the config](#step-9-generate-and-validate-the-config)
 - [Step 10. Log in and issue the service certificate](#step-10-log-in-and-issue-the-service-certificate)
 - [Step 11. Verify the certificate and idempotency](#step-11-verify-the-certificate-and-idempotency)
@@ -42,7 +42,7 @@ Test `athenzd` against the local ID-JAG The Hard Way environment: configure Keyc
 - Complete [Make Keycloak HTTPS for ZTS User Certificates](../make-keycloak-https.md).
 - Confirm that `ghcr.io/mlajkim/local-workload-instance-provider:latest` has been published.
 - Run commands from the repository root unless a command explicitly changes directory.
-- Ensure the personal parent domain `home.idjag-learner` already exists. `athenzd` never creates the reserved `home` top-level domain or a user's personal parent domain.
+- Ensure the reserved `home` top-level domain exists and ZMS allows personal user-domain creation. `athenzd` creates `home.idjag-learner` when needed but never creates the reserved `home` domain.
 
 > [!NOTE]
 > This test calls `POST /zts/v1/instance` and writes an X.509 certificate, private key, and signer CA locally. It does not exchange the ID token for an Athenz access token or start a long-running certificate-rotation daemon.
@@ -359,28 +359,24 @@ kubectl -n athenz rollout restart deployment/athenz-zts-server
 kubectl -n athenz rollout status deployment/athenz-zts-server
 ```
 
-## Step 8. Confirm the personal parent domain exists
+## Step 8. Confirm the reserved home domain exists
 
-Check the required parent with the tutorial administrator certificate:
+Check the reserved namespace root with the tutorial administrator certificate:
 
 ```sh
 ./tools/athenz/show-domain.sh \
-  "home.idjag-learner" \
+  "home" \
   | jq '{name, enabled}'
 ```
 
 ```json
 {
-  "name": "home.idjag-learner",
+  "name": "home",
   "enabled": true
 }
 ```
 
-If the helper reports HTTP `404`, stop and provision the personal parent through the environment's user-domain workflow. The expected `athenzd` error for a missing parent is:
-
-```text
-required personal home domain "home.idjag-learner" does not exist; athenzd does not create the reserved home TLD or personal home domains
-```
+If the helper reports HTTP `404`, stop and repair the Athenz bootstrap. The reserved `home` top-level domain must be created by ZMS itself. Do not create it from `athenzd`.
 
 ## Step 9. Generate and validate the config
 
@@ -411,7 +407,7 @@ Opening browser for login...
 ✓ ID token cached for current_service "idjag-learner" until 2026-07-19T13:11:50+09:00 (~3h left)
 
 Step 2/3 — Ensure Athenz service home.idjag-learner.local.athenzd
-✓ Required parent exists: home.idjag-learner
+✓ Personal home domain home.idjag-learner: created
 ✓ Local subdomain home.idjag-learner.local: created
 ✓ Optional administrator user.athenz_admin: already present
 ✓ Service home.idjag-learner.local.athenzd: created
@@ -432,7 +428,7 @@ The one service identity is separated internally into:
 
 | Purpose               | Value                              |
 |-----------------------|------------------------------------|
-| Required parent       | `home.idjag-learner`               |
+| Personal home domain  | `home.idjag-learner`               |
 | Child domain          | `home.idjag-learner.local`         |
 | Simple service name   | `athenzd`                          |
 | Full service identity | `home.idjag-learner.local.athenzd` |
@@ -510,7 +506,7 @@ The ZMS stage should now report no changes:
 
 ```text
 Step 2/3 — Ensure Athenz service home.idjag-learner.local.athenzd
-✓ Required parent exists: home.idjag-learner
+✓ Personal home domain home.idjag-learner: already exists
 ✓ Local subdomain home.idjag-learner.local: already exists
 ✓ Optional administrator user.athenz_admin: already present
 ✓ Service home.idjag-learner.local.athenzd: already exists
@@ -549,7 +545,7 @@ _athenz_ui_port="$(./tools/port.sh athenz-ui)"
 
 # Cleanup
 
-Keep the Kubernetes environment and port-forwards running until Cleanup 6 is complete. Never delete `home.idjag-learner`; it is a prerequisite that `athenzd` did not create.
+Keep the Kubernetes environment and port-forwards running until Cleanup 6 is complete. This cleanup leaves `home.idjag-learner` in place because it may have existed before this test.
 
 ## Cleanup 1. Remove the service and local child domain
 
@@ -830,9 +826,9 @@ sudo rm -f /etc/hosts.athenzd.bak
 
 It is one complete service identity expressed as a Go template, using the same template family as `kubectl -o go-template`. The field name directly matches the ID token claim. Rendering occurs inside the Go binary and does not depend on shell substitution.
 
-**Why does athenzd refuse to create `home` or `home.<user>`?**
+**Why does athenzd refuse to create `home`?**
 
-`home` is a reserved top-level domain created during Athenz bootstrap. The personal parent belongs to user provisioning and ownership policy. `athenzd` limits itself to the configured direct child domain and service.
+`home` is a reserved top-level domain created during Athenz bootstrap. `athenzd` creates only the signed-in user's `home.<user>` domain through ZMS's dedicated user-domain API, then creates the configured child domain and service.
 
 **What does `optional_admins` do?**
 

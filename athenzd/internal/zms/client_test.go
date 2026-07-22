@@ -63,8 +63,8 @@ func TestResolveTargetErrors(t *testing.T) {
 	}
 }
 
-func TestEnsureCreatesMissingChildren(t *testing.T) {
-	state := &zmsState{parentExists: true}
+func TestEnsureCreatesMissingHierarchy(t *testing.T) {
+	state := &zmsState{}
 	server := newZMSServer(t, state)
 	defer server.Close()
 
@@ -77,10 +77,10 @@ func TestEnsureCreatesMissingChildren(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Ensure: %v", err)
 	}
-	if !report.SubdomainCreated || len(report.OptionalAdmins) != 1 || report.OptionalAdmins[0].Added || !report.ServiceCreated {
-		t.Fatalf("expected subdomain and service creation: %+v", report)
+	if !report.HomeDomainCreated || !report.SubdomainCreated || len(report.OptionalAdmins) != 1 || report.OptionalAdmins[0].Added || !report.ServiceCreated {
+		t.Fatalf("expected home domain, subdomain, and service creation: %+v", report)
 	}
-	if !state.subdomainExists || !state.adminExists || !state.serviceExists {
+	if !state.parentExists || !state.subdomainExists || !state.adminExists || !state.serviceExists {
 		t.Fatalf("server state was not completed: %+v", state)
 	}
 }
@@ -115,7 +115,7 @@ func TestEnsureAlreadyExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Ensure: %v", err)
 	}
-	if report.SubdomainCreated || len(report.OptionalAdmins) != 1 || report.OptionalAdmins[0].Added || report.ServiceCreated {
+	if report.HomeDomainCreated || report.SubdomainCreated || len(report.OptionalAdmins) != 1 || report.OptionalAdmins[0].Added || report.ServiceCreated {
 		t.Fatalf("expected idempotent report: %+v", report)
 	}
 }
@@ -346,19 +346,6 @@ func TestNormalizeOptionalAdmins(t *testing.T) {
 	}
 }
 
-func TestEnsureRequiredParentMissing(t *testing.T) {
-	server := newZMSServer(t, &zmsState{})
-	defer server.Close()
-	client, err := NewClientWithHTTPClient(server.URL, server.Client())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = client.Ensure(context.Background(), testToken, mustTarget(t), nil)
-	if err == nil || !strings.Contains(err.Error(), `required personal home domain "home.idjag-learner" does not exist`) {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
 func TestEnsureRequiresToken(t *testing.T) {
 	client, err := NewClientWithHTTPClient("https://zms.example.com/zms/v1", http.DefaultClient)
 	if err != nil {
@@ -483,6 +470,17 @@ func newZMSServer(t *testing.T, state *zmsState) *httptest.Server {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/zms/v1/domain/home.idjag-learner":
 			writeExists(w, state.parentExists, `{}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/zms/v1/userdomain/idjag-learner":
+			var body struct {
+				Name string `json:"name"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Name != "idjag-learner" {
+				t.Errorf("unexpected personal home-domain request: %+v err=%v", body, err)
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			state.parentExists = true
+			w.WriteHeader(http.StatusOK)
 		case r.Method == http.MethodGet && r.URL.Path == "/zms/v1/domain/home.idjag-learner.local":
 			writeExists(w, state.subdomainExists, `{}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/zms/v1/subdomain/home.idjag-learner":

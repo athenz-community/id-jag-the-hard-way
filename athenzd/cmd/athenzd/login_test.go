@@ -406,6 +406,9 @@ services:
 	if !strings.Contains(buf.String(), "ID token cached") {
 		t.Errorf("expected login output, got: %q", buf.String())
 	}
+	if !strings.Contains(buf.String(), "Personal home domain home.idjag-learner: already exists") {
+		t.Errorf("expected personal home domain in output, got: %q", buf.String())
+	}
 	if !strings.Contains(buf.String(), "Ready: home.idjag-learner.local.athenzd") {
 		t.Errorf("expected ensured service in output, got: %q", buf.String())
 	}
@@ -819,16 +822,20 @@ func TestLoginCmd_RejectsInvalidZMSCA(t *testing.T) {
 	}
 }
 
-func TestLoginCmd_ReportsMissingHomeParent(t *testing.T) {
-	zmsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "not found", http.StatusNotFound)
+func TestLoginCmd_ReportsHomeDomainCreationFailure(t *testing.T) {
+	zmsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "user domains are not allowed", http.StatusBadRequest)
 	}))
 	defer zmsServer.Close()
 
 	token := fakeIDToken(`{"preferred_username":"idjag-learner","aud":"athenzd"}`)
 	err := runSuccessfulOIDCLogin(t, token, "home.{{.preferred_username}}.local.athenzd", zmsServer.URL+"/zms/v1", "")
-	if err == nil || !strings.Contains(err.Error(), `required personal home domain "home.idjag-learner" does not exist`) {
-		t.Fatalf("expected missing parent error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "creating personal home domain") {
+		t.Fatalf("expected home-domain creation error, got %v", err)
 	}
 }
 

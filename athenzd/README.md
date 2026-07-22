@@ -22,14 +22,14 @@ home.alice.local.athenzd
 
 The command:
 
-- requires `home.alice` to already exist;
+- creates the personal home domain `home.alice` through ZMS's dedicated user-domain API when absent;
 - creates `home.alice.local` when absent;
 - adds each configured `optional_admins` principal to the child domain's `admin` role;
 - creates the simple service `athenzd` when absent;
 - authorizes the configured instance provider for that service when Copper Argos is enabled; and
 - leaves existing objects unchanged.
 
-It never creates the reserved `home` top-level domain or the personal parent `home.<user>`.
+It never creates or modifies the reserved `home` top-level domain. ZMS creates that namespace root during system bootstrap.
 
 # Requirements before running
 
@@ -68,7 +68,7 @@ ZMS must be prepared independently:
 - The configured ZMS authority must validate the token signature, issuer, audience, freshness, and signing key.
 - The authority must map `preferred_username` to the corresponding Athenz user principal, such as `user.alice`.
 - ZMS must trust the IdP signing-key endpoint when that endpoint uses a private CA.
-- The authenticated user must be authorized to manage a direct child beneath their personal home domain.
+- ZMS must allow user-domain creation, and the authenticated user must be authorized to create and manage their own personal home domain.
 - Every principal listed in `optional_admins` must be accepted by ZMS as a role member. Omit the list when the signed-in user should be the only administrator.
 
 For GenAI project discovery, ZMS must also return the human's role memberships from `GET /role?principal=user.<preferred_username>&expand=true`. For the local workload, `athenzd` combines that principal-role lookup with the project's domain membership listing so Athenz suffix-wildcard members such as `home.*` are included.
@@ -104,11 +104,10 @@ For example, if `user.alice` holds `gen-ai-users` and `docs-reader` in the Athen
 
 ## Athenz namespace
 
-The namespace must exist before login:
+The namespace root must exist before login:
 
 - The reserved `home` top-level domain must already exist.
-- `home.<preferred_username>` must already exist for the signing-in user.
-- The signing-in user must have sufficient rights on that personal parent domain.
+- ZMS must support `POST /userdomain/<preferred_username>` for the signing-in user. This creates `home.<preferred_username>` and makes that user its administrator.
 - The rendered service must be directly beneath that parent using this structure:
 
 ```text
@@ -117,7 +116,7 @@ home.<preferred_username>.<child-domain>.<service-name>
 
 Both `<child-domain>` and `<service-name>` must be valid Athenz simple names. A service name cannot contain a period.
 
-If the personal parent is absent, login stops with an error. `athenzd` does not attempt to provision it.
+If the personal parent is absent, `athenzd` creates it through the user-domain API before creating the child domain. Login stops if ZMS has user domains disabled or rejects that request. `athenzd` never calls the top-level-domain creation API.
 
 ## ZTS and the instance provider
 
@@ -243,7 +242,7 @@ With Copper Argos enabled, successful output ends with the issued identity and o
 
 ```text
 Step 2/3 — Ensure Athenz service home.alice.local.athenzd
-✓ Required parent exists: home.alice
+✓ Personal home domain home.alice: already exists
 ✓ Local subdomain home.alice.local: already exists
 ✓ Optional administrator user.platform_admin: already present
 ✓ Service home.alice.local.athenzd: already exists
@@ -256,7 +255,7 @@ Step 3/3 — Enroll X.509 identity through sys.auth.localworkload
 ✓ Ready: home.alice.local.athenzd
 ```
 
-Running login again is safe. Login obtains a fresh ID token, verifies or recreates only missing child resources, requests a new certificate when Copper Argos is enabled, replaces the cached per-project ID-JAGs when GenAI issuance is configured, and reuses the current directory's matching proxy daemon. It rejects a configured port owned by another service, another project directory, or a proxy targeting a different upstream.
+Running login again is safe. Login obtains a fresh ID token, verifies or recreates missing personal-domain and child resources, requests a new certificate when Copper Argos is enabled, replaces the cached per-project ID-JAGs when GenAI issuance is configured, and reuses the current directory's matching proxy daemon. It rejects a configured port owned by another service, another project directory, or a proxy targeting a different upstream.
 
 # ID-JAG login step
 

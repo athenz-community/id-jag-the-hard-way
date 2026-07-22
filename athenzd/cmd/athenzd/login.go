@@ -114,7 +114,7 @@ func newLoginCmdWithDependencies(browserFn func(string) error, selector projectS
 				return fmt.Errorf("ensuring Athenz service %s: %w", target.ServiceIdentity, err)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "✓ Required parent exists: %s\n", target.ParentDomain)
+			fmt.Fprintf(cmd.OutOrStdout(), "✓ Personal home domain %s: %s\n", target.ParentDomain, ensureState(report.HomeDomainCreated))
 			fmt.Fprintf(cmd.OutOrStdout(), "✓ Local subdomain %s: %s\n", target.Domain, ensureState(report.SubdomainCreated))
 			for _, admin := range report.OptionalAdmins {
 				fmt.Fprintf(cmd.OutOrStdout(), "✓ Optional administrator %s: %s\n", admin.Name, membershipState(admin.Added))
