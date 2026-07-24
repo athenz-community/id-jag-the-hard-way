@@ -68,9 +68,16 @@ async function readDeploymentsFromInClusterApi(): Promise<Deployment[]> {
 }
 
 async function readDeploymentsFromKubectl(): Promise<Deployment[]> {
+  const kubectlArgs = ["get", "deployments", "--all-namespaces", "-l", LABEL_SELECTOR, "-o", "json"]
+  const server = process.env.MCP_HUB_KUBECTL_SERVER
+  const tlsServerName = process.env.MCP_HUB_KUBECTL_TLS_SERVER_NAME
+
+  if (server) kubectlArgs.unshift("--server", server)
+  if (tlsServerName) kubectlArgs.unshift("--tls-server-name", tlsServerName)
+
   const { stdout } = await execFileAsync(
     "kubectl",
-    ["get", "deployments", "--all-namespaces", "-l", LABEL_SELECTOR, "-o", "json"],
+    kubectlArgs,
     { timeout: 5000 },
   )
   const response = JSON.parse(stdout) as KubernetesList<Deployment>

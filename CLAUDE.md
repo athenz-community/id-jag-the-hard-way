@@ -10,7 +10,7 @@ The architecture implements the [ID-JAG specification](https://techblog.lycorp.c
 
 ## Components and Their Roles
 
-Five microservices implement the full authorization flow:
+The repository contains these runtime components and supporting plugins:
 
 1. **`api_server/`** — Java 17 (Maven) REST API that enforces Athenz access tokens. Also contains two sub-services:
    - **`api_server/mcp/`** — Node.js/TypeScript MCP (Model Context Protocol) server that performs token exchange with Athenz ZTS before calling the API server.
@@ -20,9 +20,13 @@ Five microservices implement the full authorization flow:
 
 3. **`keycloak_token_exchange_provider/`** — Java 11 Maven Keycloak plugin that enables ID token delegation from Keycloak to Athenz.
 
-4. **`athenz_dist/`** — Git submodule pointing to `athenz-community/athenz-distribution`. Acts as the authorization server (ZMS + ZTS) and ZPU for the tutorial.
+4. **`local_workload_instance_provider/`** — Standalone Java 17 Maven plugin for the optional local Copper Argos flow. It validates an OIDC ID token as workload attestation and restricts certificate enrollment to the authenticated user's Athenz home-domain subtree. It is not deployed by default; the `athenzd` FAQ mounts and registers it for testing.
 
-5. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
+5. **`athenz_dist/`** — Git submodule pointing to `athenz-community/athenz-distribution`. Acts as the authorization server (ZMS + ZTS) and ZPU for the tutorial.
+
+6. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
+
+7. **`genai_proxy/`** — Minimal locally run Node.js proxy that validates Athenz Bearer tokens with the ZTS public key, requires a `gen-ai.services.<project>` audience and `gen-ai-users` scope, replaces that token with `OPENAI_CODEX_API_KEY`, and forwards OpenAI-compatible `/v1/*` requests to the gateway configured by `GENAI_UPSTREAM_BASE_URL`. It meters both Chat Completions and Responses API token fields, keeps daily JST per-project, per-user and per-model counters with a JST `last_usage` time in `HH:mm:ss` format, owns and enforces per-service-code daily spending limits with HTTP 429 responses, persists counters under the gitignored `athenzd/.athenzd/` directory for `make local`, and exposes user-specific projects, limits, spend, and costs at unauthenticated `GET /api/users/{user}`.
 
 **Default ports** — local (`make local`) vs. Kubernetes port-forward (`keep-k8s-port-forward.sh`):
 
@@ -39,7 +43,8 @@ Five microservices implement the full authorization flow:
 | Keycloak HTTPS    | —          | `34444`          | `8443`             |
 | AI Client Gateway | —          | `44443`          | `3101`             |
 | Open WebUI        | —          | `54443`          | `8080`             |
-| Ollama Server     | `11434`    | —                | —                  |
+| GenAI Proxy       | `64443`    | —                | —                  |
+| athenzd-managed GenAI Proxy | `65443` | —             | —                  |
 
 ## Prerequisites
 
@@ -70,9 +75,15 @@ make -C ai_client_gateway local
 
 # Keycloak token exchange provider — build only (no local run)
 make -C keycloak_token_exchange_provider build
+
+# Local workload instance provider — build and test; deployment is opt-in through the athenzd FAQ
+make -C local_workload_instance_provider build
+
+# Local GenAI proxy (port 64443 → configured OpenAI-compatible gateway)
+OPENAI_CODEX_API_KEY='<upstream API key>' make -C genai_proxy local
 ```
 
-Node.js components use `npx tsx` (no compile step required) and `npm install` is run as part of `make local`.
+The existing Express-based Node.js components use `npx tsx` and install their dependencies as part of `make local`. The dependency-free local GenAI proxy runs TypeScript directly with Node.js type stripping.
 
 ## Building Docker Images
 
@@ -82,7 +93,7 @@ Each component has a multi-stage Dockerfile. CI/CD via GitHub Actions (`.github/
 docker build -t <name> .
 ```
 
-The `keycloak_token_exchange_provider` Dockerfile is export-only — it copies the built JAR into a scratch image for extraction.
+The provider Dockerfiles are export-only — they copy their built JARs into a mounted export directory and do not run a service.
 
 ## Technology Stack
 
@@ -93,6 +104,8 @@ The `keycloak_token_exchange_provider` Dockerfile is export-only — it copies t
 | `api_server/authorization_proxy`   | Java 17    | Spring Boot 3.2.5, Spring Cloud Gateway |
 | `ai_client_gateway`                | TypeScript | Node.js 22, Express                     |
 | `keycloak_token_exchange_provider` | Java 11    | Maven, Keycloak SPI                     |
+| `local_workload_instance_provider` | Java 17    | Maven, Athenz InstanceProvider SPI      |
+| `genai_proxy`                       | TypeScript | Node.js 22 built-in HTTP/fetch APIs     |
 
 ## Key Architectural Concepts
 
@@ -111,7 +124,7 @@ For files under `faqs/`, keep the main path short and procedure-first.
 
 Do not manually hard-wrap normal prose. Keep normal paragraphs on one line unless a list, table, or code block needs structure.
 
-Add a collapsible verification status block near the top of each FAQ, after `# Goal` and its short goal text. Only a human user may mark a FAQ as verified or successful. If the user has not explicitly confirmed that the exact procedure worked, use the pending shape:
+Add a collapsible verification status block immediately below the FAQ's table of contents, after `<!-- /TOC -->`. If the FAQ does not have a table of contents, add one before the verification block. Only a human user may mark a FAQ as verified or successful. If the user has not explicitly confirmed that the exact procedure worked, use the pending shape:
 
 ```md
 <details>
@@ -148,6 +161,6 @@ rm -rf ~/id_jag_the_hard_way_workspace
 
 **IMPORTANT for AI assistants**: Do not run these commands unless the user explicitly asks to tear down or clean up the entire environment. These are irreversible — they delete the cluster and all local tutorial files.
 
-## No Test Suite
+## Test Suites
 
-There are no automated tests in this repository. The `test` script in all `package.json` files exits with an error. Validation is done manually by following the tutorials.
+Most tutorial components are validated manually by following the tutorials. `athenzd` has a Go test and coverage gate (`make -C athenzd test`), and the local GenAI proxy has focused Node.js checks (`make -C genai_proxy test`). Some older `package.json` test scripts still exit with an error by design.

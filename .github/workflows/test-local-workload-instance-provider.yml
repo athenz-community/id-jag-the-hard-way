@@ -1,0 +1,35 @@
+name: Test local workload instance provider
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "local_workload_instance_provider/**"
+      - ".github/workflows/test-local-workload-instance-provider.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "local_workload_instance_provider/**"
+      - ".github/workflows/test-local-workload-instance-provider.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: local_workload_instance_provider
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: local_workload_instance_provider/pom.xml
+
+      - name: Build and test
+        run: make build

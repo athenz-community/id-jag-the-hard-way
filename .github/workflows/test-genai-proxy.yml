@@ -1,0 +1,34 @@
+name: Test local GenAI proxy
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "genai_proxy/**"
+      - "tools/config.yaml"
+      - ".github/workflows/test-genai-proxy.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "genai_proxy/**"
+      - "tools/config.yaml"
+      - ".github/workflows/test-genai-proxy.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: genai_proxy
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run checks and tests
+        run: make check test

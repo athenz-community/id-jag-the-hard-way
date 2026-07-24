@@ -9,11 +9,13 @@ import {
 import { ToolsFilter, ToolsList, ToolsLoadStatus } from "@/features/catalog/components/McpServerToolsPage"
 import { fetchCatalog } from "@/features/catalog/lib/fetchCatalog"
 import { listLiveMcpTools } from "@/features/catalog/lib/mcpTools"
+import { requireHubSession } from "@/features/auth/lib/session"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 export default async function McpServerToolsRoute({ params }: { params: Promise<{ project: string; product: string; id: string }> }) {
+  await requireHubSession()
   const { project, product, id } = await params
   const serverId = decodeRouteParam(id)
   const catalog = await fetchCatalog()

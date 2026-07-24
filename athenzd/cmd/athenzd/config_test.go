@@ -27,14 +27,25 @@ func TestConfigValidate_Valid(t *testing.T) {
 	path := writeTemp(t, `
 athenz:
   zts: https://zts.example.com:4443/zts/v1
+gen_ai:
+  domain: gen-ai.services.{{project}}
+  role: gen-ai-users
+  default_project: docs
+  proxy: {}
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: cloud.ynw.identityd
     idp:
       issuer: https://localhost:34444/realms/master
       client_id: athenzd
+    identity:
+      mode: copperargos
+      instance_id: workstation
+      cert_file: /tmp/service.cert.pem
+      key_file: /tmp/service.key.pem
+      ca_file: /tmp/ca.cert.pem
 `)
 	cmd := newRootCmd()
 	buf := &bytes.Buffer{}
@@ -57,6 +68,15 @@ services:
 	if !strings.Contains(out, "home.mlajkim") {
 		t.Errorf("expected domain in output, got: %q", out)
 	}
+	if !strings.Contains(out, "gen_ai.default_project:") || !strings.Contains(out, "docs") {
+		t.Errorf("expected GenAI config in output, got: %q", out)
+	}
+	if !strings.Contains(out, "0.0.0.0:65443 -> http://127.0.0.1:64443") {
+		t.Errorf("expected GenAI proxy defaults in output, got: %q", out)
+	}
+	if !strings.Contains(out, "identity: copperargos") || !strings.Contains(out, "instance: workstation") {
+		t.Errorf("expected identity enrollment config in output, got: %q", out)
+	}
 }
 
 // TestConfigValidate_InvalidFile checks that a missing file returns an error.
@@ -75,7 +95,7 @@ func TestConfigValidate_MissingZTS(t *testing.T) {
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: cloud.ynw.identityd
 `)
 	cmd := newRootCmd()
@@ -104,7 +124,7 @@ athenz:
 services:
   - name: my-service
     athenz:
-      domain: home.mlajkim
+      service: home.mlajkim.local.athenzd
       provider: cloud.ynw.identityd
     idp:
       issuer: https://localhost:34444/realms/master

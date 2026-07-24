@@ -8,22 +8,21 @@ import com.yahoo.athenz.auth.token.OAuth2Token;
 
 public class KeycloakTokenExchangeProvider implements TokenExchangeIdentityProvider {
 
+    /** Maps the Keycloak username to user.* for athenzd and human.* for existing tutorial clients. */
     @Override
     public String getTokenIdentity(OAuth2Token token) {
-        System.out.println(">>> [KeycloakTokenExchangeProvider] Extracting identity from token...");
         Object preferredUsername = token.getClaim("preferred_username");
-        if (preferredUsername != null) {
-            return "human." + preferredUsername.toString();
+        if (preferredUsername == null) {
+            return null;
         }
-        
-        Object sub = token.getClaim("sub");
-        return sub != null ? "human." + sub.toString() : null;
+
+        String domain = "athenzd".equals(token.getClaim("azp")) ? "user" : "human";
+        return domain + "." + preferredUsername;
     }
 
-    // getTokenAudience returns audience of given id_token, but in Athenz Native Way!
+    /** Returns the token audience that ZTS compares with the requesting service client ID. */
     @Override
     public String getTokenAudience(OAuth2Token token) {
-        System.out.println(">>> [KeycloakTokenExchangeProvider] Getting audience from token...");
         Object aud = token.getClaim("aud");
         if (aud instanceof List && !((List<?>) aud).isEmpty()) {
             return ((List<?>) aud).get(0).toString();
@@ -34,9 +33,10 @@ public class KeycloakTokenExchangeProvider implements TokenExchangeIdentityProvi
         return "";
     }
 
+    /** Declares that no extra Keycloak claims are copied into exchanged tokens. */
     @Override
     public List<String> getTokenExchangeClaims() {
-        return Collections.emptyList(); 
+        return Collections.emptyList();
     }
 }
 

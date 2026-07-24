@@ -107,6 +107,10 @@ Expose the deployment:
 kubectl expose deploy open-webui -n ai --port 8080 --name open-webui
 ```
 
+```sh
+# deployment.apps/open-webui created
+```
+
 ### Deploy pvc for the Open WebUI
 
 First, create a very simple `pvc`:
@@ -124,6 +128,10 @@ spec:
     requests:
       storage: 1Gi
 EOF
+```
+
+```sh
+# persistentvolumeclaim/open-webui-data-pvc created
 ```
 
 Mount the volume we just created:
@@ -144,6 +152,10 @@ spec:
             claimName: open-webui-data-pvc
 EOF
 )"
+```
+
+```sh
+# deployment.apps/open-webui patched
 ```
 
 ## Open Open WebUI

@@ -10,6 +10,8 @@
   - [Run MCP Hub](#run-mcp-hub)
   - [Confluence Vendor MCP Server](#confluence-vendor-mcp-server)
   - [Setup Core MCP Proxy](#setup-core-mcp-proxy)
+  - [Test athenzd with IDTHW](#test-athenzd-with-idthw)
+  - [Register GenAI Users Domain Template](#register-genai-users-domain-template)
 - [Governance](#governance)
   - [What should we do if Resource Server](#what-should-we-do-if-resource-server)
   - [Can I simply make MCP pass down the received AT to the API Server?](#can-i-simply-make-mcp-pass-down-the-received-at-to-the-api-server)
@@ -83,6 +85,14 @@ See [Setup Confluence Vendor MCP Server](./setup-confluence-vendor-mcp.md).
 ## Setup Core MCP Proxy
 
 See [Setup Core MCP Proxy](./setup-core-mcp-proxy.md).
+
+## Test athenzd with IDTHW
+
+See [Test `athenzd` with IDTHW](./athenzd/test-athenzd-with-idthw.md).
+
+## Register GenAI Users Domain Template
+
+See [Register GenAI Users Domain Template](./register-gen-ai-users-domain-template.md).
 
 # Governance
 

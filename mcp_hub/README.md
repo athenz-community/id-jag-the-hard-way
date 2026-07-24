@@ -4,20 +4,86 @@ MCP Hub is a small Next.js application for discovering and eventually registerin
 
 The catalog is backed by Kubernetes. MCP server rows are discovered from Kubernetes `Deployment` resources with MCP Hub labels and annotations. Kubernetes is the first source of truth: if an MCP server is deployed, labeled, and annotated correctly, it appears in the catalog.
 
-## Local Development
-
-```bash
-npm install
-npm run dev -- --port 3102
-```
-
-or:
+## Local Docker Run
 
 ```bash
 make local
 ```
 
-`make local` uses port `3102` by default.
+`make local` builds the image and starts the detached `mcp-hub-local` Docker container on port `3102`. If that container already exists, it asks before replacing it. The local certificates and kubeconfig are mounted read-only so the server can continue to use Athenz and the current Kubernetes context.
+
+For host-side development with hot reload, run `npm install` followed by `npm run dev -- --port 3102`.
+
+## Authentication and Multiple Users
+
+MCP Hub requires OpenID Connect login before rendering the console. The default local IdP is Keycloak, but the provider is configured with environment variables:
+
+```text
+MCP_HUB_IDP_NAME
+MCP_HUB_IDP_ISSUER
+MCP_HUB_IDP_PUBLIC_ISSUER
+MCP_HUB_IDP_WELL_KNOWN
+MCP_HUB_IDP_AUTHORIZATION_ENDPOINT
+MCP_HUB_IDP_CLIENT_ID
+MCP_HUB_IDP_CLIENT_SECRET
+MCP_HUB_IDP_TOKEN_ENDPOINT
+MCP_HUB_IDP_END_SESSION_ENDPOINT
+MCP_HUB_ACCOUNT_CACHE_SIZE
+AUTH_SECRET
+```
+
+Register the default local Keycloak client, then run the hub:
+
+```sh
+make -C mcp_hub register-idp-client
+make -C mcp_hub local OPEN_UI=true
+```
+
+Each browser can keep up to five IdP sessions by default. The app bar lists the cached users for one-click switching; **Sign in as a different user** goes through Keycloak only when adding an account that is not already sessioned. Set `MCP_HUB_ACCOUNT_CACHE_SIZE` from `1` to `8` to change the limit. Identity claims and refresh tokens remain inside the encrypted, HTTP-only Auth.js cookie, while the UI receives only account display summaries. Signing out clears the full browser account cache and signs the current account out through the IdP.
+
+MCP Hub does not generate a private key or user certificate in the browser session. Its `mcp-hub.hub-ui` workload certificate stays server-side and exchanges the signed-in user's ID token through ID-JAG. Resulting Athenz access tokens are cached separately per OIDC subject and scope.
+
+## Gen AI Product
+
+Use the product switcher in the top bar to move between **MCP hub** and **Gen AI**. The Gen AI product currently provides:
+
+- a monitoring dashboard for the currently signed-in user's `user.<preferred_username>` identity
+- separate responsibility boxes for Athenz service domains where that user holds `cost-accountable-admins` or `gen-ai-users-managers`; cost accountable admins see all assigned managers, managers see all assigned Gen AI users, and users holding both roles see both boxes
+- associated system codes derived from the GenAI proxy projects
+- rolling 30-day JST token usage grouped by model
+- rolling 30-day JST estimated cost incurred by the current user, grouped by model
+- proxy-owned daily service-code spending limits, currently `$240` for Athenz and `$0.002` for Spire, reset at `00:00 JST`
+- per-model totals, defaulting legacy unlabelled usage to `gpt-5.6-luna` and automatically including additional reported models
+
+The dashboard reads the signed-in user's GenAI proxy usage endpoint through the Next.js server. For `idjag-learner`, this is:
+
+```text
+http://127.0.0.1:64443/api/users/idjag-learner
+```
+
+Override the proxy origin when needed:
+
+```sh
+make local GENAI_PROXY_URL=http://127.0.0.1:65000
+```
+
+The service administrator boxes read the signed-in user's direct role memberships across all domains matching `gen-ai.services.<project>` from ZMS using the MCP Hub UI's server-side X.509 certificate. Cost-accountable membership supports both `cost-accountable-admins` and the existing `pm-cost-approval-officer-lv5` schema; manager membership supports both `gen-ai-users-managers` and `gen-ai-users-manager`. Those memberships are accumulated independently, so the same user and service can appear in both responsibility boxes. A cost accountable admin box lists every member of that project's manager role; a Gen AI user manager box lists every member of `gen-ai-users`. The queried member is still always the active signed-in user's full `user.<preferred_username>` Athenz principal; the certificate is only the Hub's credential for the ZMS request. Each service row links directly to `http://localhost:3000/domain/<domain>/role/<managed-role>/members`, so the relevant membership editor opens immediately. Override the local ZMS endpoint or Athenz UI origin when needed:
+
+```sh
+make local \
+  MCP_HUB_ZMS_URL=https://zms.example.test/zms/v1 \
+  MCP_HUB_ZMS_TLS_SERVER_NAME=zms.example.test
+MCP_HUB_ATHENZ_UI_URL=https://athenz-ui.example.test make local
+```
+
+When the ZMS connection hostname differs from the name on its TLS certificate,
+set `MCP_HUB_ZMS_TLS_SERVER_NAME` to the certificate name. MCP Hub uses it for
+both TLS SNI and the HTTP `Host` header because ZMS validates that they match.
+The local Docker workflow uses `localhost` because it reaches the host through
+`host.docker.internal`, while the local ZMS certificate is issued for
+`localhost`.
+
+The local cost values are explicitly estimates based on fixed demo rates; they are not billing data.![alt text](image.png)
 
 ## Data Source
 

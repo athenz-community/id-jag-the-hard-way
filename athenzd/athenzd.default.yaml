@@ -5,35 +5,55 @@
 # ── Athenz Core ───────────────────────────────────────────────────────────────
 athenz:
   zts:                          # REQUIRED  e.g. https://zts.athenz.example.com:4443/zts/v1
-  zms:                          # optional
+  zms:                          # REQUIRED by login  e.g. https://zms.athenz.example.com:4443/zms/v1
+  ca_file:                      # optional  trust a private CA for Athenz HTTPS
 
 # ── Context (like kubectl current-context) ───────────────────────────────────
-current_service: ""             # which service is active for `athenzd get` commands
+current_service: ""             # active profile and token-cache key; not the Athenz identity
+
+# ── GenAI ID-JAG ──────────────────────────────────────────────────────────────
+# Omit this entire block to disable GenAI project discovery. When gen_ai is
+# present, domain and role are required; default_project and proxy are optional.
+# gen_ai:
+#   # Each matching domain is one service project. A user may belong to several;
+#   # athenzd issues one ID-JAG per project with all mutually eligible roles.
+#   # Domain must contain exactly one {{project}} placeholder.
+#   domain: gen-ai.services.{{project}}
+#   role: gen-ai-users
+#   # When empty, login prompts from eligible projects and saves the choice.
+#   # Run `athenzd set genai-project` later to refresh eligible roles and choose
+#   # another active project and scope.
+#   default_project: athenz
+#   # Presence makes `athenzd login` ensure this config directory's separate
+#   # proxy daemon is running. OpenAI-compatible clients call port 65443; the
+#   # daemon injects the active cached AT and forwards to port 64443.
+#   proxy:
+#     port: 65443
+#     upstream_url: http://127.0.0.1:64443
 
 # ── Services ──────────────────────────────────────────────────────────────────
 services:
-  - name:                       # REQUIRED  unique name for this service identity
+  - name:                       # REQUIRED  unique local profile name
     athenz:
-      domain:                   # REQUIRED  e.g. home.mlajkim
-      provider:                 # REQUIRED  e.g. cloud.ynw.identityd
+      # Go template; preferred_username comes from the freshly issued ID token.
+      service: home.{{.preferred_username}}.local.athenzd
+      # optional_admins:        # optional additional members of the child domain's admin role
+      #   - user.platform_admin
+      # provider:               # REQUIRED when identity.mode=copperargos
     idp:
       issuer:                   # REQUIRED  e.g. https://localhost:34444/realms/master
       client_id:                # REQUIRED  e.g. athenzd
       callback_port: 8250       # optional  local port for PKCE redirect
       ca_file:                  # optional  trust a private CA for the IdP HTTPS cert
 
-  # ── Uncommented in PR 3: X.509 service identity cert ──────────────────────
-  # identity:
-  #   mode: local               # local | copperargos
-  #   cert_file: ~/.config/athenzd/service.crt
-  #   key_file:  ~/.config/athenzd/service.key
-  #   ca_file:   ~/.config/athenzd/ca.crt
-  #   refresh_interval: 24h
-  #   copperargos:
-  #     provider:               # REQUIRED if mode=copperargos
-  #     endpoint:
-  #     dns_suffix:
-  #     cert_subject:
+    # identity:                 # optional; omit for login + ZMS setup only
+    #   mode: copperargos       # currently supported mode
+    #   instance_id:            # REQUIRED, stable id within the provider namespace
+    #   cert_file: ~/.config/athenzd/identity/service.cert.pem
+    #   key_file:  ~/.config/athenzd/identity/service.key.pem
+    #   ca_file:   ~/.config/athenzd/identity/ca.cert.pem
+    #   expiry_minutes: 60      # optional; 0 lets ZTS choose its default
+    # Future mode=local will read externally managed cert/key/CA files; it is not implemented yet.
 
   # ── Uncommented in PR 4: Access tokens ────────────────────────────────────
   # token:

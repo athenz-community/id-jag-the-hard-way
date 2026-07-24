@@ -38,11 +38,25 @@ func newConfigValidateCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "OK\n")
 			fmt.Fprintf(cmd.OutOrStdout(), "  zts:              %s\n", cfg.Athenz.ZTS)
 			fmt.Fprintf(cmd.OutOrStdout(), "  zms:              %s\n", cfg.Athenz.ZMS)
+			fmt.Fprintf(cmd.OutOrStdout(), "  ca_file:          %s\n", cfg.Athenz.CAFile)
 			fmt.Fprintf(cmd.OutOrStdout(), "  current_service:  %s\n", cfg.CurrentService)
+			if cfg.GenAI.Domain != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "  gen_ai.domain:              %s\n", cfg.GenAI.Domain)
+				fmt.Fprintf(cmd.OutOrStdout(), "  gen_ai.role:                %s\n", cfg.GenAI.Role)
+				fmt.Fprintf(cmd.OutOrStdout(), "  gen_ai.default_project: %s\n", cfg.GenAI.DefaultProject)
+				if cfg.GenAI.Proxy != nil {
+					fmt.Fprintf(cmd.OutOrStdout(), "  gen_ai.proxy:          0.0.0.0:%d -> %s\n",
+						cfg.GenAI.Proxy.Port, cfg.GenAI.Proxy.UpstreamURL)
+				}
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "  services (%d):\n", len(cfg.Services))
 			for _, svc := range cfg.Services {
-				fmt.Fprintf(cmd.OutOrStdout(), "    - name: %s  domain: %s  provider: %s\n",
-					svc.Name, svc.Athenz.Domain, svc.Athenz.Provider)
+				fmt.Fprintf(cmd.OutOrStdout(), "    - name: %s  service: %s\n",
+					svc.Name, svc.Athenz.Service)
+				if svc.Identity.Mode != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "      identity: %s  provider: %s  instance: %s\n",
+						svc.Identity.Mode, svc.Athenz.Provider, svc.Identity.InstanceID)
+				}
 			}
 			return nil
 		},
@@ -56,8 +70,9 @@ func newConfigCurrentCmd() *cobra.Command {
 	var file string
 
 	cmd := &cobra.Command{
-		Use:   "current-config",
-		Short: "Show which config file is active and where it came from",
+		Use:     "current-config",
+		Aliases: []string{"now"},
+		Short:   "Show which config file is active and where it came from",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resolved, err := config.Resolve(file)
 			if err != nil {

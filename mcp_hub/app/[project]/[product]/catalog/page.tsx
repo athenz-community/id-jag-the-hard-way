@@ -9,11 +9,13 @@ import {
   CatalogTabs,
 } from "@/features/catalog/components/CatalogPage"
 import { fetchCatalog } from "@/features/catalog/lib/fetchCatalog"
+import { requireHubSession } from "@/features/auth/lib/session"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 export default async function ProjectCatalogRoute({ params }: { params: Promise<{ project: string; product: string }> }) {
+  await requireHubSession()
   const { project, product } = await params
   const catalog = await fetchCatalog()
 

@@ -4,13 +4,23 @@ The goal of this FAQ is to run MCP Hub locally.
 
 <!-- TOC depthFrom:2 depthTo:3 -->
 
-- [Step 1. Setup X.509 Cert for the UI](#step-1-setup-x509-cert-for-the-ui)
-- [Step 2. Grant MCP Access to the UI](#step-2-grant-mcp-access-to-the-ui)
-- [Step 3. Run MCP Hub](#step-3-run-mcp-hub)
-- [Step 4. Import K8s API Docs Server](#step-4-import-k8s-api-docs-server)
-- [Step 5. Verify Protected MCP Tools](#step-5-verify-protected-mcp-tools)
+- [Step 1. Configure IdP Login](#step-1-configure-idp-login)
+- [Step 2. Setup X.509 Cert for the UI](#step-2-setup-x509-cert-for-the-ui)
+- [Step 3. Grant Per-User MCP Access](#step-3-grant-per-user-mcp-access)
+- [Step 4. Run MCP Hub](#step-4-run-mcp-hub)
+- [Step 5. Import K8s API Docs Server](#step-5-import-k8s-api-docs-server)
+- [Step 6. Verify Protected MCP Tools](#step-6-verify-protected-mcp-tools)
 
 <!-- /TOC -->
+
+<details>
+<summary>Verification status — 🟡 Pending human verification</summary>
+
+| # | Date | Status |
+|---|------|--------|
+| 1 | TBD  | 🟡 Pending — human has not confirmed this procedure |
+
+</details>
 
 # Prerequisites
 
@@ -20,9 +30,33 @@ The goal of this FAQ is to run MCP Hub locally.
 
 # Steps
 
-## Step 1. Setup X.509 Cert for the UI
+## Step 1. Configure IdP Login
 
-The UI server needs its own Athenz service certificate so it can fetch an Access Token for protected MCP servers.
+Register MCP Hub as a confidential client in the tutorial Keycloak realm:
+
+```sh
+make -C mcp_hub register-idp-client PORT=3102
+```
+
+This registers both callback URLs used by the hub:
+
+```text
+http://localhost:3102/api/auth/callback/idp
+http://localhost:3102/api/auth/idp-logout/complete
+```
+
+MCP Hub accepts any Keycloak user that has a non-empty `preferred_username` claim. Create additional users without changing the hub code:
+
+```sh
+./tools/keycloak/create-user.sh alice alice@athenz.io Alice User
+./tools/keycloak/create-user.sh bob bob@athenz.io Bob User
+```
+
+After the first login, use **Sign in as a different user** to add another Keycloak account. The top-bar user menu then keeps the sessioned users in an encrypted browser cache and switches between them without another login prompt. The default cache limit is five users; set `MCP_HUB_ACCOUNT_CACHE_SIZE` from `1` to `8` to override it.
+
+## Step 2. Setup X.509 Cert for the UI
+
+The UI server needs its own Athenz workload certificate to exchange each signed-in user's ID token through ID-JAG. This certificate and private key remain server-side; they are not stored in the browser session.
 
 ```sh
 ./tools/athenz/create-tld.sh "mcp-hub"
@@ -57,14 +91,20 @@ By default, MCP Hub reads these files:
 - `mcp_hub/certs/mcp-hub-ui.key`
 - `mcp_hub/certs/ca.crt`
 
-## Step 2. Grant MCP Access to the UI
+## Step 3. Grant Per-User MCP Access
 
-The API MCP authorization proxy requires `access` on `api:mcp`. Add the MCP Hub UI service principal to the role that is allowed to access the MCP server:
+The API MCP authorization proxy requires `access` on `api:mcp`. Add each human user to `api:role.mcp-accessor`, then allow the MCP Hub workload to perform ID-JAG exchange into that role:
 
 ```sh
 ./tools/athenz/create-role.sh "api" "mcp-accessor"
 ./tools/athenz/add-policy.sh "api" "mcp-accessor" "access" "mcp"
-./tools/athenz/add-role-member.sh "api" "mcp-accessor" "mcp-hub.hub-ui"
+./tools/athenz/add-role-member.sh "api" "mcp-accessor" "human.idjag-learner"
+./tools/athenz/add-role-member.sh "api" "mcp-accessor" "human.alice"
+./tools/athenz/add-role-member.sh "api" "mcp-accessor" "human.bob"
+
+./tools/athenz/create-role.sh "api" "mcp-accessor-jag-exchanger"
+./tools/athenz/add-policy.sh "api" "mcp-accessor-jag-exchanger" "zts.jag_exchange" "role.mcp-accessor"
+./tools/athenz/add-role-member.sh "api" "mcp-accessor-jag-exchanger" "mcp-hub.hub-ui"
 ```
 
 ```sh
@@ -72,11 +112,15 @@ The API MCP authorization proxy requires `access` on `api:mcp`. Add the MCP Hub 
 #   ✔  Role created: api:role.mcp-accessor
 #   ·  Creating Policy: api:policy.mcp-accessor_access_mcp...
 #   ✔  Policy created: api:policy.mcp-accessor_access_mcp
-#   ·  Adding Member mcp-hub.hub-ui to Role: api:role.mcp-accessor...
-#   ✔  mcp-hub.hub-ui  →  api:role.mcp-accessor
+#   ✔  human.idjag-learner  →  api:role.mcp-accessor
+#   ✔  human.alice  →  api:role.mcp-accessor
+#   ✔  human.bob  →  api:role.mcp-accessor
+#   ✔  mcp-hub.hub-ui  →  api:role.mcp-accessor-jag-exchanger
 ```
 
-## Step 3. Run MCP Hub
+Authentication proves who the user is; Athenz role membership determines which authenticated users may access the protected MCP server.
+
+## Step 4. Run MCP Hub
 
 Start MCP Hub after the certificate files exist. The local Makefile sets `MCP_HUB_ZTS_URL` from `./tools/port.sh zts`.
 
@@ -99,7 +143,7 @@ env \
   make -C mcp_hub local PORT=3102 OPEN_UI=true
 ```
 
-## Step 4. Import K8s API Docs Server
+## Step 5. Import K8s API Docs Server
 
 MCP Hub discovers servers from Kubernetes labels and annotations. Add the MCP Hub metadata to the existing `mcp` deployment in the `api` namespace:
 
@@ -129,8 +173,8 @@ Refresh MCP Hub. The K8s API Docs Server should appear:
 
 ![k8s_doc_server_visible](./assets/k8s_doc_server_visible.png)
 
-## Step 5. Verify Protected MCP Tools
+## Step 6. Verify Protected MCP Tools
 
-Open the K8s API Docs Server tools page. The hub should now fetch the MCP access token with the `mcp-hub.hub-ui` certificate and load the tool list from the protected API MCP server.
+Sign in through Keycloak and open the K8s API Docs Server tools page. MCP Hub should exchange that user's ID token through ID-JAG, fetch a user-scoped Athenz access token, and load the protected tool list. Use the user menu in the top bar to switch to another configured user and repeat the check.
 
 ![alt text](image.png)

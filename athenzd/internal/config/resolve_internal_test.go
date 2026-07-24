@@ -1,8 +1,10 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -26,5 +28,14 @@ func TestResolve_GetwdError(t *testing.T) {
 
 	if _, err := Resolve(""); err == nil {
 		t.Fatal("expected error when getwd fails, got nil")
+	}
+}
+
+func TestResolve_RelativeExplicitGetwdError(t *testing.T) {
+	original := getwd
+	t.Cleanup(func() { getwd = original })
+	getwd = func() (string, error) { return "", errors.New("getwd failed") }
+	if _, err := Resolve("relative.yaml"); err == nil || !strings.Contains(err.Error(), "resolving working dir") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
