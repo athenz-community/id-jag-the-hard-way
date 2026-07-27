@@ -57,11 +57,16 @@ The name and concept of this tutorial series is inspired by [kelseyhightower/kub
 
 ID-JAG The Hard Way is listed on the [OAuth.net Cross-App Access (XAA) page](https://oauth.net/cross-app-access/) as a test tool for learning ID-JAG
 
-## ⭐ Appreciation goes a long way
+## ⭐ Community Growth
 
-If this tutorial helped you, a ⭐ on GitHub means a lot — it helps others find it too!
+ID-JAG The Hard Way grows across both the root repository and the Athenz community fork. The star and fork counts below are updated from GitHub data.
 
-[![GitHub Stars](https://img.shields.io/github/stars/mlajkim/id-jag-the-hard-way?style=social)](https://github.com/mlajkim/id-jag-the-hard-way)
+| Repository                                                                       | Stars                                                                                                                                                                                                   | Forks                                                                                                                                                                                              |
+|----------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Root repository](https://github.com/mlajkim/id-jag-the-hard-way)                | [![Root repository stars](https://img.shields.io/github/stars/mlajkim/id-jag-the-hard-way?style=flat-square&label=stars)](https://github.com/mlajkim/id-jag-the-hard-way/stargazers)                    | [![Root repository forks](https://img.shields.io/github/forks/mlajkim/id-jag-the-hard-way?style=flat-square&label=forks)](https://github.com/mlajkim/id-jag-the-hard-way/forks)                    |
+| [Athenz community fork](https://github.com/athenz-community/id-jag-the-hard-way) | [![Athenz community stars](https://img.shields.io/github/stars/athenz-community/id-jag-the-hard-way?style=flat-square&label=stars)](https://github.com/athenz-community/id-jag-the-hard-way/stargazers) | [![Athenz community forks](https://img.shields.io/github/forks/athenz-community/id-jag-the-hard-way?style=flat-square&label=forks)](https://github.com/athenz-community/id-jag-the-hard-way/forks) |
+
+If this tutorial helped you, a ⭐ on either repository means a lot — it helps others find it too!
 
 Have questions or ran into a problem? [Open an issue](https://github.com/mlajkim/id-jag-the-hard-way/issues).
 
