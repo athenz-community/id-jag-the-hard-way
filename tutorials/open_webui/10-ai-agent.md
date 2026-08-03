@@ -101,6 +101,13 @@ kubectl create deploy open-webui -n ai \
   --image=ghcr.io/open-webui/open-webui:main
 ```
 
+Use HTTP polling for live chat updates. This is more reliable when Open WebUI is accessed through `kubectl port-forward` and prevents completed responses from appearing only after a page refresh:
+
+```sh
+kubectl set env deployment/open-webui -n ai \
+  ENABLE_WEBSOCKET_SUPPORT=false
+```
+
 Expose the deployment:
 
 ```sh
