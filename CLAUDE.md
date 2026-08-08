@@ -41,6 +41,8 @@ The repository contains these runtime components and supporting plugins:
 | MCP Auth Proxy    | —          | —                | —                  |
 | Keycloak (IdP)    | —          | `34443`          | `8080`             |
 | Keycloak HTTPS    | —          | `34444`          | `8443`             |
+| Agentgateway Proxy | —         | `44440`          | `80`               |
+| Agentgateway Admin UI | —      | `44441`          | `15000`            |
 | AI Client Gateway | —          | `44443`          | `3101`             |
 | Open WebUI        | —          | `54443`          | `8080`             |
 | GenAI Proxy       | `64443`    | —                | —                  |
