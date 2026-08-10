@@ -41,6 +41,8 @@ The repository contains these runtime components and supporting plugins:
 | MCP Auth Proxy    | —          | —                | —                  |
 | Keycloak (IdP)    | —          | `34443`          | `8080`             |
 | Keycloak HTTPS    | —          | `34444`          | `8443`             |
+| Agentgateway Proxy | —         | `44440`          | `80`               |
+| Agentgateway Admin UI | —      | `44441`          | `15000`            |
 | AI Client Gateway | —          | `44443`          | `3101`             |
 | Open WebUI        | —          | `54443`          | `8080`             |
 | GenAI Proxy       | `64443`    | —                | —                  |
@@ -139,7 +141,7 @@ Add a collapsible verification status block immediately below the FAQ's table of
 
 When the user explicitly confirms success, update the summary to `Last verified on <date> — ✅ Success` and add the human-confirmed result to the table.
 
-Put small details, rationale, caveats, and troubleshooting into a `# FAQs` section after the steps.
+Do not add a `# FAQs` section unless the human user explicitly asks for one. When requested, place it after the steps and before `# Reference`, and put small details, rationale, caveats, and troubleshooting there.
 
 Inside a `# FAQs` section, write each question title as bold text instead of a Markdown heading.
 
