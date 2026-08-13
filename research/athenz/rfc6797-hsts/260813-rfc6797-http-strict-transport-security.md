@@ -1,6 +1,6 @@
 # Goal
 
-The goal of this document is to verify that the Athenz ZMS and ZTS HTTPS interfaces add the HTTP Strict Transport Security response header and demonstrate how an HSTS-aware client upgrades a later HTTP request to HTTPS, with the following steps:
+The goal of this document is to verify that the Athenz ZMS and ZTS HTTPS interfaces implement the RFC 6797 HTTP Strict Transport Security standard and demonstrate how an HSTS-aware client upgrades a later HTTP request to HTTPS, with the following steps:
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
