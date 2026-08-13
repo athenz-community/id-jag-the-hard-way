@@ -10,11 +10,11 @@ The goal of this document is to verify that the Athenz ZTS access log records th
 <!-- /TOC -->
 
 <details>
-<summary>Last verified on Aug 13, 2026 — 🟡 Pending human verification</summary>
+<summary>Last human verified on Aug 13, 2026 — ✅ Success</summary>
 
-| # | Date         | Confirmed Working                                                                |
-|---|--------------|----------------------------------------------------------------------------------|
-| 1 | Aug 13, 2026 | 🟡 Assistant runtime test succeeded; pending human verification of the procedure |
+| # | Date         | Confirmed Working                                               |
+|---|--------------|-----------------------------------------------------------------|
+| 1 | Aug 13, 2026 | ✅ Human verified — ZTS logged the TLS protocol and cipher suite |
 
 </details>
 
