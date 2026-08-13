@@ -157,6 +157,7 @@ research/
     rfc7523-jwt-bearer/ — RFC 7523 JWT bearer authorization grants
     tls-logging/      — TLS protocol and cipher access-log behavior
     token_exchange/   — AT→AT token exchange flows
+    ui/               — Athenz UI behavior
     user-certificates/ — Athenz user-certificate behavior and observability
   keycloak/           — Keycloak configuration and errors
 ```
@@ -167,7 +168,7 @@ Here is the procedure to get to the goals.
 
 ## Step 1. Choose the right subdirectory
 
-Put the file under `athenz/idjag/`, `athenz/rfc6797-hsts/`, `athenz/rfc7523-jwt-bearer/`, `athenz/tls-logging/`, `athenz/token_exchange/`, `athenz/user-certificates/`, or `keycloak/` based on the primary technology.
+Put the file under `athenz/idjag/`, `athenz/rfc6797-hsts/`, `athenz/rfc7523-jwt-bearer/`, `athenz/tls-logging/`, `athenz/token_exchange/`, `athenz/ui/`, `athenz/user-certificates/`, or `keycloak/` based on the primary technology.
 
 ## Step 2. Create the file with the date prefix
 
