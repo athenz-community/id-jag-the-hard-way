@@ -12,11 +12,11 @@ The goal of this document is to use the RFC 7523 JWT bearer authorization grant 
 <!-- /TOC -->
 
 <details>
-<summary>Last tested on Aug 13, 2026 — 🟡 Pending human verification</summary>
+<summary>Last human verified on Aug 13, 2026 — ✅ Success</summary>
 
-| # | Date         | Confirmed Working                                                                                 |
-|---|--------------|---------------------------------------------------------------------------------------------------|
-| 1 | Aug 13, 2026 | 🟡 Assistant runtime test succeeded; pending human reproduction of the exact documented procedure |
+| # | Date         | Confirmed Working                                      |
+|---|--------------|--------------------------------------------------------|
+| 1 | Aug 13, 2026 | ✅ Human verified — complete RFC 7523 access-token flow |
 
 </details>
 
