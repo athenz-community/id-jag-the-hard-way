@@ -112,8 +112,8 @@ Restore any temporary clients, aliases, metadata, or local state created only fo
 - Use status icons (see [Status Legend](#status-legend)) in the verification details and result notes, not in every `##` heading.
 - Put setup work in the first numbered steps. If a flow needs a token, client, role, or local variable, create or fetch it in the step where it first becomes necessary.
 - Steps should use shared scripts from `tools/` when a script exists for the operation being researched.
-- Do not show raw HTTP request commands in research procedures. If no shared tool covers the operation yet, add one under `tools/` first.
-- Available operation tools: `tools/keycloak/create-client.sh`, `tools/keycloak/delete-client.sh`, `tools/keycloak/get-client-secret.sh`, `tools/keycloak/get-id-token.sh`, `tools/keycloak/set-direct-access-grants.sh`, `tools/athenz/fetch-id-jag.sh`, `tools/athenz/exchange-id-token-for-id-jag.sh`, `tools/athenz/fetch-actor-token.sh`, `tools/athenz/fetch-access-token.sh`, `tools/athenz/fetch-access-token-with-id-jag.sh`, `tools/athenz/exchange-access-token.sh`, `tools/athenz/delete-assertion.sh`, `tools/athenz/delete-policy.sh`, `tools/athenz/delete-role.sh`, `tools/athenz/delete-role-member.sh`, `tools/athenz/delete-service.sh`, `tools/athenz/show-service.sh`, `tools/athenz/set-service-client-id.sh`.
+- Use shared tools for reusable or state-changing operations. For a one-off, read-only HTTP inspection such as checking response headers, show the raw `curl` command instead of adding a single-use shell script.
+- Available operation tools: `tools/keycloak/create-client.sh`, `tools/keycloak/delete-client.sh`, `tools/keycloak/get-client-secret.sh`, `tools/keycloak/get-id-token.sh`, `tools/keycloak/set-direct-access-grants.sh`, `tools/athenz/create-rfc7523-assertion.sh`, `tools/athenz/fetch-access-token-with-rfc7523.sh`, `tools/athenz/fetch-id-jag.sh`, `tools/athenz/exchange-id-token-for-id-jag.sh`, `tools/athenz/fetch-actor-token.sh`, `tools/athenz/fetch-access-token.sh`, `tools/athenz/fetch-access-token-with-id-jag.sh`, `tools/athenz/exchange-access-token.sh`, `tools/athenz/delete-assertion.sh`, `tools/athenz/delete-policy.sh`, `tools/athenz/delete-role.sh`, `tools/athenz/delete-role-member.sh`, `tools/athenz/delete-service.sh`, `tools/athenz/show-service.sh`, `tools/athenz/set-service-client-id.sh`.
 - Expected command output should be shown as a commented `sh` block. Keep the status lines (`#   · ...`, `#   ✔ ...`, `#   ✘ ...`) and show only stable, relevant JSON claims. Preserve exact error `code` and `message` fields. Redact omitted or dynamic fields with `#   ...`; do not include raw JWTs, long tokens, `kid`, `exp`, `iat`, `jti`, `sid`, or other run-specific values unless the field itself is the subject of the research.
 - Place a `<details>` block immediately after the TOC with summary `Last verified on <date> — <status>` and a table inside. This is the only place verification lives — there is no separate `# Verification` section at the bottom.
 - Put `# Prerequisites` immediately after the verification `<details>` block when a document depends on completed tutorials or setup. Use this exact sentence followed by bullet points: `This tutorial requires the following to be completed:`
@@ -150,9 +150,11 @@ Organize documents under the technology they primarily concern:
 ```
 research/
   athenz/
-    idjag/        — ID-JAG token exchange flows
-    token_exchange/ — AT→AT token exchange flows
-  keycloak/       — Keycloak configuration and errors
+    idjag/            — ID-JAG token exchange flows
+    rfc6797-hsts/     — RFC 6797 HTTP Strict Transport Security behavior
+    rfc7523-jwt-bearer/ — RFC 7523 JWT bearer authorization grants
+    token_exchange/   — AT→AT token exchange flows
+  keycloak/           — Keycloak configuration and errors
 ```
 
 ## How to Add a New Document
@@ -161,7 +163,7 @@ Here is the procedure to get to the goals.
 
 ## Step 1. Choose the right subdirectory
 
-Put the file under `athenz/idjag/`, `athenz/token_exchange/`, or `keycloak/` based on the primary technology.
+Put the file under `athenz/idjag/`, `athenz/rfc6797-hsts/`, `athenz/rfc7523-jwt-bearer/`, `athenz/token_exchange/`, or `keycloak/` based on the primary technology.
 
 ## Step 2. Create the file with the date prefix
 

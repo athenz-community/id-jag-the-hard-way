@@ -70,6 +70,8 @@ Use these from tutorials and research setup steps instead of repeating low-level
 ./tools/keycloak/get-client-secret.sh <client_id>
 ./tools/keycloak/get-id-token.sh <client_id> <client_secret> [username]
 ./tools/keycloak/set-direct-access-grants.sh <client_id> [true|false]
+./tools/athenz/create-rfc7523-assertion.sh --principal <domain.service> --private-key <path> --key-id <id> --audience <zts-issuer> --scope <athenz-scope> [--expires-in <seconds>]
+./tools/athenz/fetch-access-token-with-rfc7523.sh <jwt_assertion>
 ./tools/athenz/fetch-access-token.sh <cert_path> <key_path> <scope> [output_file] [--actor <actor>] [--output <output_file>]
 ./tools/athenz/fetch-access-token-with-id-jag.sh <cert_path> <key_path> <id_jag_token> <scope> [output_file] [--actor <actor>] [--output <output_file>]
 ./tools/athenz/fetch-id-jag.sh <cert_path> <key_path> <id_token> <scope>
@@ -86,6 +88,10 @@ Use these from tutorials and research setup steps instead of repeating low-level
 ```
 
 `get-id-token.sh` writes only the raw token to stdout so it can be used in command substitution. Status lines and decoded JWT header/claims are printed to stderr for inspection.
+
+`create-rfc7523-assertion.sh` creates an RS256 service-signed JWT authorization grant. It writes only the compact assertion to stdout so it can be passed to the ZTS RFC 7523 token request; status lines and formatted header/claims go to stderr.
+
+`fetch-access-token-with-rfc7523.sh` exchanges that signed assertion through the RFC 7523 JWT bearer authorization grant. It displays the issued access token and its decoded header and claims on stderr, then writes only the raw access token to stdout for command substitution.
 
 `set-direct-access-grants.sh` updates an existing Keycloak client so password-grant token fetching works for local research flows.
 
