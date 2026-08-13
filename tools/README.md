@@ -70,6 +70,8 @@ Use these from tutorials and research setup steps instead of repeating low-level
 ./tools/keycloak/get-client-secret.sh <client_id>
 ./tools/keycloak/get-id-token.sh <client_id> <client_secret> [username]
 ./tools/keycloak/set-direct-access-grants.sh <client_id> [true|false]
+./tools/athenz/create-role.sh <domain> <role> [--self-renew] [--self-renew-mins <minutes>]
+./tools/athenz/create-group.sh <domain> <group> [--self-renew] [--self-renew-mins <minutes>]
 ./tools/athenz/create-rfc7523-assertion.sh --principal <domain.service> --private-key <path> --key-id <id> --audience <zts-issuer> --scope <athenz-scope> [--expires-in <seconds>]
 ./tools/athenz/fetch-access-token-with-rfc7523.sh <jwt_assertion>
 ./tools/athenz/fetch-access-token.sh <cert_path> <key_path> <scope> [output_file] [--actor <actor>] [--output <output_file>]
@@ -79,6 +81,7 @@ Use these from tutorials and research setup steps instead of repeating low-level
 ./tools/athenz/fetch-actor-token.sh <cert_path> <key_path> <client_id>
 ./tools/athenz/exchange-access-token.sh <cert_path> <key_path> <subject_access_token> <scope> [--actor-token <id_token>] [--actor <actor>] [--audience <audience>] [--token-only]
 ./tools/athenz/delete-policy.sh <domain> <policy>
+./tools/athenz/delete-group.sh <domain> <group>
 ./tools/athenz/delete-role.sh <domain> <role>
 ./tools/athenz/delete-role-member.sh <domain> <role_name> <member_name>
 ./tools/athenz/delete-service.sh <domain> <service_name>
@@ -86,6 +89,8 @@ Use these from tutorials and research setup steps instead of repeating low-level
 ./tools/athenz/show-service.sh <domain> <service_name> [--summary]
 ./tools/athenz/set-service-client-id.sh <domain> <service_name> <client_id>
 ```
+
+`create-role.sh` and `create-group.sh` keep their original two-argument behavior. Use `--self-renew` to enable membership self-renewal when creating the object and `--self-renew-mins <minutes>` to set its renewal duration. ZMS requires a positive duration whenever self-renewal is enabled.
 
 `get-id-token.sh` writes only the raw token to stdout so it can be used in command substitution. Status lines and decoded JWT header/claims are printed to stderr for inspection.
 

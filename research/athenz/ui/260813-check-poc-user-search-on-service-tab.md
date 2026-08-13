@@ -14,8 +14,8 @@ The goal of this document is to verify that the Athenz UI loads Point of Contact
 <details>
 <summary>Last human verified on Aug 13, 2026 — ✅ Success</summary>
 
-| # | Date         | Confirmed Working                                                        |
-|---|--------------|--------------------------------------------------------------------------|
+| # | Date         | Confirmed Working                                                      |
+|---|--------------|------------------------------------------------------------------------|
 | 1 | Aug 13, 2026 | ✅ Human verified — registered user appeared in the Services-tab search |
 
 </details>
@@ -175,4 +175,9 @@ The same applies for **SECURITY POINT OF CONTACT**.
 
 # Reference
 
-- [Athenz PR #3370 — fix POC and security POC not loading on non role/group domain tabs](https://github.com/AthenZ/athenz/pull/3370)
+The related UI changes were introduced in this order:
+
+- Aug 22, 2023 — [Athenz PR #2272 — ability to add members by searching for their names](https://github.com/AthenZ/athenz/pull/2272) introduced the `Display Name [user.principal]` search-result format.
+- Feb 24, 2024 — [Athenz PR #2521 — support domain (security) point of contact fields](https://github.com/AthenZ/athenz/pull/2521) reused that user search for Point of Contact and Security Point of Contact.
+- Oct 28, 2024 — [Athenz PR #2774 — improve UX of dropdown inputs](https://github.com/AthenZ/athenz/pull/2774) improved dropdown selection and validation behavior.
+- May 22, 2026 — [Athenz PR #3370 — fix POC and security POC not loading on non role/group domain tabs](https://github.com/AthenZ/athenz/pull/3370) made the shared user list load when a domain is opened directly on tabs such as Services.
