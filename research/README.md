@@ -67,7 +67,8 @@ The goal of this document is to ..., with the following steps:
 
 This tutorial requires the following to be completed:
 
-- [16-id-jag.md](../tutorials/16-id-jag.md)
+1. Complete the main [ID-JAG The Hard Way tutorial](../tutorials/16-id-jag.md).
+1. Complete any additional feature-specific tutorial or FAQ.
 
 # Steps
 
@@ -116,7 +117,8 @@ Restore any temporary clients, aliases, metadata, or local state created only fo
 - Available operation tools: `tools/keycloak/create-client.sh`, `tools/keycloak/delete-client.sh`, `tools/keycloak/get-client-secret.sh`, `tools/keycloak/get-id-token.sh`, `tools/keycloak/set-direct-access-grants.sh`, `tools/athenz/create-rfc7523-assertion.sh`, `tools/athenz/fetch-access-token-with-rfc7523.sh`, `tools/athenz/fetch-id-jag.sh`, `tools/athenz/exchange-id-token-for-id-jag.sh`, `tools/athenz/fetch-actor-token.sh`, `tools/athenz/fetch-access-token.sh`, `tools/athenz/fetch-access-token-with-id-jag.sh`, `tools/athenz/exchange-access-token.sh`, `tools/athenz/delete-assertion.sh`, `tools/athenz/delete-policy.sh`, `tools/athenz/delete-role.sh`, `tools/athenz/delete-role-member.sh`, `tools/athenz/delete-service.sh`, `tools/athenz/show-service.sh`, `tools/athenz/set-service-client-id.sh`.
 - Expected command output should be shown as a commented `sh` block. Keep the status lines (`#   · ...`, `#   ✔ ...`, `#   ✘ ...`) and show only stable, relevant JSON claims. Preserve exact error `code` and `message` fields. Redact omitted or dynamic fields with `#   ...`; do not include raw JWTs, long tokens, `kid`, `exp`, `iat`, `jti`, `sid`, or other run-specific values unless the field itself is the subject of the research.
 - Place a `<details>` block immediately after the TOC with summary `Last verified on <date> — <status>` and a table inside. This is the only place verification lives — there is no separate `# Verification` section at the bottom.
-- Put `# Prerequisites` immediately after the verification `<details>` block when a document depends on completed tutorials or setup. Use this exact sentence followed by bullet points: `This tutorial requires the following to be completed:`
+- Put `# Prerequisites` immediately after the verification `<details>` block when a document depends on completed tutorials or setup. Use the exact sentence `This tutorial requires the following to be completed:` followed by a short ordered list in dependency order. List the main ID-JAG tutorial first, then any feature-specific tutorial or FAQ. Use `1.` for each Markdown list item.
+- After `# Steps` and `Here is the procedure to get to the goals.`, begin the first `##` step directly. Keep the PR link in `# Reference`; do not add separate PR name, background, or implementation-summary paragraphs before the procedure.
 - The `# Reference` section is always last. Write `*None*` if there are no external references.
 
 ## Status Legend
@@ -154,6 +156,7 @@ research/
     rfc6797-hsts/     — RFC 6797 HTTP Strict Transport Security behavior
     rfc7523-jwt-bearer/ — RFC 7523 JWT bearer authorization grants
     token_exchange/   — AT→AT token exchange flows
+    user-certificates/ — Athenz user-certificate behavior and observability
   keycloak/           — Keycloak configuration and errors
 ```
 
@@ -163,7 +166,7 @@ Here is the procedure to get to the goals.
 
 ## Step 1. Choose the right subdirectory
 
-Put the file under `athenz/idjag/`, `athenz/rfc6797-hsts/`, `athenz/rfc7523-jwt-bearer/`, `athenz/token_exchange/`, or `keycloak/` based on the primary technology.
+Put the file under `athenz/idjag/`, `athenz/rfc6797-hsts/`, `athenz/rfc7523-jwt-bearer/`, `athenz/token_exchange/`, `athenz/user-certificates/`, or `keycloak/` based on the primary technology.
 
 ## Step 2. Create the file with the date prefix
 
