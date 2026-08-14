@@ -17,11 +17,11 @@ The goal of this document is to verify certificate SAN-DNS validation hardening 
 <!-- /TOC -->
 
 <details>
-<summary>Verification status — 🟡 Pending human verification</summary>
+<summary>Last verified on Aug 14, 2026 — ✅ Success</summary>
 
-| # | Date | Status                                              |
-|---|------|-----------------------------------------------------|
-| 1 | TBD  | 🟡 Pending — human has not confirmed this procedure |
+| # | Date         | Confirmed Working                           |
+|---|--------------|---------------------------------------------|
+| 1 | Aug 14, 2026 | ✅ — complete procedure confirmed by a human |
 
 </details>
 
