@@ -67,8 +67,14 @@ Use these from tutorials and research setup steps instead of repeating low-level
 ```sh
 ./tools/keycloak/create-client.sh <client_id> <redirect_uri> [web_origin] [public|confidential]
 ./tools/keycloak/delete-client.sh <client_id>
+./tools/keycloak/fetch-access-token.sh <authorization_code> <code_verifier>
+./tools/keycloak/fetch-access-token-with-cimd.sh [--client-id <client_id> | --open <client_id>]
 ./tools/keycloak/get-client-secret.sh <client_id>
+./tools/keycloak/get-client.sh [client_id]
 ./tools/keycloak/get-id-token.sh <client_id> <client_secret> [username]
+./tools/keycloak/get-openid-configuration.sh
+./tools/keycloak/set-cimd-client-profile.sh
+./tools/keycloak/set-cimd-client-policy.sh
 ./tools/keycloak/set-direct-access-grants.sh <client_id> [true|false]
 ./tools/athenz/create-role.sh <domain> <role> [--self-renew] [--self-renew-mins <minutes>]
 ./tools/athenz/create-group.sh <domain> <group> [--self-renew] [--self-renew-mins <minutes>]
@@ -93,6 +99,18 @@ Use these from tutorials and research setup steps instead of repeating low-level
 `create-role.sh` and `create-group.sh` keep their original two-argument behavior. Use `--self-renew` to enable membership self-renewal when creating the object and `--self-renew-mins <minutes>` to set its renewal duration. ZMS requires a positive duration whenever self-renewal is enabled.
 
 `get-id-token.sh` writes only the raw token to stdout so it can be used in command substitution. Status lines and decoded JWT header/claims are printed to stderr for inspection.
+
+`fetch-access-token.sh` exchanges a Keycloak authorization code using its PKCE verifier, prints the response and decoded identifying claims to stderr, and writes only the raw access token to stdout for command substitution.
+
+`fetch-access-token-with-cimd.sh` completes the configured CIMD Authorization Code flow: it starts a one-use callback listener, generates PKCE and state, opens Keycloak, validates the callback, exchanges the code, and writes only the raw access token to stdout. Use `--client-id <client_id>` to select the client explicitly. Use `--open <client_id>` to open an authorization request and exit without waiting for a callback or token; this is useful for inspecting rejected CIMD requests in the browser.
+
+`get-client.sh` lists all clients as formatted JSON when called without an argument. When a `client_id` is provided, it returns only the exact `clientId` match as an array; a missing client returns `[]`.
+
+`get-openid-configuration.sh` fetches the running Keycloak realm's live OpenID Connect discovery document and prints formatted JSON. Unlike `config.sh`, it does not read static tutorial configuration.
+
+`set-cimd-client-profile.sh` idempotently configures the realm-level Client Profile used by the local CIMD research while preserving unrelated profiles.
+
+`set-cimd-client-policy.sh` idempotently configures the realm-level Client Policy that activates the local CIMD profile for the trusted metadata host while preserving unrelated policies.
 
 `create-rfc7523-assertion.sh` creates an RS256 service-signed JWT authorization grant. It writes only the compact assertion to stdout so it can be passed to the ZTS RFC 7523 token request; status lines and formatted header/claims go to stderr.
 
