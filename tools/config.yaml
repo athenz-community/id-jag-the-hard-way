@@ -23,3 +23,11 @@ keycloak:
   admin: admin
   admin-password: admin
   user-password: password
+  # About cimd: https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/
+  cimd:
+    client-host: cimd-client-metadata.idp.svc.cluster.local
+    client-id: http://cimd-client-metadata.idp.svc.cluster.local/client.json
+    mismatched-client-id: http://cimd-client-metadata.idp.svc.cluster.local/mismatched.json
+    callback-host: 127.0.0.1
+    callback-port: 9214
+    redirect-uri: http://127.0.0.1:9214/callback
