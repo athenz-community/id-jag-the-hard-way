@@ -84,6 +84,12 @@ kubectl -n idp exec deployment/keycloak \
   -- /opt/keycloak/bin/kc.sh --version
 ```
 
+```sh
+# Keycloak 26.6.4
+# JVM: 21.0.11 (Red Hat, Inc. OpenJDK 64-Bit Server VM 21.0.11+10-LTS)
+# OS: Linux 6.10.11-linuxkit aarch64
+```
+
 This research was prepared against the Keycloak `26.6.4` image used by the completed tutorial on Aug 14, 2026.
 
 Inspect the authorization server metadata before enabling CIMD:
@@ -123,6 +129,11 @@ kubectl -n idp set env deployment/keycloak \
   KC_FEATURES=cimd
 
 kubectl -n idp rollout status deployment/keycloak
+```
+
+```sh
+# deployment.apps/keycloak env updated
+# deployment "keycloak" successfully rolled out
 ```
 
 Inspect the authorization server metadata again:
@@ -225,6 +236,13 @@ spec:
 EOF
 
 kubectl -n idp rollout status deployment/cimd-client-metadata
+```
+
+```sh
+# configmap/cimd-client-metadata created
+# deployment.apps/cimd-client-metadata created
+# service/cimd-client-metadata created
+# deployment "cimd-client-metadata" successfully rolled out
 ```
 
 Fetch the document from the same cluster network used by Keycloak:
@@ -442,7 +460,7 @@ First request the deliberately mismatched document. Its JSON says its `client_id
 
 Keycloak displays the client ID mismatch:
 
-![Keycloak rejects a Client ID Metadata Document whose client_id does not match its URL](keycloak-cimd-client-id-mismatch-error.png)
+![Keycloak rejects a Client ID Metadata Document whose client_id does not match its URL](assets/keycloak-cimd-client-id-mismatch-error.png)
 
 Next use a client identifier outside the Client Policy's trusted-domain list:
 
@@ -453,7 +471,7 @@ Next use a client identifier outside the Client Policy's trusted-domain list:
 
 Keycloak displays `Client not found` because the Client Policy does not trust this domain:
 
-![Keycloak rejects an untrusted CIMD client identifier with Client not found](keycloak-cimd-untrusted-client-not-found-error.png)
+![Keycloak rejects an untrusted CIMD client identifier with Client not found](assets/keycloak-cimd-untrusted-client-not-found-error.png)
 
 # Optional Clean-up
 
