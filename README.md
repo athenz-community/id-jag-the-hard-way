@@ -78,6 +78,17 @@ The name and concept of this tutorial series is inspired by [kelseyhightower/kub
 
 ID-JAG The Hard Way is listed on the [OAuth.net Cross-App Access (XAA) page](https://oauth.net/cross-app-access/) as a test tool for learning ID-JAG
 
+## Community Mentions
+
+> [!NOTE]
+> If you reference this tutorial, let us know by opening an issue or pull request. We’ll add it here in the order submissions are received.
+
+| # |     Date     | Community                                                                                                 |
+|:-:|:------------:|:----------------------------------------------------------------------------------------------------------|
+| 1 | Jul 28, 2026 | [Authorization Challenges in the AI Agent Era: What Is ID-JAG and Why?][260728-community] — DEV Community |
+
+[260728-community]: https://dev.to/gde/learning-notesgolang-authorization-challenges-in-the-ai-agent-era-what-is-id-jag-and-why-i-jfb
+
 ## ⭐ Community Growth
 
 ID-JAG The Hard Way grows across both the root repository and the Athenz community fork. The star and fork counts below are updated from GitHub data.
