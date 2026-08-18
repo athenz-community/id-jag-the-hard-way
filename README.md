@@ -30,13 +30,17 @@ IDTHW is a tutorial plus a runnable local stack. Each layer below exists so the 
 
 <table>
   <tr>
-    <td align="center" width="25%"><img src="./assets/readme/claude.png" alt="Claude" width="180"></td>
+    <td align="center" width="25%">
+      <img src="./assets/readme/claude.png" alt="Claude" width="180"><br>
+      <img src="./assets/readme/codex.png" alt="Codex" width="180"><br>
+      <img src="./assets/readme/open-webui.png" alt="Open WebUI" width="180">
+    </td>
     <td align="center" width="25%"><img src="./assets/readme/k8s.png" alt="Kubernetes" width="96"></td>
     <td align="center" width="25%"><img src="./assets/readme/athenz.png" alt="Athenz" width="180"></td>
     <td align="center" width="25%"><img src="./assets/readme/keycloak.png" alt="Keycloak" width="160"></td>
   </tr>
   <tr>
-    <td><strong>AI clients</strong><br>Claude, Open WebUI, and MCP-capable clients drive tool calls.</td>
+    <td><strong>AI clients</strong><br>Claude, Codex, and Open WebUI drive MCP tool calls.</td>
     <td><strong>Runtime</strong><br>Kubernetes hosts the API, MCP, gateway, and authorization components.</td>
     <td><strong>Authorization</strong><br>Athenz ZMS/ZTS evaluates policy, issues ID-JAG, and mints scoped access tokens.</td>
     <td><strong>Identity</strong><br>Keycloak provides the signed-in human identity through OIDC.</td>
