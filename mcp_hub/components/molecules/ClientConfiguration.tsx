@@ -116,8 +116,9 @@ const CLIENTS: ClientConfig[] = [
     buildConfig: (serverName, mcpServerUrl) =>
       [
         `[mcp_servers.${tomlTableKey(serverName)}]`,
-        `type = "http"`,
+        `enabled = true`,
         `url = "${tomlBasicString(mcpServerUrl)}"`,
+        `auth = "oauth"`,
       ].join("\n"),
   },
   {
@@ -220,6 +221,7 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
   const client = CLIENTS.find((item) => item.key === clientKey) ?? CLIENTS[0]
   const selectedScope = client[scope]
   const config = client.buildConfig(serverName, mcpServerUrl)
+  const codexLoginCommand = `codex mcp login ${serverName}`
 
   return (
     <div className="config-workbench">
@@ -300,6 +302,20 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
                   </div>
                 </div>
               </div>
+
+              {client.key === "codex" && (
+                <div className="config-step-card">
+                  <span className="step-marker">3</span>
+                  <div>
+                    <h4>Log in to the MCP server</h4>
+                    <p>Run this command and complete the OAuth login flow.</p>
+                    <div className="codex-login-command">
+                      <code>{codexLoginCommand}</code>
+                      <CopyButton value={codexLoginCommand} label="Copy Codex MCP login command" />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="code-panel">

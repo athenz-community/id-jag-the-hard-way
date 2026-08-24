@@ -1,13 +1,15 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { auth } from "@/features/auth/lib/auth"
 import { listMcpServersFromKubernetes } from "@/features/catalog/api/kubernetesCatalog"
+import { isMcpHubServiceRequest } from "@/features/catalog/lib/mcpHubServiceAuth"
 import type { CatalogResponse } from "@/features/catalog/types/catalog"
 
 export const dynamic = "force-dynamic"
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user) {
+export async function GET(request: NextRequest) {
+  const serviceRequest = isMcpHubServiceRequest(request)
+  const session = serviceRequest ? null : await auth()
+  if (!serviceRequest && !session?.user) {
     return NextResponse.json({ servers: [], error: "Authentication required" }, { status: 401 })
   }
 

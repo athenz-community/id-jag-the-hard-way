@@ -57,6 +57,7 @@ export async function listLiveMcpTools(server: McpServer): Promise<McpToolsResul
 }
 
 export function resolveMcpDisplayUrl(server?: McpServer) {
+  if (server?.gatewayUrl) return server.gatewayUrl
   return normalizeMcpEndpoint(server?.publicUrl ?? process.env.MCP_HUB_PUBLIC_MCP_URL ?? DEFAULT_LOCAL_MCP_URL)
 }
 
@@ -67,6 +68,10 @@ function resolveMcpToolsEndpoint(server: McpServer) {
       .replaceAll("{server}", encodeURIComponent(server.name))
       .replaceAll("{name}", encodeURIComponent(server.name))
       .replaceAll("{namespace}", encodeURIComponent(server.namespace))
+  }
+
+  if (server.proxyUrl) {
+    return normalizeMcpEndpoint(server.proxyUrl)
   }
 
   if (server.publicUrl) {

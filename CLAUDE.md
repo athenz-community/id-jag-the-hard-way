@@ -18,15 +18,17 @@ The repository contains these runtime components and supporting plugins:
 
 2. **`ai_client_gateway/`** — Node.js/TypeScript Express proxy that intercepts AI client requests, converts ID tokens to ID-JAG tokens via Athenz, and injects the appropriate access token before forwarding to the MCP server.
 
-3. **`keycloak_token_exchange_provider/`** — Java 11 Maven Keycloak plugin that enables ID token delegation from Keycloak to Athenz.
+3. **`components/mcp-gateway/`** — Node.js/TypeScript authenticated MCP front door for the MCP Hub demo. It performs Keycloak login, keeps the ID token in a server-side session, resolves routes through the MCP Hub API, exchanges ID token → ID-JAG → Athenz access token per session, and forwards `/mcp/{id}` through Core MCP Proxy. It does not replace or change the tutorial's `ai_client_gateway/` yet.
 
-4. **`local_workload_instance_provider/`** — Standalone Java 17 Maven plugin for the optional local Copper Argos flow. It validates an OIDC ID token as workload attestation and restricts certificate enrollment to the authenticated user's Athenz home-domain subtree. It is not deployed by default; the `athenzd` FAQ mounts and registers it for testing.
+4. **`keycloak_token_exchange_provider/`** — Java 11 Maven Keycloak plugin that enables ID token delegation from Keycloak to Athenz.
 
-5. **`athenz_dist/`** — Git submodule pointing to `athenz-community/athenz-distribution`. Acts as the authorization server (ZMS + ZTS) and ZPU for the tutorial.
+5. **`local_workload_instance_provider/`** — Standalone Java 17 Maven plugin for the optional local Copper Argos flow. It validates an OIDC ID token as workload attestation and restricts certificate enrollment to the authenticated user's Athenz home-domain subtree. It is not deployed by default; the `athenzd` FAQ mounts and registers it for testing.
 
-6. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
+6. **`athenz_dist/`** — Git submodule pointing to `athenz-community/athenz-distribution`. Acts as the authorization server (ZMS + ZTS) and ZPU for the tutorial.
 
-7. **`genai_proxy/`** — Minimal locally run Node.js proxy that validates Athenz Bearer tokens with the ZTS public key, requires a `gen-ai.services.<project>` audience and `gen-ai-users` scope, replaces that token with `OPENAI_CODEX_API_KEY`, and forwards OpenAI-compatible `/v1/*` requests to the gateway configured by `GENAI_UPSTREAM_BASE_URL`. It meters both Chat Completions and Responses API token fields, keeps daily JST per-project, per-user and per-model counters with a JST `last_usage` time in `HH:mm:ss` format, owns and enforces per-service-code daily spending limits with HTTP 429 responses, persists counters under the gitignored `athenzd/.athenzd/` directory for `make local`, and exposes user-specific projects, limits, spend, and costs at unauthenticated `GET /api/users/{user}`.
+7. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
+
+8. **`genai_proxy/`** — Minimal locally run Node.js proxy that validates Athenz Bearer tokens with the ZTS public key, requires a `gen-ai.services.<project>` audience and `gen-ai-users` scope, replaces that token with `OPENAI_CODEX_API_KEY`, and forwards OpenAI-compatible `/v1/*` requests to the gateway configured by `GENAI_UPSTREAM_BASE_URL`. It meters both Chat Completions and Responses API token fields, keeps daily JST per-project, per-user and per-model counters with a JST `last_usage` time in `HH:mm:ss` format, owns and enforces per-service-code daily spending limits with HTTP 429 responses, persists counters under the gitignored `athenzd/.athenzd/` directory for `make local`, and exposes user-specific projects, limits, spend, and costs at unauthenticated `GET /api/users/{user}`.
 
 **Default ports** — local (`make local`) vs. Kubernetes port-forward (`keep-k8s-port-forward.sh`):
 
@@ -44,6 +46,7 @@ The repository contains these runtime components and supporting plugins:
 | Agentgateway Proxy | —         | `44440`          | `80`               |
 | Agentgateway Admin UI | —      | `44441`          | `15000`            |
 | AI Client Gateway | —          | `44443`          | `3101`             |
+| MCP Gateway       | `3103`     | `24445`           | `3103`             |
 | Open WebUI        | —          | `54443`          | `8080`             |
 | GenAI Proxy       | `64443`    | —                | —                  |
 | athenzd-managed GenAI Proxy | `65443` | —             | —                  |
@@ -74,6 +77,11 @@ make -C api_server mcp-proxy-local
 
 # AI Client Gateway (Node.js/TypeScript, port 3101)
 make -C ai_client_gateway local
+
+# MCP Gateway authenticated routing (Node.js/TypeScript, port 3103)
+PUBLIC_BASE_URL='<full-gateway-url>' \
+KEYCLOAK_PUBLIC_URL='<full-keycloak-url>' \
+make -C components/mcp-gateway local
 
 # Keycloak token exchange provider — build only (no local run)
 make -C keycloak_token_exchange_provider build

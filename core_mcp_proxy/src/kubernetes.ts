@@ -6,6 +6,7 @@ import { promisify } from "node:util"
 const execFileAsync = promisify(execFile)
 
 const ANNOTATION_PROJECT = "mcp.idthw.dev/project"
+const ANNOTATION_ID = "mcp.idthw.dev/id"
 const ANNOTATION_UPSTREAM_URL = "mcp.idthw.dev/upstream-url"
 const ANNOTATION_PUBLIC_URL = "mcp.idthw.dev/public-url"
 const ANNOTATION_TRANSPORT = "mcp.idthw.dev/transport"
@@ -14,6 +15,7 @@ const LABEL_PROJECT = "mcp.idthw.dev/project"
 
 export type McpRoute = {
   id: string
+  namespace: string
   project: string
   upstreamUrl: string
   publicUrl?: string
@@ -21,7 +23,7 @@ export type McpRoute = {
 }
 
 type DiscoverArgs = {
-  namespace: string
+  namespace?: string
   labelSelector: string
 }
 
@@ -31,6 +33,7 @@ type KubernetesList<T> = {
 
 type KubernetesMetadata = {
   name?: string
+  namespace?: string
   labels?: Record<string, string>
   annotations?: Record<string, string>
 }
@@ -63,35 +66,37 @@ export async function discoverMcpRoutes({ namespace, labelSelector }: DiscoverAr
     readServices({ namespace }),
   ])
 
-  return deployments
+  const routes = deployments
     .map((deployment) => deploymentToRoute({ deployment, services, namespace }))
     .filter((route) => route !== null)
     .sort((a, b) => a.id.localeCompare(b.id))
+
+  assertUniqueRouteIds(routes)
+  return routes
 }
 
 async function readDeployments({ namespace, labelSelector }: DiscoverArgs): Promise<KubernetesDeployment[]> {
   if (process.env.KUBERNETES_SERVICE_HOST) {
     return readKubernetesJson<KubernetesList<KubernetesDeployment>>(
-      `/apis/apps/v1/namespaces/${encodeURIComponent(namespace)}/deployments?labelSelector=${encodeURIComponent(labelSelector)}`,
+      deploymentListPath(namespace, labelSelector),
     ).then((response) => response.items ?? [])
   }
 
-  const { stdout } = await execFileAsync(
-    "kubectl",
-    ["get", "deployments", "-n", namespace, "-l", labelSelector, "-o", "json"],
-    { timeout: 5000 },
-  )
+  const args = ["get", "deployments", ...(namespace ? ["-n", namespace] : ["--all-namespaces"]), "-l", labelSelector, "-o", "json"]
+  const { stdout } = await execFileAsync("kubectl", args, { timeout: 5000 })
   return (JSON.parse(stdout) as KubernetesList<KubernetesDeployment>).items ?? []
 }
 
-async function readServices({ namespace }: { namespace: string }): Promise<KubernetesService[]> {
+async function readServices({ namespace }: { namespace?: string }): Promise<KubernetesService[]> {
   if (process.env.KUBERNETES_SERVICE_HOST) {
-    return readKubernetesJson<KubernetesList<KubernetesService>>(`/api/v1/namespaces/${encodeURIComponent(namespace)}/services`).then(
+    const path = namespace ? `/api/v1/namespaces/${encodeURIComponent(namespace)}/services` : "/api/v1/services"
+    return readKubernetesJson<KubernetesList<KubernetesService>>(path).then(
       (response) => response.items ?? [],
     )
   }
 
-  const { stdout } = await execFileAsync("kubectl", ["get", "services", "-n", namespace, "-o", "json"], {
+  const args = ["get", "services", ...(namespace ? ["-n", namespace] : ["--all-namespaces"]), "-o", "json"]
+  const { stdout } = await execFileAsync("kubectl", args, {
     timeout: 5000,
   })
   return (JSON.parse(stdout) as KubernetesList<KubernetesService>).items ?? []
@@ -145,19 +150,21 @@ async function readKubernetesJson<T>(path: string): Promise<T> {
 function deploymentToRoute({
   deployment,
   services,
-  namespace,
+  namespace: configuredNamespace,
 }: {
   deployment: KubernetesDeployment
   services: KubernetesService[]
-  namespace: string
+  namespace?: string
 }): McpRoute | null {
   const metadata = deployment.metadata ?? {}
   const annotations = metadata.annotations ?? {}
   const labels = metadata.labels ?? {}
-  const id = metadata.name
+  const name = metadata.name
+  const namespace = metadata.namespace ?? configuredNamespace ?? "default"
+  const id = annotations[ANNOTATION_ID] ?? name
   const project = annotations[ANNOTATION_PROJECT] ?? labels[LABEL_PROJECT]
 
-  if (!id || !project || id === "core-mcp-proxy") {
+  if (!id || !name || !project || name === "core-mcp-proxy" || name === "mcp-gateway") {
     return null
   }
 
@@ -168,6 +175,7 @@ function deploymentToRoute({
 
   return {
     id,
+    namespace,
     project,
     upstreamUrl,
     publicUrl: annotations[ANNOTATION_PUBLIC_URL],
@@ -188,7 +196,9 @@ function inferServiceUrl({
   const annotations = metadata.annotations ?? {}
   const name = metadata.name
   const podLabels = deployment.spec?.template?.metadata?.labels ?? {}
-  const service = services.find((item) => item.metadata?.name === name) ?? services.find((item) => selectorMatches(item.spec?.selector, podLabels))
+  const namespaceServices = services.filter((item) => (item.metadata?.namespace ?? namespace) === namespace)
+  const service = namespaceServices.find((item) => item.metadata?.name === name)
+    ?? namespaceServices.find((item) => selectorMatches(item.spec?.selector, podLabels))
 
   if (!service) {
     return undefined
@@ -201,6 +211,26 @@ function inferServiceUrl({
 
   const path = normalizePath(annotations[ANNOTATION_PATH] ?? "/mcp")
   return `http://${service.metadata?.name}.${namespace}:${port}${path}`
+}
+
+function deploymentListPath(namespace: string | undefined, labelSelector: string) {
+  const prefix = namespace
+    ? `/apis/apps/v1/namespaces/${encodeURIComponent(namespace)}/deployments`
+    : "/apis/apps/v1/deployments"
+  return `${prefix}?labelSelector=${encodeURIComponent(labelSelector)}`
+}
+
+function assertUniqueRouteIds(routes: McpRoute[]) {
+  const seen = new Map<string, McpRoute>()
+  for (const route of routes) {
+    const existing = seen.get(route.id)
+    if (existing) {
+      throw new Error(
+        `Duplicate MCP route id ${route.id}: ${existing.namespace} and ${route.namespace}. Set a unique mcp.idthw.dev/id annotation.`,
+      )
+    }
+    seen.set(route.id, route)
+  }
 }
 
 function selectorMatches(selector: Record<string, string> | undefined, labels: Record<string, string>) {

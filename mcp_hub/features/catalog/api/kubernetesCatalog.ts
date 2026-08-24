@@ -9,9 +9,11 @@ const execFileAsync = promisify(execFile)
 const LABEL_SELECTOR = process.env.MCP_HUB_K8S_LABEL_SELECTOR ?? "app.kubernetes.io/part-of=mcp-hub"
 
 const ANNOTATION_DESCRIPTION = "mcp.idthw.dev/description"
+const ANNOTATION_ID = "mcp.idthw.dev/id"
 const ANNOTATION_ICON = "mcp.idthw.dev/icon"
 const ANNOTATION_PROJECT = "mcp.idthw.dev/project"
 const ANNOTATION_ALIAS = "mcp.idthw.dev/alias"
+const ANNOTATION_ACCESS_SCOPE = "mcp.idthw.dev/access-scope"
 const ANNOTATION_PUBLIC_URL = "mcp.idthw.dev/public-url"
 const LEGACY_ANNOTATION_SERVER = "mcp.idthw.dev/server"
 const LABEL_PROJECT = "mcp.idthw.dev/project"
@@ -33,10 +35,12 @@ type Deployment = {
 
 export async function listMcpServersFromKubernetes(): Promise<McpServer[]> {
   const deployments = await readDeployments()
-  return deployments
+  const servers = deployments
     .map(deploymentToMcpServer)
     .filter((server): server is McpServer => server !== null)
     .sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name))
+  assertUniqueRouteIds(servers)
+  return servers
 }
 
 async function readDeployments(): Promise<Deployment[]> {
@@ -94,20 +98,53 @@ function deploymentToMcpServer(deployment: Deployment): McpServer | null {
   const displayName = alias ?? name
   const project = annotations[ANNOTATION_PROJECT] ?? labels[LABEL_PROJECT]
   if (!project) return null
+  const routeId = annotations[ANNOTATION_ID] ?? name
+  if (!isValidRouteId(routeId)) return null
 
   return {
     id: `${namespace}:${name}`,
+    routeId,
     name,
     namespace,
     alias,
     description: annotations[ANNOTATION_DESCRIPTION] ?? `The MCP server for ${displayName}`,
     project,
     publicUrl: annotations[ANNOTATION_PUBLIC_URL],
+    gatewayUrl: publicGatewayUrl(routeId),
+    proxyUrl: coreProxyUrl(routeId),
+    accessScope: annotations[ANNOTATION_ACCESS_SCOPE]?.trim() || undefined,
     totalToolCalls: "N/A",
     iconSrc: annotations[ANNOTATION_ICON] ?? iconForServer(displayName),
     logoText: initialsFor(displayName),
     logoBg: "#ffffff",
     logoFg: "#111111",
+  }
+}
+
+function coreProxyUrl(routeId: string) {
+  const baseUrl = (process.env.MCP_HUB_CORE_PROXY_URL ?? "http://core-mcp-proxy.mcp-hub:8080").replace(/\/+$/, "")
+  return `${baseUrl}/mcp/${encodeURIComponent(routeId)}`
+}
+
+function publicGatewayUrl(routeId: string) {
+  const baseUrl = process.env.MCP_HUB_MCP_GATEWAY_URL?.trim().replace(/\/+$/, "")
+  return baseUrl ? `${baseUrl}/mcp/${encodeURIComponent(routeId)}` : undefined
+}
+
+function isValidRouteId(routeId: string) {
+  return /^[a-z0-9](?:[a-z0-9._-]{0,251}[a-z0-9])?$/i.test(routeId)
+}
+
+function assertUniqueRouteIds(servers: McpServer[]) {
+  const seen = new Map<string, McpServer>()
+  for (const server of servers) {
+    const existing = seen.get(server.routeId)
+    if (existing) {
+      throw new Error(
+        `Duplicate MCP route id ${server.routeId}: ${existing.namespace}/${existing.name} and ${server.namespace}/${server.name}`,
+      )
+    }
+    seen.set(server.routeId, server)
   }
 }
 

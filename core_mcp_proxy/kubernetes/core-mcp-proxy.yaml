@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: core-mcp-proxy
+  namespace: mcp-hub
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: core-mcp-proxy-reader
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: core-mcp-proxy-reader
+subjects:
+  - kind: ServiceAccount
+    name: core-mcp-proxy
+    namespace: mcp-hub
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: core-mcp-proxy-reader
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core-mcp-proxy
+  namespace: mcp-hub
+  labels:
+    app.kubernetes.io/name: core-mcp-proxy
+    app.kubernetes.io/part-of: mcp-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: core-mcp-proxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: core-mcp-proxy
+        app.kubernetes.io/part-of: mcp-hub
+    spec:
+      serviceAccountName: core-mcp-proxy
+      containers:
+        - name: core-mcp-proxy
+          image: ghcr.io/mlajkim/core-mcp-proxy:latest
+          imagePullPolicy: Always
+          env:
+            - name: MCP_HUB_NAMESPACE
+              value: ""
+            - name: MCP_HUB_LABEL_SELECTOR
+              value: app.kubernetes.io/part-of=mcp-hub
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: core-mcp-proxy
+  namespace: mcp-hub
+  labels:
+    app.kubernetes.io/name: core-mcp-proxy
+    app.kubernetes.io/part-of: mcp-hub
+spec:
+  selector:
+    app.kubernetes.io/name: core-mcp-proxy
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

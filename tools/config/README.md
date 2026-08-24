@@ -28,8 +28,8 @@ make -C ui setup-permissions-api
 | `docs-poster`              | `human.idjag-learner`        | POST /docs                                                      |
 | `docs-deleter`             | `human.idjag-learner`        | DELETE /docs                                                    |
 | `mcp-accessor`             | `human.idjag-learner`        | access the MCP auth proxy                                       |
-| `docs-getter-jag-exchanger` | AI agents                   | JAG-exchange into `docs-getter`                                |
-| `mcp-accessor-jag-exchanger` | AI agents                   | JAG-exchange into `mcp-accessor`                               |
+| `docs-getter-jag-exchanger` | AI agents and MCP Gateway   | JAG-exchange into `docs-getter`                                |
+| `mcp-accessor-jag-exchanger` | AI agents, MCP Hub, and MCP Gateway | JAG-exchange into `mcp-accessor`                         |
 | `jag-exchanging-uis`       | `org.idjag-ui`               | JAG-exchange into `docs-getter`, `docs-poster`, `docs-deleter`  |
 | `to-api-exchanger`         | `api.api-mcp`                | RFC 8693 source exchange from `api` tokens                      |
 | `docs-getter-exchanger`    | `api.api-mcp`                | RFC 8693 target exchange into `docs-getter` scoped tokens       |

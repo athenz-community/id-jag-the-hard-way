@@ -128,6 +128,7 @@ Set `MCP_HUB_MCP_ACCESS_SCOPE` because this FAQ imports the protected API MCP se
 
 ```sh
 env MCP_HUB_MCP_ACCESS_SCOPE="api:role.mcp-accessor" \
+  MCP_HUB_MCP_GATEWAY_URL="http://mcp-gateway.idthw.org:$(./tools/port.sh mcp-gateway)" \
   make -C mcp_hub local PORT=3102 OPEN_UI=true
 ```
 
@@ -137,6 +138,9 @@ If you need custom paths, override these environment variables:
 env \
   MCP_HUB_ZTS_URL="https://localhost:$(./tools/port.sh zts)/zts/v1" \
   MCP_HUB_MCP_ACCESS_SCOPE="api:role.mcp-accessor" \
+  MCP_HUB_MCP_GATEWAY_URL="http://mcp-gateway.idthw.org:$(./tools/port.sh mcp-gateway)" \
+  MCP_HUB_CORE_PROXY_URL="http://host.docker.internal:$(./tools/port.sh core-mcp-proxy)" \
+  MCP_HUB_REGISTRY_TOKEN="idthw-local-mcp-registry-token" \
   MCP_HUB_ATHENZ_CERT_PATH="./certs/mcp-hub-ui.crt" \
   MCP_HUB_ATHENZ_KEY_PATH="./certs/mcp-hub-ui.key" \
   MCP_HUB_ATHENZ_CA_PATH="./certs/ca.crt" \
@@ -156,6 +160,8 @@ kubectl label deploy mcp -n api \
   --overwrite
 
 kubectl annotate deploy mcp -n api \
+  mcp.idthw.dev/id="k8s-docs-server" \
+  mcp.idthw.dev/access-scope="api:role.mcp-accessor api:role.docs-getter" \
   mcp.idthw.dev/alias="K8s API Docs Server" \
   mcp.idthw.dev/description="MCP server for Kubernetes API docs used by ID-JAG tutorials" \
   mcp.idthw.dev/public-url="http://127.0.0.1:${_core_mcp_proxy_port}" \

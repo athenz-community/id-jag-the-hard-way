@@ -6,7 +6,7 @@ import { auth } from "@/features/auth/lib/auth"
 const DEFAULT_ZTS_URL = "https://localhost:8443/zts/v1"
 const DEFAULT_ZTS_AUDIENCE = "https://athenz-zts-server.athenz:4443/zts/v1"
 const TOKEN_EXPIRY_SKEW_MS = 60_000
-const MAX_CACHED_USERS = 100
+const MAX_CACHED_TOKENS = 100
 
 type AthenzTokenResponse = {
   access_token?: string
@@ -17,7 +17,27 @@ type AthenzTokenResponse = {
 
 type CachedToken = {
   token: string
+  subject: string
+  scope: string
+  cachedAtMs: number
   expiresAtMs: number
+}
+
+export type McpAccessTokenCacheStatus = {
+  generatedAt: string
+  entryCount: number
+  usableEntryCount: number
+  refreshRequiredEntryCount: number
+  expiredEntryCount: number
+  maxEntries: number
+  expirySkewSeconds: number
+  entries: Array<{
+    subject: string
+    scope: string
+    cachedAt: string
+    expiresAt: string
+    status: "valid" | "refresh-required" | "expired"
+  }>
 }
 
 const cachedTokens = new Map<string, CachedToken>()
@@ -48,10 +68,53 @@ export async function getMcpAccessToken(): Promise<string | null> {
   pruneTokenCache(now)
   cachedTokens.set(cacheKey, {
     token: tokenResponse.access_token,
+    subject,
+    scope,
+    cachedAtMs: now,
     expiresAtMs: now + expiresInSeconds * 1000,
   })
 
   return tokenResponse.access_token
+}
+
+export function getMcpAccessTokenCacheStatus(): McpAccessTokenCacheStatus {
+  const now = Date.now()
+  let usableEntryCount = 0
+  let refreshRequiredEntryCount = 0
+  let expiredEntryCount = 0
+
+  const entries = Array.from(cachedTokens.values(), (cachedToken) => {
+    let status: "valid" | "refresh-required" | "expired"
+    if (cachedToken.expiresAtMs <= now) {
+      status = "expired"
+      expiredEntryCount += 1
+    } else if (cachedToken.expiresAtMs <= now + TOKEN_EXPIRY_SKEW_MS) {
+      status = "refresh-required"
+      refreshRequiredEntryCount += 1
+    } else {
+      status = "valid"
+      usableEntryCount += 1
+    }
+
+    return {
+      subject: cachedToken.subject,
+      scope: cachedToken.scope,
+      cachedAt: new Date(cachedToken.cachedAtMs).toISOString(),
+      expiresAt: new Date(cachedToken.expiresAtMs).toISOString(),
+      status,
+    }
+  })
+
+  return {
+    generatedAt: new Date(now).toISOString(),
+    entryCount: entries.length,
+    usableEntryCount,
+    refreshRequiredEntryCount,
+    expiredEntryCount,
+    maxEntries: MAX_CACHED_TOKENS,
+    expirySkewSeconds: TOKEN_EXPIRY_SKEW_MS / 1000,
+    entries,
+  }
 }
 
 async function requestAthenzAccessToken(scope: string, idToken: string): Promise<AthenzTokenResponse> {
@@ -98,7 +161,7 @@ function pruneTokenCache(now: number) {
     if (value.expiresAtMs <= now + TOKEN_EXPIRY_SKEW_MS) cachedTokens.delete(key)
   }
 
-  while (cachedTokens.size >= MAX_CACHED_USERS) {
+  while (cachedTokens.size >= MAX_CACHED_TOKENS) {
     const oldestKey = cachedTokens.keys().next().value as string | undefined
     if (!oldestKey) break
     cachedTokens.delete(oldestKey)
