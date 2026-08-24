@@ -80,7 +80,6 @@ _at=$(cat ./keys/idjag-learner.jwt)
 
 cat > .codex/config.toml <<EOF
 [mcp_servers.id-jag-the-hard-way-mcp]
-type = "http"
 url = "http://localhost:${_mcp_port}/mcp"
 http_headers = { Authorization = "Bearer ${_at}" }
 EOF
@@ -99,7 +98,6 @@ cat .codex/config.toml
 
 ```toml
 [mcp_servers.id-jag-the-hard-way-mcp]
-type = "http"
 url = "http://localhost:24443/mcp"
 http_headers = { Authorization = "Bearer <redacted-access-token>" }
 
