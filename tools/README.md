@@ -36,6 +36,7 @@ Prints the effective port for a given service. Reads `config.local.yaml` first, 
 ./tools/port.sh keycloak-https  # → 34444
 ./tools/port.sh agentgateway    # → 44440
 ./tools/port.sh agentgateway-admin # → 44441
+./tools/port.sh mcp-gateway         # → 24445
 ./tools/port.sh genai-proxy          # → 64443
 ./tools/port.sh athenzd-genai-proxy  # → 65443
 ```
@@ -147,6 +148,7 @@ ports:
   core-mcp-proxy: 24442
   mcp: 24443
   confluence-mcp: 24444
+  mcp-gateway: 24445
   keycloak: 34443
   keycloak-https: 34444
   agentgateway: 44440

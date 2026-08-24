@@ -1102,6 +1102,28 @@ input:disabled {
   font-weight: 800;
 }
 
+.codex-login-command {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  border: 1px solid #dfe4ec;
+  border-radius: 5px;
+  padding: 7px 8px 7px 12px;
+  background: #fff;
+}
+
+.codex-login-command code {
+  min-width: 0;
+  flex: 1;
+  overflow-x: auto;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .code-panel {
   position: relative;
   min-height: 336px;

@@ -95,6 +95,7 @@ _api_port=$(resolve_port api-server)
 _core_mcp_proxy_port=$(resolve_port core-mcp-proxy)
 _mcp_port=$(resolve_port mcp)
 _confluence_mcp_port=$(resolve_port confluence-mcp)
+_mcp_gateway_port=$(resolve_port mcp-gateway)
 _idp_port=$(resolve_port keycloak)
 _idp_https_port=$(resolve_port keycloak-https)
 _agentgateway_port=$(resolve_port agentgateway)
@@ -122,6 +123,7 @@ _pf api     deployment/api-server         "${_api_port}"               8080 &
 _pf mcp-hub service/core-mcp-proxy        "${_core_mcp_proxy_port}"    8080 &
 _pf api     service/mcp                   "${_mcp_port}"               8081 &
 _pf mcp-hub service/confluence-mcp        "${_confluence_mcp_port}"    9000 &
+_pf mcp-hub service/mcp-gateway           "${_mcp_gateway_port}"       3103 &
 _pf idp     deployment/keycloak           "${_idp_port}"               8080 &
 _pf idp     deployment/keycloak           "${_idp_https_port}"         8443 &
 _pf agent-gateway deployment/agentgateway-proxy "${_agentgateway_port}"       80 &

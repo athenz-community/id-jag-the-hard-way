@@ -4,7 +4,7 @@ import type { McpRoute } from "./kubernetes.ts"
 import { proxyToUpstream } from "./proxy.ts"
 
 const PORT = Number(process.env.PORT ?? "8080")
-const NAMESPACE = process.env.MCP_HUB_NAMESPACE ?? "mcp-hub"
+const NAMESPACE = process.env.MCP_HUB_NAMESPACE?.trim() || undefined
 const LABEL_SELECTOR = process.env.MCP_HUB_LABEL_SELECTOR ?? "app.kubernetes.io/part-of=mcp-hub"
 const ROUTE_CACHE_TTL_MS = Number(process.env.ROUTE_CACHE_TTL_MS ?? "5000")
 
@@ -30,7 +30,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`core-mcp-proxy listening on 0.0.0.0:${PORT}`)
-  console.log(`discovering MCP deployments in namespace=${NAMESPACE} selector=${LABEL_SELECTOR}`)
+  console.log(`discovering MCP deployments in namespace=${NAMESPACE ?? "all"} selector=${LABEL_SELECTOR}`)
 })
 
 async function handleRequest(req: IncomingMessage, res: ServerResponse) {

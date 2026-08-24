@@ -2,7 +2,7 @@
 
 MCP Hub is a small Next.js application for discovering and eventually registering MCP servers in the IDTHW environment.
 
-The catalog is backed by Kubernetes. MCP server rows are discovered from Kubernetes `Deployment` resources with MCP Hub labels and annotations. Kubernetes is the first source of truth: if an MCP server is deployed, labeled, and annotated correctly, it appears in the catalog.
+The catalog is backed by Kubernetes. MCP server rows are discovered from Kubernetes `Deployment` resources with MCP Hub labels and annotations. Kubernetes is the underlying source of truth, while `/api/mcp-servers` is the registry API consumed by both the UI and MCP Gateway.
 
 ## Local Docker Run
 
@@ -42,6 +42,8 @@ make -C mcp_hub local OPEN_UI=true
 Each browser can keep up to five IdP sessions by default. The app bar lists the cached users for one-click switching; **Sign in as a different user** goes through Keycloak only when adding an account that is not already sessioned. Set `MCP_HUB_ACCOUNT_CACHE_SIZE` from `1` to `8` to change the limit. Identity claims and refresh tokens remain inside the encrypted, HTTP-only Auth.js cookie, while the UI receives only account display summaries. Signing out clears the full browser account cache and signs the current account out through the IdP.
 
 MCP Hub does not generate a private key or user certificate in the browser session. Its `mcp-hub.hub-ui` workload certificate stays server-side and exchanges the signed-in user's ID token through ID-JAG. Resulting Athenz access tokens are cached separately per OIDC subject and scope.
+
+The current in-memory authentication cache status is available at `GET /api/mcp-cache-status`. It reports the Hub's Athenz access-token cache plus the MCP Gateway's current OAuth session users and per-session Athenz cache metadata. Configure the Gateway source with `MCP_HUB_GATEWAY_STATUS_URL`; local Docker defaults to `http://host.docker.internal:<mcp-gateway-port>/internal/cache-status`. The Hub authenticates that internal request with `MCP_HUB_REGISTRY_TOKEN` and whitelists the response fields. Neither endpoint returns access tokens, ID tokens, ID-JAGs, opaque session tokens, or their hashes. Like `/api/mcp-servers`, the Hub endpoint accepts either an authenticated MCP Hub browser session or `Authorization: Bearer <MCP_HUB_REGISTRY_TOKEN>` and always returns `Cache-Control: no-store`.
 
 ## Gen AI Product
 
@@ -93,6 +95,20 @@ The page fetches data from the local Next API route:
 /api/mcp-servers
 ```
 
+Browser requests authenticate with the MCP Hub login session. MCP Gateway can call the same endpoint with:
+
+```text
+Authorization: Bearer <MCP_HUB_REGISTRY_TOKEN>
+```
+
+Each returned server includes:
+
+- `routeId`, the stable globally unique ID used in `/mcp/{id}`
+- `gatewayUrl`, the public MCP client URL when `MCP_HUB_MCP_GATEWAY_URL` is configured
+- `proxyUrl`, the corresponding Core MCP Proxy URL
+
+Configure the proxy origin with `MCP_HUB_CORE_PROXY_URL`. Local Docker `make local` uses `host.docker.internal` plus the local Core MCP Proxy port; host-side development can use `127.0.0.1`, and an in-cluster MCP Hub should use `http://core-mcp-proxy.mcp-hub:8080`.
+
 That API route reads Kubernetes deployments from all namespaces visible to the current Kubernetes client.
 
 The API selects deployments with:
@@ -138,7 +154,7 @@ For a specific MCP deployment, set the public MCP endpoint with:
 mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
 ```
 
-The client configuration page and live tool discovery use this annotation when it is present. If the value is just a host and port, such as `http://localhost:24443`, MCP Hub normalizes it to `/mcp`.
+Live tool discovery uses the server's Core MCP Proxy route so the Hub can attach the signed-in user's Athenz access token obtained with the Hub workload certificate. The annotation remains the direct public endpoint and is used by the client-configuration page only as a fallback when `MCP_HUB_MCP_GATEWAY_URL` is not configured. If the value is just a host and port, such as `http://localhost:24443`, MCP Hub normalizes it to `/mcp`.
 
 When MCP Hub runs in-cluster, the default endpoint is derived from the selected server name and namespace:
 
@@ -189,11 +205,33 @@ Use annotations for display metadata and richer values.
 ```yaml
 metadata:
   annotations:
+    mcp.idthw.dev/id: "k8s-docs-server"
+    mcp.idthw.dev/access-scope: "api:role.mcp-accessor api:role.docs-getter"
     mcp.idthw.dev/alias: "K8s Docs Server"
     mcp.idthw.dev/description: "The MCP server for ID-JAG tutorial documents"
     mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
     mcp.idthw.dev/transport: "streamable-http"
 ```
+
+### `mcp.idthw.dev/id`
+
+Globally unique stable route ID used by MCP Gateway and Core MCP Proxy:
+
+```yaml
+mcp.idthw.dev/id: "k8s-docs-server"
+```
+
+It defaults to the deployment name. Set it explicitly when the public route must not change with the deployment name or namespace.
+
+### `mcp.idthw.dev/access-scope`
+
+Optional space-separated Athenz scopes that MCP Gateway requests for the signed-in user's route-specific access token:
+
+```yaml
+mcp.idthw.dev/access-scope: "api:role.mcp-accessor api:role.docs-getter"
+```
+
+If omitted, MCP Gateway uses its `MCP_GATEWAY_ACCESS_SCOPE` fallback.
 
 ### `mcp.idthw.dev/alias`
 
@@ -223,7 +261,7 @@ The MCP server for <name-or-alias>
 
 ### `mcp.idthw.dev/public-url`
 
-Externally reachable MCP endpoint used for client configuration and live tool discovery.
+Externally reachable MCP endpoint used for live tool discovery and as the client-configuration fallback when no MCP Gateway URL is configured.
 
 ```yaml
 mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
@@ -277,7 +315,10 @@ The alias is optional display text:
 ```yaml
 metadata:
   annotations:
+    mcp.idthw.dev/id: "example-mcp"
+    mcp.idthw.dev/access-scope: "api:role.mcp-accessor api:role.docs-getter"
     mcp.idthw.dev/alias: "Example MCP"
+    mcp.idthw.dev/id: "example-mcp"
 ```
 
 The catalog display rule is:
@@ -287,6 +328,38 @@ display name = alias ?? deployment metadata.name
 ```
 
 This keeps Kubernetes identity stable while allowing friendly UI names.
+
+## MCP Gateway Client URL
+
+Set the public gateway origin:
+
+```text
+MCP_HUB_MCP_GATEWAY_URL=http://mcp-gateway.idthw.org:24445
+```
+
+The client-configuration page then generates:
+
+```json
+{
+  "servers": {
+    "k8s-docs-server": {
+      "type": "http",
+      "url": "http://mcp-gateway.idthw.org:24445/mcp/k8s-docs-server"
+    }
+  }
+}
+```
+
+For Codex, the same page generates OAuth-enabled TOML without the unsupported `type` key:
+
+```toml
+[mcp_servers.k8s-docs-server]
+enabled = true
+url = "http://mcp-gateway.idthw.org:24445/mcp/k8s-docs-server"
+auth = "oauth"
+```
+
+The Tools page uses the deployment's Core MCP Proxy route to perform live `tools/list` discovery from the MCP Hub server. This avoids treating a host-only `127.0.0.1` port-forward as container-local and preserves the Hub workload-certificate → user-scoped Athenz token flow.
 
 ## Example MCP Deployment
 

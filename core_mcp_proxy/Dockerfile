@@ -6,7 +6,6 @@ COPY package.json ./
 COPY src ./src
 
 ENV PORT=8080
-ENV MCP_HUB_NAMESPACE=mcp-hub
 ENV MCP_HUB_LABEL_SELECTOR=app.kubernetes.io/part-of=mcp-hub
 ENV ROUTE_CACHE_TTL_MS=5000
 

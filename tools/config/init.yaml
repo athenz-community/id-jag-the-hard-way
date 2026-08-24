@@ -83,6 +83,7 @@ roles:
       - human.idjag-learner.claude
       - human.idjag-learner.codex
       - ai.open-webui
+      - mcp-hub.mcp-gateway
     policies:
       - allow: zts.jag_exchange
         on: role.docs-getter
@@ -94,6 +95,7 @@ roles:
       - human.idjag-learner.codex
       - ai.open-webui
       - mcp-hub.hub-ui
+      - mcp-hub.mcp-gateway
     policies:
       - allow: zts.jag_exchange
         on: role.mcp-accessor

@@ -37,7 +37,7 @@ export default async function McpServerClientConfigurationRoute({
       <McpServerDetailHeader project={project} product={product} server={server} displayName={displayName} />
       <McpServerDetailTabs project={project} product={product} serverId={server.id} active="client-configuration" />
       <McpServerUrlSection mcpServerUrl={mcpServerUrl} />
-      <JsonConfigurationSection serverName={server.name} mcpServerUrl={mcpServerUrl} />
+      <JsonConfigurationSection serverName={server.routeId} mcpServerUrl={mcpServerUrl} />
     </ConsoleTemplate>
   )
 }

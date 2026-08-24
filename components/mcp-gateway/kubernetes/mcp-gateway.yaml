@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-gateway
+  namespace: mcp-hub
+  labels:
+    app.kubernetes.io/name: mcp-gateway
+    app.kubernetes.io/part-of: mcp-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mcp-gateway
+        app.kubernetes.io/part-of: mcp-hub
+    spec:
+      containers:
+        - name: mcp-gateway
+          image: ghcr.io/mlajkim/mcp-gateway:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3103
+          env:
+            - name: PORT
+              value: "3103"
+            - name: PUBLIC_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: mcp-gateway-public-endpoints
+                  key: gateway-url
+            - name: KEYCLOAK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: mcp-gateway-public-endpoints
+                  key: idp-url
+            - name: KEYCLOAK_PUBLIC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: mcp-gateway-public-endpoints
+                  key: idp-url
+            - name: KEYCLOAK_ISSUER
+              valueFrom:
+                configMapKeyRef:
+                  name: mcp-gateway-public-endpoints
+                  key: idp-issuer
+            - name: KEYCLOAK_REALM
+              value: master
+            - name: KEYCLOAK_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-gateway-keycloak
+                  key: client-id
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-gateway-keycloak
+                  key: client-secret
+            - name: ALLOW_INSECURE_HTTP
+              value: "true"
+            - name: MCP_HUB_REGISTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: mcp-gateway-public-endpoints
+                  key: hub-registry-url
+            - name: MCP_HUB_REGISTRY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-hub-registry
+                  key: token
+            - name: MCP_GATEWAY_ACCESS_SCOPE
+              value: "api:role.mcp-accessor api:role.docs-getter"
+            - name: ATHENZ_ZTS_URL
+              value: https://athenz-zts-server.athenz:4443/zts/v1
+            - name: ATHENZ_ZTS_AUDIENCE
+              value: https://athenz-zts-server.athenz:4443/zts/v1
+            - name: ATHENZ_CERT_PATH
+              value: /var/run/athenz/service.cert.pem
+            - name: ATHENZ_KEY_PATH
+              value: /var/run/athenz/service.key.pem
+            - name: ATHENZ_CA_PATH
+              value: /var/run/athenz/ca.crt
+          volumeMounts:
+            - name: athenz-identity
+              mountPath: /var/run/athenz
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: athenz-identity
+          secret:
+            secretName: mcp-gateway-athenz-cert
+            items:
+              - key: mcp-gateway.crt
+                path: service.cert.pem
+              - key: mcp-gateway.key
+                path: service.key.pem
+              - key: ca.crt
+                path: ca.crt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-gateway
+  namespace: mcp-hub
+  labels:
+    app.kubernetes.io/name: mcp-gateway
+    app.kubernetes.io/part-of: mcp-hub
+spec:
+  selector:
+    app.kubernetes.io/name: mcp-gateway
+  ports:
+    - name: http
+      port: 3103
+      targetPort: http

@@ -32,22 +32,23 @@ MCP Hub already discovers MCP servers from deployments with:
 ```text
 app.kubernetes.io/part-of=mcp-hub
 mcp.idthw.dev/project=<project-name>
+mcp.idthw.dev/id=<stable-route-id>
 mcp.idthw.dev/public-url=<mcp-url>
 mcp.idthw.dev/transport=streamable-http
 ```
 
-`core-mcp-proxy` should read that same metadata. That keeps one registry shape for both the UI and the proxy.
+`core-mcp-proxy` should read that same metadata. MCP Hub exposes it through `/api/mcp-servers` as the registry contract used by MCP Gateway, while Core MCP Proxy uses the same Kubernetes metadata to resolve the final upstream.
 
 Do not make `core-mcp-proxy` the SSOT yet. Make it a consumer of the registry. Later, if MCP Hub gets a real registration API, that API can become the write path for the same Kubernetes metadata.
 
-For direct MCP Hub calls, `public-url` is enough because the UI and tools page call MCP servers directly. With `core-mcp-proxy`, the proxy can usually infer the in-cluster target from the same-name Kubernetes Service. Use `upstream-url` only when the Service cannot be inferred.
+For live tool discovery, `public-url` is enough because the MCP Hub server calls MCP servers directly. Client configuration uses MCP Gateway when `MCP_HUB_MCP_GATEWAY_URL` is set. Core MCP Proxy can usually infer the in-cluster target from the same-name Kubernetes Service; use `upstream-url` only when the Service cannot be inferred.
 
 ```text
-mcp.idthw.dev/public-url   client-facing URL shown by MCP Hub
+mcp.idthw.dev/public-url   direct URL used for MCP Hub live tool discovery
 mcp.idthw.dev/upstream-url optional in-cluster proxy target override
 ```
 
-Do not make the proxy call a local development URL like `http://127.0.0.1:24444/mcp`. Prefer same-name Service discovery or `upstream-url` for the proxy target, and keep `public-url` for the client-facing route.
+Do not make the proxy call a local development URL like `http://127.0.0.1:24444/mcp`. Prefer same-name Service discovery or `upstream-url` for the proxy target, and keep `public-url` for MCP Hub's direct live discovery.
 
 ## What should the proxy do first?
 
@@ -55,7 +56,7 @@ Keep the first version boring:
 
 1. Read MCP server deployments across namespaces.
 2. Filter to deployments labeled `app.kubernetes.io/part-of=mcp-hub`.
-3. Build a route table from deployment name to a same-name Service, or to `mcp.idthw.dev/upstream-url` when that override is present.
+3. Build a route table from `mcp.idthw.dev/id` (falling back to deployment name) to a same-name Service, or to `mcp.idthw.dev/upstream-url` when that override is present.
 4. Proxy:
 
 ```text
@@ -84,49 +85,16 @@ kubectl create namespace mcp-hub --dry-run=client -o yaml | kubectl apply -f -
 
 ## Kubernetes RBAC
 
-`core-mcp-proxy` needs read-only access to deployments and services in `mcp-hub`.
+`core-mcp-proxy` needs read-only access to deployments and services across namespaces because registered MCP workloads may run outside `mcp-hub`.
 
 ```sh
-kubectl apply -f - <<'EOF'
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: core-mcp-proxy
-  namespace: mcp-hub
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: core-mcp-proxy-reader
-  namespace: mcp-hub
-rules:
-  - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["services"]
-    verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: core-mcp-proxy-reader
-  namespace: mcp-hub
-subjects:
-  - kind: ServiceAccount
-    name: core-mcp-proxy
-    namespace: mcp-hub
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: core-mcp-proxy-reader
-EOF
+kubectl apply -f core_mcp_proxy/kubernetes/core-mcp-proxy.yaml
 ```
 
 ```sh
 # serviceaccount/core-mcp-proxy created
-# role.rbac.authorization.k8s.io/core-mcp-proxy-reader created
-# rolebinding.rbac.authorization.k8s.io/core-mcp-proxy-reader created
+# clusterrole.rbac.authorization.k8s.io/core-mcp-proxy-reader created
+# clusterrolebinding.rbac.authorization.k8s.io/core-mcp-proxy-reader created
 ```
 
 ## Use the GHCR Image
@@ -141,51 +109,10 @@ The image is built by GitHub Actions from `core_mcp_proxy/`. After a change land
 
 ## Deploy the Proxy
 
-Deploy `core-mcp-proxy` into `mcp-hub`:
+The same manifest deploys `core-mcp-proxy` and its Service into `mcp-hub`. It intentionally leaves `MCP_HUB_NAMESPACE` unset so discovery is cluster-wide:
 
 ```sh
-kubectl apply -f - <<'EOF'
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: core-mcp-proxy
-  namespace: mcp-hub
-  labels:
-    app: core-mcp-proxy
-    app.kubernetes.io/part-of: mcp-hub
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: core-mcp-proxy
-  template:
-    metadata:
-      labels:
-        app: core-mcp-proxy
-    spec:
-      serviceAccountName: core-mcp-proxy
-      containers:
-        - name: core-mcp-proxy
-          image: ghcr.io/mlajkim/core-mcp-proxy:latest
-          imagePullPolicy: Always
-          env:
-            - name: MCP_HUB_NAMESPACE
-              value: mcp-hub
-            - name: MCP_HUB_LABEL_SELECTOR
-              value: app.kubernetes.io/part-of=mcp-hub
-          ports:
-            - name: http
-              containerPort: 8080
-EOF
-```
-
-Create the Kubernetes Service:
-
-```sh
-kubectl expose deploy core-mcp-proxy -n mcp-hub \
-  --port 8080 \
-  --target-port 8080 \
-  --name core-mcp-proxy
+kubectl apply -f core_mcp_proxy/kubernetes/core-mcp-proxy.yaml
 ```
 
 Expose the Service locally with the shared port-forward helper. It uses the configured `core-mcp-proxy` port from `tools/config.yaml`, which defaults to `24442`:
@@ -215,6 +142,7 @@ The Confluence metadata can look like:
 _core_mcp_proxy_port=$(./tools/port.sh core-mcp-proxy)
 
 kubectl annotate deploy confluence-mcp -n mcp-hub \
+  mcp.idthw.dev/id="confluence-mcp" \
   mcp.idthw.dev/public-url="http://127.0.0.1:${_core_mcp_proxy_port}/mcp/confluence-mcp" \
   mcp.idthw.dev/upstream-url="http://confluence-mcp.mcp-hub:9000/mcp" \
   --overwrite

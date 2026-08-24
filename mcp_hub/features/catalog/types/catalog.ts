@@ -1,11 +1,15 @@
 export type McpServer = {
   id: string
+  routeId: string
   name: string
   namespace: string
   alias?: string
   description: string
   project: string
   publicUrl?: string
+  gatewayUrl?: string
+  proxyUrl: string
+  accessScope?: string
   totalToolCalls: string
   iconSrc?: string
   logoText: string
