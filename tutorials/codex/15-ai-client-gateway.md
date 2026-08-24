@@ -241,8 +241,9 @@ _gateway_port=$(./tools/port.sh ai-client-gateway-codex)
 
 cat > .codex/config.toml <<EOF
 [mcp_servers.id-jag-the-hard-way-mcp]
-type = "http"
+enabled = true
 url = "http://localhost:${_gateway_port}/mcp"
+auth = "oauth"
 EOF
 
 cat .codex/settings.toml >> .codex/config.toml
