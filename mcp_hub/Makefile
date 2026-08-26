@@ -14,6 +14,7 @@ MCP_HUB_ATHENZ_UI_URL ?= http://localhost:$(shell ../tools/port.sh athenz-ui)
 MCP_HUB_ZMS_URL ?= https://host.docker.internal:$(shell ../tools/port.sh zms)/zms/v1
 MCP_HUB_ZMS_TLS_SERVER_NAME ?= localhost
 MCP_HUB_ZTS_URL ?= https://host.docker.internal:$(shell ../tools/port.sh zts)/zts/v1
+MCP_HUB_ZTS_TLS_SERVER_NAME ?= localhost
 MCP_HUB_LOCAL_MCP_URL ?= http://host.docker.internal:$(shell ../tools/port.sh mcp)/mcp
 MCP_HUB_MCP_GATEWAY_URL ?= http://mcp-gateway.idthw.org:$(shell ../tools/port.sh mcp-gateway)
 MCP_HUB_MCP_ACCESS_SCOPE ?= api:role.mcp-accessor
@@ -29,8 +30,11 @@ KUBECONFIG_PATH ?= $(HOME)/.kube/config
 CONTAINER_KUBECONFIG_PATH ?= /root/.kube/config
 MCP_HUB_KUBECTL_SERVER ?= $(shell kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | sed -E 's\#://(127\.0\.0\.1|localhost)(:|/)\#://host.docker.internal\2\#')
 MCP_HUB_KUBECTL_TLS_SERVER_NAME ?= $(shell kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | sed -E 's\#https?://([^:/]+).*\#\1\#')
+MCP_HUB_CERT_KEY ?= certs/mcp-hub-ui.key
+MCP_HUB_CERT ?= certs/mcp-hub-ui.crt
+MCP_HUB_CERT_KEY_VERSION ?= v1
 
-.PHONY: build build-image local register-idp-client
+.PHONY: build build-image local register-idp-client renew-cert restart
 
 build:
 	npm install
@@ -52,6 +56,17 @@ register-idp-client:
 		"http://localhost:$(PORT)/api/auth/callback/idp" \
 		"http://localhost:$(PORT)" \
 		confidential
+
+renew-cert:
+	../tools/athenz/fetch-cert.sh \
+		mcp-hub \
+		hub-ui \
+		"$(MCP_HUB_CERT_KEY)" \
+		"$(MCP_HUB_CERT_KEY_VERSION)" \
+		--output "$(MCP_HUB_CERT)"
+
+restart: renew-cert
+	$(MAKE) local
 
 local:
 	@if docker container inspect "$(CONTAINER_NAME)" >/dev/null 2>&1; then \
@@ -87,6 +102,7 @@ local:
 		--env "MCP_HUB_ZMS_URL=$(MCP_HUB_ZMS_URL)" \
 		--env "MCP_HUB_ZMS_TLS_SERVER_NAME=$(MCP_HUB_ZMS_TLS_SERVER_NAME)" \
 		--env "MCP_HUB_ZTS_URL=$(MCP_HUB_ZTS_URL)" \
+		--env "MCP_HUB_ZTS_TLS_SERVER_NAME=$(MCP_HUB_ZTS_TLS_SERVER_NAME)" \
 		--env "MCP_HUB_LOCAL_MCP_URL=$(MCP_HUB_LOCAL_MCP_URL)" \
 		--env "MCP_HUB_MCP_GATEWAY_URL=$(MCP_HUB_MCP_GATEWAY_URL)" \
 		--env "MCP_HUB_MCP_ACCESS_SCOPE=$(MCP_HUB_MCP_ACCESS_SCOPE)" \
