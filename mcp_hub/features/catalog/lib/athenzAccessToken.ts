@@ -180,19 +180,29 @@ function certFilePath(envName: string, fileName: string): string {
 
 function postForm(endpoint: string, body: string, cert: Buffer, key: Buffer, ca: Buffer): Promise<AthenzTokenResponse> {
   return new Promise((resolve, reject) => {
+    const endpointUrl = new URL(endpoint)
+    const tlsServerName = process.env.MCP_HUB_ZTS_TLS_SERVER_NAME
+    const headers: Record<string, string | number> = {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Content-Length": Buffer.byteLength(body),
+      Accept: "application/json",
+    }
+    if (tlsServerName) {
+      headers.Host = endpointUrl.port
+        ? `${tlsServerName}:${endpointUrl.port}`
+        : tlsServerName
+    }
+
     const request = https.request(
-      endpoint,
+      endpointUrl,
       {
         method: "POST",
         cert,
         key,
         ca,
+        servername: tlsServerName,
         rejectUnauthorized: process.env.MCP_HUB_ZTS_REJECT_UNAUTHORIZED === "true",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Content-Length": Buffer.byteLength(body),
-          Accept: "application/json",
-        },
+        headers,
         timeout: 10_000,
       },
       (response) => {

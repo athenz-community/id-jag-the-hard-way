@@ -81,9 +81,11 @@ MCP_HUB_ATHENZ_UI_URL=https://athenz-ui.example.test make local
 When the ZMS connection hostname differs from the name on its TLS certificate,
 set `MCP_HUB_ZMS_TLS_SERVER_NAME` to the certificate name. MCP Hub uses it for
 both TLS SNI and the HTTP `Host` header because ZMS validates that they match.
-The local Docker workflow uses `localhost` because it reaches the host through
-`host.docker.internal`, while the local ZMS certificate is issued for
-`localhost`.
+Likewise, set `MCP_HUB_ZTS_TLS_SERVER_NAME` when the ZTS connection hostname
+differs from its TLS name; the Hub applies it to both SNI and the HTTP `Host`
+header. The local Docker workflow defaults both values to `localhost` because
+it reaches the host through `host.docker.internal`, while the local ZMS and ZTS
+certificates are issued for `localhost`.
 
 The local cost values are explicitly estimates based on fixed demo rates; they are not billing data.![alt text](image.png)
 
