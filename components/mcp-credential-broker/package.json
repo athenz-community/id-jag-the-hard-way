@@ -1,5 +1,5 @@
 {
-  "name": "@idthw/mcp-credential-broker",
+  "name": "@mlajkim/mcp-credential-broker",
   "version": "0.1.1",
   "description": "Shared OAuth credential broker and stdio connector for IDTHW MCP Gateway routes",
   "type": "module",
@@ -13,8 +13,18 @@
   "engines": {
     "node": ">=20"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mlajkim/id-jag-the-hard-way.git",
+    "directory": "components/mcp-credential-broker"
+  },
+  "homepage": "https://github.com/mlajkim/id-jag-the-hard-way/tree/main/components/mcp-credential-broker#readme",
+  "bugs": {
+    "url": "https://github.com/mlajkim/id-jag-the-hard-way/issues"
+  },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
     "build": "tsc && node -e \"require('node:fs').chmodSync('dist/index.js', 0o755)\"",

@@ -1,6 +1,6 @@
 # MCP Credential Broker
 
-`@idthw/mcp-credential-broker` connects one local stdio MCP entry to one MCP Gateway route while sharing a single browser-authenticated Gateway session across all connector processes.
+`@mlajkim/mcp-credential-broker` connects one local stdio MCP entry to one MCP Gateway route while sharing a single browser-authenticated Gateway session across all connector processes.
 
 ```text
 Codex confluence entry -> broker -> /mcp/confluence --+
@@ -9,6 +9,18 @@ Codex slack entry      -> broker -> /mcp/slack -------+
 ```
 
 Each MCP client entry remains separate, so clients such as Codex can show independent server connection state and tool counts. The broker does not aggregate or rename tools.
+
+## GitHub Packages Setup
+
+The package is published to GitHub Packages. Configure npm once before using it with `npx`:
+
+```ini
+# ~/.npmrc
+@mlajkim:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}
+```
+
+Set `GITHUB_PACKAGES_TOKEN` to a GitHub personal access token with `read:packages` permission. The package itself is public, but GitHub Packages still requires npm authentication when downloading it.
 
 ## Client Configuration
 
@@ -19,7 +31,7 @@ After this package is published, a Codex entry can use:
 enabled = true
 startup_timeout_sec = 360
 command = "npx"
-args = ["-y", "@idthw/mcp-credential-broker@latest", "https://mcp-gateway.example/mcp/confluence"]
+args = ["-y", "@mlajkim/mcp-credential-broker@latest", "https://mcp-gateway.example/mcp/confluence"]
 ```
 
 JSON clients with stdio support use the same command:
@@ -31,7 +43,7 @@ JSON clients with stdio support use the same command:
       "command": "npx",
       "args": [
         "-y",
-        "@idthw/mcp-credential-broker@latest",
+        "@mlajkim/mcp-credential-broker@latest",
         "https://mcp-gateway.example/mcp/confluence"
       ]
     }
