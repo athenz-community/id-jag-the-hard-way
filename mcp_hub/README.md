@@ -356,10 +356,10 @@ startup_timeout_sec = 360
 command = "npx"
 env_vars = ["GITHUB_PACKAGES_TOKEN"]
 args = [
-  "-y",
-  "@mlajkim/mcp-credential-broker@latest",
-  "--allow-insecure-http",
-  "http://mcp-gateway.idthw.org:24445/mcp/k8s-docs-server",
+    "-y",
+    "@mlajkim/mcp-credential-broker@latest",
+    "--allow-insecure-http",
+    "http://mcp-gateway.idthw.org:24445/mcp/k8s-docs-server",
 ]
 ```
 
