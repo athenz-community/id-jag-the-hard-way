@@ -22,6 +22,14 @@ The package is published to GitHub Packages. Configure npm once before using it 
 
 Set `GITHUB_PACKAGES_TOKEN` to a GitHub personal access token with `read:packages` permission. The package itself is public, but GitHub Packages still requires npm authentication when downloading it.
 
+Every same-repository pull request publishes a unique prerelease version and updates its `pr-<number>` tag. For example, PR 208 can be tested before merge with:
+
+```sh
+npx -y @mlajkim/mcp-credential-broker@pr-208 https://mcp-gateway.example/mcp/confluence
+```
+
+Merging to `main` publishes the version from `package.json` under the `latest` tag.
+
 ## Client Configuration
 
 After this package is published, a Codex entry can use:
