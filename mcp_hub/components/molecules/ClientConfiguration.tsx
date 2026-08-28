@@ -128,7 +128,7 @@ const CLIENTS: ClientConfig[] = [
         `command = "npx"`,
         `env_vars = ["GITHUB_PACKAGES_TOKEN"]`,
         `args = [`,
-        ...brokerArgs(mcpServerUrl).map((argument) => `  "${tomlBasicString(argument)}",`),
+        ...brokerArgs(mcpServerUrl).map((argument) => `    "${tomlBasicString(argument)}",`),
         `]`,
       ].join("\n"),
   },
