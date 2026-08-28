@@ -121,7 +121,9 @@ const CLIENTS: ClientConfig[] = [
         `enabled = true`,
         `startup_timeout_sec = 360`,
         `command = "npx"`,
-        `args = [${brokerArgs(mcpServerUrl).map((argument) => `"${tomlBasicString(argument)}"`).join(", ")}]`,
+        `args = [`,
+        ...brokerArgs(mcpServerUrl).map((argument) => `  "${tomlBasicString(argument)}",`),
+        `]`,
       ].join("\n"),
   },
   {
