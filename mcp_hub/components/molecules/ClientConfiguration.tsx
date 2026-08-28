@@ -24,7 +24,12 @@ type ClientConfig = {
   buildConfig: (serverName: string, mcpServerUrl: string) => string
 }
 
-const BROKER_PACKAGE = "@mlajkim/mcp-credential-broker@latest"
+const BROKER_PACKAGE =
+  process.env.NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE?.trim() || "@mlajkim/mcp-credential-broker@latest"
+const GITHUB_PACKAGES_NPMRC = [
+  "@mlajkim:registry=https://npm.pkg.github.com",
+  "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}",
+].join("\n")
 
 const CLIENTS: ClientConfig[] = [
   {
@@ -121,6 +126,7 @@ const CLIENTS: ClientConfig[] = [
         `enabled = true`,
         `startup_timeout_sec = 360`,
         `command = "npx"`,
+        `env_vars = ["GITHUB_PACKAGES_TOKEN"]`,
         `args = [`,
         ...brokerArgs(mcpServerUrl).map((argument) => `  "${tomlBasicString(argument)}",`),
         `]`,
@@ -275,7 +281,7 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
           <div className="manual-heading">
             <span className="config-eyebrow">Manual setup</span>
             <h3>Configure in config file</h3>
-            <p>Configure npm authentication for the @mlajkim GitHub Packages scope first. The first server then opens browser sign-in once; other server entries wait and reuse the shared Gateway session.</p>
+            <p>The first server opens browser sign-in once after npm starts the broker. Other server entries wait and reuse the shared Gateway session.</p>
           </div>
 
           <div className="manual-grid">
@@ -283,13 +289,27 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
               <div className="config-step-card">
                 <span className="step-marker">1</span>
                 <div>
+                  <h4>Authenticate npm to GitHub Packages</h4>
+                  <p>Add this to <code>~/.npmrc</code>, then set <code>GITHUB_PACKAGES_TOKEN</code> to a GitHub token with <code>read:packages</code> before starting the MCP client.</p>
+                  <div className="package-auth-config">
+                    <CopyButton value={GITHUB_PACKAGES_NPMRC} label="Copy GitHub Packages npm configuration" className="package-auth-copy" />
+                    <pre>
+                      <code>{GITHUB_PACKAGES_NPMRC}</code>
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              <div className="config-step-card">
+                <span className="step-marker">2</span>
+                <div>
                   <h4>Copy the {client.format} configuration</h4>
                   <p>This sample is generated for {client.label} using the current MCP server URL.</p>
                 </div>
               </div>
 
               <div className="config-step-card">
-                <span className="step-marker">2</span>
+                <span className="step-marker">3</span>
                 <div>
                   <h4>Save the configuration based on scope</h4>
                   <p>Scope determines whether this applies at the project level or globally.</p>

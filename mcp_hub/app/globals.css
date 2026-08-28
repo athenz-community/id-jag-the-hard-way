@@ -1018,6 +1018,40 @@ input:disabled {
   line-height: 1.25;
 }
 
+.config-step-card p code {
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.package-auth-config {
+  position: relative;
+  margin-top: 12px;
+  overflow: hidden;
+  border: 1px solid #dfe4ec;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.package-auth-config pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 12px 44px 12px 12px;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.package-auth-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
 .scope-tabs {
   display: inline-flex;
   align-items: center;
