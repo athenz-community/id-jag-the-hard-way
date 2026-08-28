@@ -232,7 +232,7 @@ function brokerArgs(mcpServerUrl: string) {
 }
 
 export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: string; mcpServerUrl: string }) {
-  const [clientKey, setClientKey] = useState<ClientKey>("github-copilot")
+  const [clientKey, setClientKey] = useState<ClientKey>("codex")
   const [scope, setScope] = useState<ScopeKey>("project")
   const client = CLIENTS.find((item) => item.key === clientKey) ?? CLIENTS[0]
   const selectedScope = client[scope]
