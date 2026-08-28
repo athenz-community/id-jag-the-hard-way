@@ -24,7 +24,7 @@ type ClientConfig = {
   buildConfig: (serverName: string, mcpServerUrl: string) => string
 }
 
-const BROKER_PACKAGE = "@idthw/mcp-credential-broker@latest"
+const BROKER_PACKAGE = "@mlajkim/mcp-credential-broker@latest"
 
 const CLIENTS: ClientConfig[] = [
   {
@@ -273,7 +273,7 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
           <div className="manual-heading">
             <span className="config-eyebrow">Manual setup</span>
             <h3>Configure in config file</h3>
-            <p>The first server opens browser sign-in once. Other server entries wait and reuse the shared Gateway session.</p>
+            <p>Configure npm authentication for the @mlajkim GitHub Packages scope first. The first server then opens browser sign-in once; other server entries wait and reuse the shared Gateway session.</p>
           </div>
 
           <div className="manual-grid">
