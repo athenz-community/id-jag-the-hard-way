@@ -24,6 +24,8 @@ type ClientConfig = {
   buildConfig: (serverName: string, mcpServerUrl: string) => string
 }
 
+const BROKER_PACKAGE = "@idthw/mcp-credential-broker@latest"
+
 const CLIENTS: ClientConfig[] = [
   {
     key: "github-copilot",
@@ -44,8 +46,8 @@ const CLIENTS: ClientConfig[] = [
       jsonConfig({
         servers: {
           [serverName]: {
-            type: "http",
-            url: mcpServerUrl,
+            command: "npx",
+            args: brokerArgs(mcpServerUrl),
           },
         },
       }),
@@ -68,8 +70,8 @@ const CLIENTS: ClientConfig[] = [
       jsonConfig({
         mcpServers: {
           [serverName]: {
-            type: "http",
-            url: mcpServerUrl,
+            command: "npx",
+            args: brokerArgs(mcpServerUrl),
           },
         },
       }),
@@ -92,8 +94,8 @@ const CLIENTS: ClientConfig[] = [
       jsonConfig({
         mcp: {
           [serverName]: {
-            type: "remote",
-            url: mcpServerUrl,
+            type: "local",
+            command: ["npx", ...brokerArgs(mcpServerUrl)],
             enabled: true,
           },
         },
@@ -117,8 +119,9 @@ const CLIENTS: ClientConfig[] = [
       [
         `[mcp_servers.${tomlTableKey(serverName)}]`,
         `enabled = true`,
-        `url = "${tomlBasicString(mcpServerUrl)}"`,
-        `auth = "oauth"`,
+        `startup_timeout_sec = 360`,
+        `command = "npx"`,
+        `args = [${brokerArgs(mcpServerUrl).map((argument) => `"${tomlBasicString(argument)}"`).join(", ")}]`,
       ].join("\n"),
   },
   {
@@ -143,8 +146,8 @@ const CLIENTS: ClientConfig[] = [
       jsonConfig({
         mcpServers: {
           [serverName]: {
-            type: "http",
-            url: mcpServerUrl,
+            command: "npx",
+            args: brokerArgs(mcpServerUrl),
           },
         },
       }),
@@ -169,8 +172,8 @@ const CLIENTS: ClientConfig[] = [
       jsonConfig({
         mcpServers: {
           [serverName]: {
-            type: "http",
-            url: mcpServerUrl,
+            command: "npx",
+            args: brokerArgs(mcpServerUrl),
           },
         },
       }),
@@ -195,8 +198,8 @@ const CLIENTS: ClientConfig[] = [
       jsonConfig({
         mcpServers: {
           [serverName]: {
-            type: "http",
-            url: mcpServerUrl,
+            command: "npx",
+            args: brokerArgs(mcpServerUrl),
           },
         },
       }),
@@ -215,13 +218,25 @@ function tomlBasicString(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
 }
 
+function brokerArgs(mcpServerUrl: string) {
+  const args = ["-y", BROKER_PACKAGE]
+  try {
+    const url = new URL(mcpServerUrl)
+    const isLoopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]"
+    if (url.protocol === "http:" && !isLoopback) args.push("--allow-insecure-http")
+  } catch {
+    // Keep the source URL visible in the generated configuration so the connector reports the invalid value.
+  }
+  args.push(mcpServerUrl)
+  return args
+}
+
 export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: string; mcpServerUrl: string }) {
   const [clientKey, setClientKey] = useState<ClientKey>("github-copilot")
   const [scope, setScope] = useState<ScopeKey>("project")
   const client = CLIENTS.find((item) => item.key === clientKey) ?? CLIENTS[0]
   const selectedScope = client[scope]
   const config = client.buildConfig(serverName, mcpServerUrl)
-  const codexLoginCommand = `codex mcp login ${serverName}`
 
   return (
     <div className="config-workbench">
@@ -246,7 +261,7 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
           <div>
             <span className="config-eyebrow">Automatic setup</span>
             <h3>{client.setupTitle ?? `Install ${client.label} configuration`}</h3>
-            <p>{client.setupCopy ?? `Automatic setup is planned. Use the ${client.format} settings below for now.`}</p>
+            <p>{client.setupCopy ?? `Use the ${client.format} settings below. The credential broker opens browser sign-in automatically.`}</p>
           </div>
           <button className="install-button" type="button" disabled>
             <Play size={12} aria-hidden="true" />
@@ -258,7 +273,7 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
           <div className="manual-heading">
             <span className="config-eyebrow">Manual setup</span>
             <h3>Configure in config file</h3>
-            <p>Choose a client and scope to see the matching config and save location.</p>
+            <p>The first server opens browser sign-in once. Other server entries wait and reuse the shared Gateway session.</p>
           </div>
 
           <div className="manual-grid">
@@ -303,19 +318,6 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
                 </div>
               </div>
 
-              {client.key === "codex" && (
-                <div className="config-step-card">
-                  <span className="step-marker">3</span>
-                  <div>
-                    <h4>Log in to the MCP server</h4>
-                    <p>Run this command and complete the OAuth login flow.</p>
-                    <div className="codex-login-command">
-                      <code>{codexLoginCommand}</code>
-                      <CopyButton value={codexLoginCommand} label="Copy Codex MCP login command" />
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="code-panel">
