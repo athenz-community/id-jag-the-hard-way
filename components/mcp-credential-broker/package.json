@@ -1,6 +1,6 @@
 {
   "name": "@idthw/mcp-credential-broker",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared OAuth credential broker and stdio connector for IDTHW MCP Gateway routes",
   "type": "module",
   "bin": {

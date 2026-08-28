@@ -1,14 +1,12 @@
 #!/usr/bin/env node
 
-import path from "node:path"
-import { fileURLToPath } from "node:url"
 import { ServerType, startStdioServer } from "mcp-proxy"
 import open from "open"
 import { createAuthenticatedFetch } from "./authenticatedFetch.js"
 import { discoverOAuthEndpoints, performAuthorizationCodeLogin } from "./oauth.js"
 import { defaultCacheDirectory, SharedSessionStore } from "./sharedSession.js"
 
-const PACKAGE_VERSION = "0.1.0"
+const PACKAGE_VERSION = "0.1.1"
 
 type CliOptions = {
   target?: URL
@@ -94,11 +92,8 @@ function helpText() {
   ].join("\n")
 }
 
-const invokedAsProgram = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
-if (invokedAsProgram) {
-  run().catch((error) => {
-    const message = error instanceof Error ? error.message : String(error)
-    console.error(`MCP credential broker: ${message}`)
-    process.exitCode = 1
-  })
-}
+run().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`MCP credential broker: ${message}`)
+  process.exitCode = 1
+})
