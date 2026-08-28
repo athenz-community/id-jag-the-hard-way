@@ -1,0 +1,35 @@
+{
+  "name": "@idthw/mcp-credential-broker",
+  "version": "0.1.0",
+  "description": "Shared OAuth credential broker and stdio connector for IDTHW MCP Gateway routes",
+  "type": "module",
+  "bin": {
+    "idthw-mcp-connect": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc && node -e \"require('node:fs').chmodSync('dist/index.js', 0o755)\"",
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "mcp-proxy": "6.2.0",
+    "open": "11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.0",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2"
+  },
+  "license": "Apache-2.0"
+}

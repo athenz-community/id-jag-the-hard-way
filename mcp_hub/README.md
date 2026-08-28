@@ -109,6 +109,8 @@ Each returned server includes:
 - `gatewayUrl`, the public MCP client URL when `MCP_HUB_MCP_GATEWAY_URL` is configured
 - `proxyUrl`, the corresponding Core MCP Proxy URL
 
+The client-configuration page converts `gatewayUrl` into a separate stdio entry backed by `@idthw/mcp-credential-broker`. The first entry opens Keycloak login through MCP Gateway automatically; all entries for that Gateway reuse one opaque local session, so clients do not need a separate native OAuth login per MCP server. Kubernetes remains the source of each route ID and Gateway URL.
+
 Configure the proxy origin with `MCP_HUB_CORE_PROXY_URL`. Local Docker `make local` uses `host.docker.internal` plus the local Core MCP Proxy port; host-side development can use `127.0.0.1`, and an in-cluster MCP Hub should use `http://core-mcp-proxy.mcp-hub:8080`.
 
 That API route reads Kubernetes deployments from all namespaces visible to the current Kubernetes client.
