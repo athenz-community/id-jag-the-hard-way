@@ -8,11 +8,11 @@ The goal of this document is to reproduce the rejected ID-JAG impersonation→de
 - [Setup 2. Create the mcp-hub service identity](#setup-2-create-the-mcp-hub-service-identity)
 - [Setup 3. Allow mcp-hub to use api tokens as exchange input](#setup-3-allow-mcp-hub-to-use-api-tokens-as-exchange-input)
 - [Setup 4. Allow mcp-hub to exchange into the requested scopes](#setup-4-allow-mcp-hub-to-exchange-into-the-requested-scopes)
-- [Setup 5. Fetch an id_token](#setup-5-fetch-an-id_token)
-- [Step 1. Exchange the id_token for ID_JAG](#step-1-exchange-the-id_token-for-id_jag)
-- [Step 2. Issue the initial impersonation AT](#step-2-issue-the-initial-impersonation-at)
-- [Step 3. Attempt a delegated exchange](#step-3-attempt-a-delegated-exchange)
-- [Clean-up 4. Delete temporary test resources](#clean-up-4-delete-temporary-test-resources)
+- [Step 1. Fetch an id_token](#step-1-fetch-an-id_token)
+- [Step 2. Exchange the id_token for ID_JAG](#step-2-exchange-the-id_token-for-id_jag)
+- [Step 3. Issue the initial impersonation AT](#step-3-issue-the-initial-impersonation-at)
+- [Step 4. Attempt a delegated exchange](#step-4-attempt-a-delegated-exchange)
+- [Clean-up 5. Delete temporary test resources](#clean-up-5-delete-temporary-test-resources)
 
 <!-- /TOC -->
 
@@ -69,7 +69,7 @@ Create the first-hop access role and allow the Claude service to exchange ID_JAG
 ./tools/athenz/add-role-member.sh api docs-getter-exchanger api.mcp-hub
 ```
 
-## Setup 5. Fetch an id_token
+## Step 1. Fetch an id_token
 
 ```sh
 ./tools/keycloak/set-direct-access-grants.sh human.idjag-learner.claude true
@@ -77,7 +77,7 @@ _client_secret=$(./tools/keycloak/get-client-secret.sh human.idjag-learner.claud
 _id_token=$(./tools/keycloak/get-id-token.sh human.idjag-learner.claude "$_client_secret" idjag-learner)
 ```
 
-## Step 1. Exchange the id_token for ID_JAG
+## Step 2. Exchange the id_token for ID_JAG
 
 ```sh
 _id_jag_scope="api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor"
@@ -89,7 +89,7 @@ _id_jag=$(./tools/athenz/fetch-id-jag.sh \
   "$_id_jag_scope")
 ```
 
-## Step 2. Issue the initial impersonation AT
+## Step 3. Issue the initial impersonation AT
 
 Omit `actor` so the ID-JAG→AT request uses impersonation semantics:
 
@@ -113,7 +113,7 @@ Expected claim shape from the current ZTS implementation:
 | `may_act` | Absent |
 | `cnf` | Absent |
 
-## Step 3. Attempt a delegated exchange
+## Step 4. Attempt a delegated exchange
 
 Fetch the actor token for `api.mcp-hub`, then attempt delegation:
 
@@ -143,7 +143,7 @@ The current validation path is expected to reject the request before issuing an 
 }
 ```
 
-## Clean-up 4. Delete temporary test resources
+## Clean-up 5. Delete temporary test resources
 
 ```sh
 ./tools/athenz/delete-role-member.sh api to-api-exchanger api.mcp-hub
