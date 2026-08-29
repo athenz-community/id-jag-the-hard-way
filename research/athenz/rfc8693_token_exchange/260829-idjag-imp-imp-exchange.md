@@ -23,6 +23,7 @@ The goal of this document is to reproduce an ID-JAG impersonation→impersonatio
 |---|--------------|--------------------------------------------------------------------------------------------------------------------------------------------|
 | 1 | Aug 29, 2026 | ✅ — both impersonation ATs issued; subject remained the human; second AT was bound to the mcp-hub certificate without an actor chain |
 | 2 | Aug 29, 2026 | ✅ — manually reran the complete token flow and confirmed the same claim transformation                                                    |
+| 3 | Aug 29, 2026 | ✅ — manually reran the complete token flow again and confirmed the same result                                                           |
 
 </details>
 
@@ -95,16 +96,16 @@ _id_token=$(./tools/keycloak/get-id-token.sh human.idjag-learner.claude "$_clien
 #   "kid": "jio8OS-7FzKy8UfOCol-zj1946k1y1JyC6Z6D676WKc"
 # }
 # {
-#   "exp": 1787983096,
-#   "iat": 1787968696,
-#   "jti": "63a68725-5908-86a9-4077-8305e288a037",
+#   "exp": 1787983356,
+#   "iat": 1787968956,
+#   "jti": "c1dad315-6f88-d110-3109-e7bc01e08150",
 #   "iss": "http://localhost:34443/realms/master",
 #   "aud": "human.idjag-learner.claude",
 #   "sub": "3b1ebc43-f64d-446f-a388-b0431801fe57",
 #   "typ": "ID",
 #   "azp": "human.idjag-learner.claude",
-#   "sid": "aprU5LypLEKiBpBh9wD0XMmq",
-#   "at_hash": "BDj2nnSFNrSgq6g3S77wbw",
+#   "sid": "Uy0_I3CSI7DPwcdnzyeWcs9K",
+#   "at_hash": "jlw0SdFSHU6a4vw2svz8RA",
 #   "acr": "1",
 #   "email_verified": false,
 #   "name": "ID-JAG Learner",
@@ -144,12 +145,12 @@ _id_jag=$(./tools/athenz/fetch-id-jag.sh \
 #     "api:role.mcp-hub-accessor"
 #   ],
 #   "ver": 1,
-#   "auth_time": 1787968701,
+#   "auth_time": 1787968960,
 #   "scope": "api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor",
 #   "iss": "https://athenz-zts-server.athenz:4443/zts/v1",
-#   "exp": 1787975901,
-#   "iat": 1787968701,
-#   "jti": "ca20dca6-0c25-4c3f-af40-dac9ccdc7710",
+#   "exp": 1787976160,
+#   "iat": 1787968960,
+#   "jti": "bd2363d0-7eaf-4973-864c-0000e17eed25",
 #   "client_id": "human.idjag-learner.claude"
 # }
 ```
@@ -186,12 +187,12 @@ _first_at=$(./tools/athenz/fetch-access-token-with-id-jag.sh \
 #   ],
 #   "uid": "human.idjag-learner",
 #   "ver": 1,
-#   "auth_time": 1787968706,
+#   "auth_time": 1787968964,
 #   "scope": "docs-getter mcp-accessor mcp-hub-accessor",
 #   "iss": "athenz-zts-server-6f45c67fff-49w2g",
-#   "exp": 1787990306,
-#   "iat": 1787968706,
-#   "jti": "22c9ea0f-fa3d-4265-92bb-899d471b82da",
+#   "exp": 1787990564,
+#   "iat": 1787968964,
+#   "jti": "9b01aef3-5752-41c1-92b9-0b6d02508512",
 #   "client_id": "human.idjag-learner.claude"
 # }
 ```
@@ -232,14 +233,14 @@ _next_at=$(./tools/athenz/exchange-access-token.sh \
 #   "client_id": "api.mcp-hub",
 #   "aud": "api",
 #   "uid": "api.mcp-hub",
-#   "auth_time": 1787968713,
+#   "auth_time": 1787968968,
 #   "scope": "docs-getter mcp-accessor",
 #   "cnf": {
 #     "x5t#S256": "d2BgmmB-LQLOlsAgH91zMb_pUJAlvXEpZfuObnYIEew"
 #   },
-#   "exp": 1787972313,
-#   "iat": 1787968713,
-#   "jti": "a8475816-a1ea-4ad9-9f6b-6ff51618b7b6"
+#   "exp": 1787972568,
+#   "iat": 1787968968,
+#   "jti": "02d0d9bf-6dfc-4ce1-92cd-8bc21bf9f3c9"
 # }
 ```
 

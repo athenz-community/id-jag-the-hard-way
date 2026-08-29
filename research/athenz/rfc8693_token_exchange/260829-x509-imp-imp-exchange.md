@@ -16,11 +16,11 @@ The goal of this document is to reproduce an X.509 impersonation→impersonation
 <!-- /TOC -->
 
 <details>
-<summary>Verification status — 🟡 Pending human verification</summary>
+<summary>Last verified on Aug 29, 2026 — ✅ Success</summary>
 
-| # | Date | Status |
-|---|---|---|
-| 1 | TBD | 🟡 Pending — procedure is derived from the current ZTS implementation but has not been manually run |
+| # | Date         | Confirmed Working                                                                                                                         |
+|---|--------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| 1 | Aug 29, 2026 | ✅ — ordinary X.509 AT issued; ✅ impersonation exchange succeeded; `cnf` was rebound from the learner certificate to mcp-hub |
 
 </details>
 
@@ -82,14 +82,38 @@ _first_at=$(./tools/athenz/fetch-access-token.sh \
   "$_first_scope")
 ```
 
-Expected initial claim shape:
+```sh
+#   ·  Fetching Access Token for scope: api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor
+#   ✔  Access token issued for scope: api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor
+# {
+#   "kid": "athenz-zts-server-6f45c67fff-49w2g",
+#   "typ": "at+jwt",
+#   "alg": "RS256"
+# }
+# {
+#   "sub": "human.idjag-learner",
+#   "scp": [
+#     "docs-getter",
+#     "mcp-accessor",
+#     "mcp-hub-accessor"
+#   ],
+#   "ver": 1,
+#   "iss": "athenz-zts-server-6f45c67fff-49w2g",
+#   "client_id": "human.idjag-learner",
+#   "aud": "api",
+#   "uid": "human.idjag-learner",
+#   "auth_time": 1787969061,
+#   "scope": "docs-getter mcp-accessor mcp-hub-accessor",
+#   "cnf": {
+#     "x5t#S256": "BNoy6QE7zv6d6DlBYwhNkTSi27gggjdf-SlQ8FalMOA"
+#   },
+#   "exp": 1787972661,
+#   "iat": 1787969061,
+#   "jti": "2fbea9f1-0210-4d09-81c5-f5540b586193"
+# }
+```
 
-| Claim | Value |
-|---|---|
-| `sub`, `client_id`, and `uid` | `human.idjag-learner` |
-| `act` | Absent |
-| `may_act` | Absent |
-| `cnf.x5t#S256` | Thumbprint of `idjag-learner.crt` |
+The initial AT is bound to the learner certificate and has no `act` or `may_act` claim.
 
 ## Step 2. Exchange the AT by impersonation
 
@@ -106,15 +130,37 @@ _next_at=$(./tools/athenz/exchange-access-token.sh \
   --token-only)
 ```
 
-Expected claim transformation:
+```sh
+#   ·  Exchanging access token for scope: api:role.docs-getter api:role.mcp-accessor
+#   ✔  Access token exchanged for scope: api:role.docs-getter api:role.mcp-accessor
+# {
+#   "kid": "athenz-zts-server-6f45c67fff-49w2g",
+#   "typ": "at+jwt",
+#   "alg": "RS256"
+# }
+# {
+#   "sub": "human.idjag-learner",
+#   "scp": [
+#     "docs-getter",
+#     "mcp-accessor"
+#   ],
+#   "ver": 1,
+#   "iss": "athenz-zts-server-6f45c67fff-49w2g",
+#   "client_id": "api.mcp-hub",
+#   "aud": "api",
+#   "uid": "api.mcp-hub",
+#   "auth_time": 1787969067,
+#   "scope": "docs-getter mcp-accessor",
+#   "cnf": {
+#     "x5t#S256": "d2BgmmB-LQLOlsAgH91zMb_pUJAlvXEpZfuObnYIEew"
+#   },
+#   "exp": 1787972667,
+#   "iat": 1787969067,
+#   "jti": "89ef3ee6-180d-470b-b78f-09f0ed7c8e40"
+# }
+```
 
-| Claim | Expected result |
-|---|---|
-| `sub` | Remains `human.idjag-learner` |
-| `client_id` and `uid` | Become `api.mcp-hub` |
-| `act` | Absent |
-| `may_act` | Absent |
-| `cnf.x5t#S256` | Rebound to the `api.mcp-hub` certificate |
+The impersonation output preserves `sub`, changes `client_id` and `uid` to `api.mcp-hub`, keeps `act` and `may_act` absent, and binds `cnf` to the mcp-hub certificate.
 
 The initial token's certificate binding is not copied. The impersonation output receives a new binding from the certificate authenticating the current request.
 

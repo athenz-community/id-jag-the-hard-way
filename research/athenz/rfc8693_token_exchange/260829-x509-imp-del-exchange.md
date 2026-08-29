@@ -16,11 +16,11 @@ The goal of this document is to reproduce the rejected X.509 impersonation→del
 <!-- /TOC -->
 
 <details>
-<summary>Verification status — 🟡 Pending human verification</summary>
+<summary>Last verified on Aug 29, 2026 — ✅ Expected failure confirmed</summary>
 
-| # | Date | Status |
-|---|---|---|
-| 1 | TBD | 🟡 Pending — expected failure is derived from current ZTS validation but has not been manually reproduced here |
+| # | Date         | Confirmed Working                                                                                                                      |
+|---|--------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| 1 | Aug 29, 2026 | ✅ — certificate-bound ordinary AT issued without `may_act`; 👍 subsequent delegated exchange was rejected with `missing may_act claim` |
 
 </details>
 
@@ -82,14 +82,38 @@ _first_at=$(./tools/athenz/fetch-access-token.sh \
   "$_first_scope")
 ```
 
-Expected initial claim shape:
+```sh
+#   ·  Fetching Access Token for scope: api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor
+#   ✔  Access token issued for scope: api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor
+# {
+#   "kid": "athenz-zts-server-6f45c67fff-49w2g",
+#   "typ": "at+jwt",
+#   "alg": "RS256"
+# }
+# {
+#   "sub": "human.idjag-learner",
+#   "scp": [
+#     "docs-getter",
+#     "mcp-accessor",
+#     "mcp-hub-accessor"
+#   ],
+#   "ver": 1,
+#   "iss": "athenz-zts-server-6f45c67fff-49w2g",
+#   "client_id": "human.idjag-learner",
+#   "aud": "api",
+#   "uid": "human.idjag-learner",
+#   "auth_time": 1787969025,
+#   "scope": "docs-getter mcp-accessor mcp-hub-accessor",
+#   "cnf": {
+#     "x5t#S256": "BNoy6QE7zv6d6DlBYwhNkTSi27gggjdf-SlQ8FalMOA"
+#   },
+#   "exp": 1787972625,
+#   "iat": 1787969025,
+#   "jti": "3145f485-03a5-43cc-9390-168914ef1334"
+# }
+```
 
-| Claim | Value |
-|---|---|
-| `sub`, `client_id`, and `uid` | `human.idjag-learner` |
-| `act` | Absent |
-| `may_act` | Absent |
-| `cnf.x5t#S256` | Thumbprint of `idjag-learner.crt` |
+The initial AT is bound to the learner certificate and has no `act` or `may_act` claim.
 
 ## Step 2. Attempt a delegated exchange
 
@@ -112,14 +136,27 @@ _next_scope="api:role.docs-getter api:role.mcp-accessor"
   --actor api.api-mcp
 ```
 
-The current validation path is expected to reject the request before issuing an AT:
-
-```json
-{
-  "code": 400,
-  "message": "Invalid subject token: missing may_act claim"
-}
+```sh
+#   ·  Fetching actor id_token from Athenz ZTS for client: api.mcp-hub
+#   ✔  Actor id_token issued for client: api.mcp-hub
+# {
+#   "sub": "api.mcp-hub",
+#   "aud": "api.mcp-hub",
+#   "ver": 1,
+#   "auth_time": 1787969035,
+#   "iss": "https://athenz-zts-server.athenz:4443/zts/v1",
+#   "exp": 1788012235,
+#   "iat": 1787969035,
+#   "nonce": "random_nonce"
+# }
+#   ·  Exchanging access token for scope: api:role.docs-getter api:role.mcp-accessor
+# {
+#   "code": 400,
+#   "message": "Invalid subject token: missing may_act claim"
+# }
 ```
+
+The actor token is valid, but delegation is rejected because the subject AT was issued without `may_act`.
 
 ## Clean-up 3. Delete temporary test resources
 
