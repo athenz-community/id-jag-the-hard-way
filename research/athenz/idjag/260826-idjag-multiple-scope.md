@@ -235,4 +235,4 @@ Delete the isolated subdomain. This also removes the temporary roles and policy 
 # Reference
 
 - [OAuth 2.0 Token Exchange — RFC 8693, Section 2.1](https://www.rfc-editor.org/rfc/rfc8693.html#section-2.1)
-- [Existing ID-JAG to access-token exchange research](../token_exchange/260613-idjag-at-at-at-exchange.md)
+- [Existing ID-JAG to access-token exchange research](../rfc8693_token_exchange/260613-idjag-del-del-exchange.md)

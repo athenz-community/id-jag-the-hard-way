@@ -159,6 +159,12 @@ Inside a `# FAQs` section, write each question title as bold text instead of a M
 
 New FAQ files should also end with a `# Reference` section by default.
 
+## Research Output Rules
+
+In verified research documents, do not use `...` lines as placeholders for omitted JWT headers, claims, or token-response fields. Show the claims relevant to the recorded result explicitly, mark raw token values as `<redacted>`, and tell readers to rerun the command when the complete current output is required. Do not invent values for fields that were not preserved in the research record.
+
+For two-stage pattern files under `research/athenz/rfc8693_token_exchange/`, use `YYMMDD-<idjag|x509>-<del|imp>-<del|imp>-exchange.md`. The first mode is the initial AT mode and the second mode is the next AT→AT exchange mode. Use `del` for delegated exchange and `imp` for impersonation exchange.
+
 ## Tearing Down the Environment
 
 To fully reset after completing the tutorial:

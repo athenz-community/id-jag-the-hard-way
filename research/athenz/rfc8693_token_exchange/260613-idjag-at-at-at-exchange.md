@@ -121,13 +121,13 @@ flowchart LR
 ```
 
 ```sh
-#   ·  Generating RSA key pair for: ./keys/api-mcp-hub...
+#   ·  Generating RSA key pair for: ./keys/api-mcp-hub
 #   ✔  Keys generated: ./keys/api-mcp-hub.key, ./keys/api-mcp-hub.public.key
-#   ·  Registering Service: api.mcp-hub...
+#   ·  Registering Service: api.mcp-hub
 #   ✔  Service registered: api.mcp-hub
-#   ·  Enabling ZTS Certificate Provider for api.mcp-hub...
+#   ·  Enabling ZTS Certificate Provider for api.mcp-hub
 #   ✔  ZTS Certificate Provider enabled for api.mcp-hub
-#   ·  Fetching X.509 Certificate for api.mcp-hub...
+#   ·  Fetching X.509 Certificate for api.mcp-hub
 #   ✔  Certificate saved to: ./keys/api-mcp-hub.crt
 ```
 
@@ -208,17 +208,16 @@ _id_token=$(./tools/keycloak/get-id-token.sh human.idjag-learner.claude "$_clien
 ```
 
 ```sh
-#   ·  Fetching Keycloak admin token...
-#   ·  Looking up UUID for client human.idjag-learner.claude...
-#   ·  Fetching client human.idjag-learner.claude...
-#   ·  Setting Direct Access Grants for human.idjag-learner.claude: true...
+#   ·  Fetching Keycloak admin token
+#   ·  Looking up UUID for client human.idjag-learner.claude
+#   ·  Fetching client human.idjag-learner.claude
+#   ·  Setting Direct Access Grants for human.idjag-learner.claude: true
 #   ✔  Direct Access Grants set for human.idjag-learner.claude: true
-#   ·  Fetching id_token from Keycloak for Keycloak username: idjag-learner, client: human.idjag-learner.claude...
+#   ·  Fetching id_token from Keycloak for Keycloak username: idjag-learner, client: human.idjag-learner.claude
 #   ✔  id_token issued for Keycloak username: idjag-learner
 # {
 #   "alg": "RS256",
-#   "typ": "JWT",
-#   ...
+#   "typ": "JWT"
 # }
 # {
 #   "iss": "http://localhost:34443/realms/master",
@@ -226,8 +225,7 @@ _id_token=$(./tools/keycloak/get-id-token.sh human.idjag-learner.claude "$_clien
 #   "typ": "ID",
 #   "azp": "human.idjag-learner.claude",
 #   "preferred_username": "idjag-learner",
-#   "email": "idjag-learner@athenz.io",
-#   ...
+#   "email": "idjag-learner@athenz.io"
 # }
 ```
 
@@ -246,19 +244,17 @@ _id_jag=$(./tools/athenz/fetch-id-jag.sh \
 ```
 
 ```sh
-#   ·  Exchanging id_token for ID_JAG (scope: api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor)...
+#   ·  Exchanging id_token for ID_JAG (scope: api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor)
 #   ✔  ID_JAG issued (scope: api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor)
 # {
 #   "typ": "oauth-id-jag+jwt",
-#   "alg": "RS256",
-#   ...
+#   "alg": "RS256"
 # }
 # {
 #   "sub": "human.idjag-learner",
 #   "aud": "https://athenz-zts-server.athenz:4443/zts/v1",
 #   "client_id": "human.idjag-learner.claude",
-#   "scope": "api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor",
-#   ...
+#   "scope": "api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor"
 # }
 ```
 
@@ -279,12 +275,11 @@ _hub_at=$(./tools/athenz/fetch-access-token-with-id-jag.sh \
 ```
 
 ```sh
-#   ·  Fetching Access Token with ID_JAG for scope: api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor...
+#   ·  Fetching Access Token with ID_JAG for scope: api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor
 #   ✔  Access token issued with ID_JAG for scope: api:role.docs-getter api:role.mcp-accessor api:role.mcp-hub-accessor
 # {
 #   "typ": "at+jwt",
-#   "alg": "RS256",
-#   ...
+#   "alg": "RS256"
 # }
 # {
 #   "sub": "human.idjag-learner",
@@ -300,8 +295,7 @@ _hub_at=$(./tools/athenz/fetch-access-token-with-id-jag.sh \
 #   },
 #   "may_act": {
 #     "sub": "api.mcp-hub"
-#   },
-#   ...
+#   }
 # }
 ```
 
@@ -322,21 +316,19 @@ _mcp_actor_id_token=$(./tools/athenz/fetch-actor-token.sh \
 ```
 
 ```sh
-#   ·  Fetching actor id_token from Athenz ZTS for client: api.mcp-hub...
+#   ·  Fetching actor id_token from Athenz ZTS for client: api.mcp-hub
 #   ✔  Actor id_token issued for client: api.mcp-hub
 # {
 #   "sub": "api.mcp-hub",
 #   "aud": "api.mcp-hub",
-#   "client_id": "api.mcp-hub",
-#   ...
+#   "client_id": "api.mcp-hub"
 # }
-#   ·  Fetching actor id_token from Athenz ZTS for client: api.api-mcp...
+#   ·  Fetching actor id_token from Athenz ZTS for client: api.api-mcp
 #   ✔  Actor id_token issued for client: api.api-mcp
 # {
 #   "sub": "api.api-mcp",
 #   "aud": "api.api-mcp",
-#   "client_id": "api.api-mcp",
-#   ...
+#   "client_id": "api.api-mcp"
 # }
 ```
 
@@ -357,7 +349,7 @@ _mcp_scope="api:role.docs-getter api:role.mcp-accessor"
 ```
 
 ```sh
-#   ·  Exchanging access token for scope: api:role.docs-getter api:role.mcp-accessor...
+#   ·  Exchanging access token for scope: api:role.docs-getter api:role.mcp-accessor
 # {
 #   "code": 400,
 #   "message": "Invalid subject token: may_act sub does not match actor token subject"
@@ -386,12 +378,11 @@ _mcp_at=$(./tools/athenz/exchange-access-token.sh \
 ```
 
 ```sh
-#   ·  Exchanging access token for scope: api:role.docs-getter api:role.mcp-accessor...
+#   ·  Exchanging access token for scope: api:role.docs-getter api:role.mcp-accessor
 #   ✔  Access token exchanged for scope: api:role.docs-getter api:role.mcp-accessor
 # {
 #   "typ": "at+jwt",
-#   "alg": "RS256",
-#   ...
+#   "alg": "RS256"
 # }
 # {
 #   "sub": "human.idjag-learner",
@@ -410,8 +401,7 @@ _mcp_at=$(./tools/athenz/exchange-access-token.sh \
 #   },
 #   "may_act": {
 #     "sub": "api.api-mcp"
-#   },
-#   ...
+#   }
 # }
 ```
 
@@ -437,12 +427,11 @@ _api_scope="api:role.docs-getter"
 ```
 
 ```sh
-#   ·  Exchanging access token for scope: api:role.docs-getter...
+#   ·  Exchanging access token for scope: api:role.docs-getter
 #   ✔  Access token exchanged for scope: api:role.docs-getter
 # {
 #   "typ": "at+jwt",
-#   "alg": "RS256",
-#   ...
+#   "alg": "RS256"
 # }
 # {
 #   "sub": "human.idjag-learner",
@@ -463,15 +452,13 @@ _api_scope="api:role.docs-getter"
 #   },
 #   "may_act": {
 #     "sub": "api"
-#   },
-#   ...
+#   }
 # }
 # {
-#   "access_token": "...",
+#   "access_token": "<redacted>",
 #   "token_type": "Bearer",
 #   "expires_in": 3600,
-#   "scope": "api:role.docs-getter",
-#   ...
+#   "scope": "api:role.docs-getter"
 # }
 ```
 
@@ -500,9 +487,9 @@ The role deletes also remove their temporary members:
 ```sh
 #   ✔  Role member deleted or already absent: api.mcp-hub  →  api:role.to-api-exchanger
 #   ✔  Role member deleted or already absent: api.mcp-hub  →  api:role.docs-getter-exchanger
-#   ·  Deleting assertion from api:policy.zts_instance_launch_provider: grant launch to zts_instance_launch_provider on service.mcp-hub...
+#   ·  Deleting assertion from api:policy.zts_instance_launch_provider: grant launch to zts_instance_launch_provider on service.mcp-hub
 #   ✔  Assertion deleted or already absent: api:policy.zts_instance_launch_provider  grant launch to zts_instance_launch_provider on service.mcp-hub
-#   ·  Deleting service api.mcp-hub...
+#   ·  Deleting service api.mcp-hub
 #   ✔  Service deleted or already absent: api.mcp-hub
 #   ✔  Policy deleted or already absent: api:policy.mcp-hub-accessor-jag-exchanger_zts_jag_exchange_role_mcp-hub-accessor
 #   ✔  Role deleted or already absent: api:role.mcp-hub-accessor-jag-exchanger

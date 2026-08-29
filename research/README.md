@@ -145,6 +145,14 @@ Examples:
 260620-keycloak-client.md
 ```
 
+Two-stage pattern files under `athenz/rfc8693_token_exchange/` use:
+
+```text
+YYMMDD-<idjag|x509>-<del|imp>-<del|imp>-exchange.md
+```
+
+The first mode identifies the initial AT mode, and the second identifies the next AT→AT exchange mode. Use `del` for delegated exchange and `imp` for impersonation exchange. Always end these pattern filenames with `-exchange.md`.
+
 ## Directory Structure
 
 Organize documents under the technology they primarily concern:
@@ -158,7 +166,7 @@ research/
     rfc7523-jwt-bearer/ — RFC 7523 JWT bearer authorization grants
     membership-self-renewal/ — role and group membership self-renewal behavior
     tls-logging/      — TLS protocol and cipher access-log behavior
-    token_exchange/   — AT→AT token exchange flows
+    rfc8693_token_exchange/ — RFC 8693 impersonation and delegation exchange patterns
     ui/               — Athenz UI behavior
     user-certificates/ — Athenz user-certificate behavior and observability
   keycloak/           — Keycloak configuration and errors
@@ -170,7 +178,7 @@ Here is the procedure to get to the goals.
 
 ## Step 1. Choose the right subdirectory
 
-Put the file under `athenz/certificate-san-dns-validation/`, `athenz/idjag/`, `athenz/membership-self-renewal/`, `athenz/rfc6797-hsts/`, `athenz/rfc7523-jwt-bearer/`, `athenz/tls-logging/`, `athenz/token_exchange/`, `athenz/ui/`, `athenz/user-certificates/`, or `keycloak/` based on the primary technology.
+Put the file under `athenz/certificate-san-dns-validation/`, `athenz/idjag/`, `athenz/membership-self-renewal/`, `athenz/rfc6797-hsts/`, `athenz/rfc7523-jwt-bearer/`, `athenz/rfc8693_token_exchange/`, `athenz/tls-logging/`, `athenz/ui/`, `athenz/user-certificates/`, or `keycloak/` based on the primary technology.
 
 ## Step 2. Create the file with the date prefix
 
