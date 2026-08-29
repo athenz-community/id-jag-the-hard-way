@@ -185,15 +185,6 @@ _id_jag=$(./tools/athenz/fetch-id-jag.sh \
 # }
 ```
 
-If Step 2 is run before Step 1 defines `_id_jag`, ZTS returns the following error:
-
-```json
-{
-  "code": 400,
-  "message": "Invalid request: no assertion provided"
-}
-```
-
 ## Step 2. Issue the initial delegated AT
 
 Issue an AT for the ID-JAG subject and set `api.mcp-hub` as the next actor:
