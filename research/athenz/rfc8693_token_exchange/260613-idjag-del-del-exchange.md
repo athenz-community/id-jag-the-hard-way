@@ -8,14 +8,14 @@ The goal of this document is to model a full ID-JAG delegated exchange chain fro
 - [Setup 2. Create the mcp-hub service identity](#setup-2-create-the-mcp-hub-service-identity)
 - [Setup 3. Allow mcp-hub to use api tokens as exchange input](#setup-3-allow-mcp-hub-to-use-api-tokens-as-exchange-input)
 - [Setup 4. Allow mcp-hub to exchange into the mcp carry-forward scopes](#setup-4-allow-mcp-hub-to-exchange-into-the-mcp-carry-forward-scopes)
-- [Setup 5. Fetch an id_token for the Claude service client](#setup-5-fetch-an-id_token-for-the-claude-service-client)
-- [Step 1. Exchange the id_token for ID_JAG](#step-1-exchange-the-id_token-for-id_jag)
-- [Step 2. Fetch a delegated mcp-hub access token with ID_JAG](#step-2-fetch-a-delegated-mcp-hub-access-token-with-id_jag)
-- [Step 3. Fetch actor id_tokens for mcp-hub and mcp](#step-3-fetch-actor-id_tokens-for-mcp-hub-and-mcp)
-- [Step 4. Reproduce the wrong actor token failure](#step-4-reproduce-the-wrong-actor-token-failure)
-- [Step 5. Exchange from mcp-hub to mcp](#step-5-exchange-from-mcp-hub-to-mcp)
-- [Step 6. Exchange from mcp to API](#step-6-exchange-from-mcp-to-api)
-- [Clean-up 7. Delete temporary test resources](#clean-up-7-delete-temporary-test-resources)
+- [Step 1. Fetch an id_token for the Claude service client](#step-1-fetch-an-id_token-for-the-claude-service-client)
+- [Step 2. Exchange the id_token for ID_JAG](#step-2-exchange-the-id_token-for-id_jag)
+- [Step 3. Fetch a delegated mcp-hub access token with ID_JAG](#step-3-fetch-a-delegated-mcp-hub-access-token-with-id_jag)
+- [Step 4. Fetch actor id_tokens for mcp-hub and mcp](#step-4-fetch-actor-id_tokens-for-mcp-hub-and-mcp)
+- [Step 5. Reproduce the wrong actor token failure](#step-5-reproduce-the-wrong-actor-token-failure)
+- [Step 6. Exchange from mcp-hub to mcp](#step-6-exchange-from-mcp-hub-to-mcp)
+- [Step 7. Exchange from mcp to API](#step-7-exchange-from-mcp-to-api)
+- [Clean-up 8. Delete temporary test resources](#clean-up-8-delete-temporary-test-resources)
 
 <!-- /TOC -->
 
@@ -197,7 +197,7 @@ Add `api.mcp-hub` to the existing tutorial-owned `docs-getter-exchanger` role se
 
 The final `mcp` to API hop uses the existing `docs-getter` role and the existing `api.api-mcp` exchange permissions from the base tutorial.
 
-## Setup 5. Fetch an id_token for the Claude service client
+## Step 1. Fetch an id_token for the Claude service client
 
 Enable Direct Access Grants for `human.idjag-learner.claude`, then fetch an `id_token` for the Keycloak username `idjag-learner`:
 
@@ -229,7 +229,7 @@ _id_token=$(./tools/keycloak/get-id-token.sh human.idjag-learner.claude "$_clien
 # }
 ```
 
-## Step 1. Exchange the id_token for ID_JAG
+## Step 2. Exchange the id_token for ID_JAG
 
 Exchange the Keycloak `id_token` for an ID_JAG token scoped to the user roles needed across the full intended chain:
 
@@ -258,7 +258,7 @@ _id_jag=$(./tools/athenz/fetch-id-jag.sh \
 # }
 ```
 
-## Step 2. Fetch a delegated mcp-hub access token with ID_JAG
+## Step 3. Fetch a delegated mcp-hub access token with ID_JAG
 
 Request a delegation access token, not an impersonation-style token. Following Athenz PR #3388, the important switch is the `actor` request parameter: when `actor=api.mcp-hub` is present, ZTS should mint the access token with a `may_act` claim for `api.mcp-hub`.
 
@@ -299,7 +299,7 @@ _hub_at=$(./tools/athenz/fetch-access-token-with-id-jag.sh \
 # }
 ```
 
-## Step 3. Fetch actor id_tokens for mcp-hub and mcp
+## Step 4. Fetch actor id_tokens for mcp-hub and mcp
 
 Fetch actor `id_token` values for both service identities in the intended chain:
 
@@ -332,7 +332,7 @@ _mcp_actor_id_token=$(./tools/athenz/fetch-actor-token.sh \
 # }
 ```
 
-## Step 4. Reproduce the wrong actor token failure
+## Step 5. Reproduce the wrong actor token failure
 
 First, try the exchange with the wrong actor token. This intentionally fails because `_hub_at` says `may_act.sub` is `api.mcp-hub`, but this request presents the `api.api-mcp` actor token instead.
 
@@ -356,7 +356,7 @@ _mcp_scope="api:role.docs-getter api:role.mcp-accessor"
 # }
 ```
 
-## Step 5. Exchange from mcp-hub to mcp
+## Step 6. Exchange from mcp-hub to mcp
 
 Now perform the first delegated AT→AT exchange correctly: `api.mcp-hub` exchanges the hub token into the MCP carry-forward scopes for `api.api-mcp`.
 
@@ -408,7 +408,7 @@ _mcp_at=$(./tools/athenz/exchange-access-token.sh \
 > [!NOTE]
 > Delegated AT→AT exchange with a subject token obtained via ID_JAG is covered by Athenz PR #3388 and PR #3390.
 
-## Step 6. Exchange from mcp to API
+## Step 7. Exchange from mcp to API
 
 The final hop is for `api.api-mcp` to exchange `_mcp_at` into the final API role `docs-getter`. This works because `_mcp_at` still contains `docs-getter`.
 
@@ -462,7 +462,7 @@ _api_scope="api:role.docs-getter"
 # }
 ```
 
-## Clean-up 7. Delete temporary test resources
+## Clean-up 8. Delete temporary test resources
 
 Clean up in dependency order: first remove the temporary `api.mcp-hub` memberships from tutorial-owned roles, then remove the provider-template assertion for `api.mcp-hub`, then delete the temporary `api.mcp-hub` service identity, and then delete the temporary policies and roles created only for this test.
 
