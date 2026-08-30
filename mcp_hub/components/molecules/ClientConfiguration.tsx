@@ -245,6 +245,7 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
   const client = CLIENTS.find((item) => item.key === clientKey) ?? CLIENTS[0]
   const selectedScope = client[scope]
   const config = client.buildConfig(serverName, mcpServerUrl)
+  const logoutCommand = `npx -y ${BROKER_PACKAGE} --logout`
 
   return (
     <div className="config-workbench">
@@ -350,6 +351,18 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
               </pre>
             </div>
           </div>
+
+          <aside className="broker-session-note" aria-label="Sign out of the shared MCP Gateway session">
+            <div>
+              <span className="config-eyebrow">Shared session</span>
+              <h4>Ready for a fresh sign-in?</h4>
+              <p>Run this in a shell to clear the broker&apos;s local Gateway session. Your client configuration stays in place, and the next connection brings browser sign-in back.</p>
+            </div>
+            <div className="broker-logout-command">
+              <code>{logoutCommand}</code>
+              <CopyButton value={logoutCommand} label="Copy broker sign-out command" />
+            </div>
+          </aside>
         </div>
       </div>
     </div>
