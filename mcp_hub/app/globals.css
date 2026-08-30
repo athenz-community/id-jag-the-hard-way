@@ -1197,6 +1197,60 @@ input:disabled {
   white-space: pre-wrap;
 }
 
+.broker-session-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 540px);
+  align-items: center;
+  gap: 20px;
+  margin-top: 16px;
+  border: 1px solid #dbe2ec;
+  border-radius: 8px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, #fbfcfe 0%, #f4f7fb 100%);
+}
+
+.broker-session-note h4 {
+  margin: 0 0 5px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.broker-session-note p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.broker-logout-command {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #1d2430;
+  border-radius: 7px;
+  padding: 10px 10px 10px 14px;
+  background: #0d1117;
+  box-shadow: 0 8px 18px rgb(15 23 42 / 9%);
+}
+
+.broker-logout-command code {
+  min-width: 0;
+  flex: 1;
+  overflow-x: auto;
+  color: #dbe4f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.broker-logout-command .copy-button {
+  color: #79aefa;
+}
+
 .tools-filter-row {
   padding-top: 20px;
 }
@@ -2492,6 +2546,10 @@ input:disabled {
   }
 
   .manual-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .broker-session-note {
     grid-template-columns: 1fr;
   }
 
