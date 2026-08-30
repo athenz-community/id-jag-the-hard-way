@@ -41,6 +41,12 @@ The MCP client URL is then:
 http://mcp-gateway.idthw.org/mcp/k8s-docs-server
 ```
 
+## One Browser Sign-In for Multiple MCP Entries
+
+Use `components/mcp-credential-broker` as the stdio command for every route. The MCP client still sees separate entries such as `confluence`, `jira`, and `slack`, while all broker processes share one opaque session for this Gateway issuer. The first process opens Keycloak login automatically and the others wait for that session; no client-specific `mcp login` command is needed.
+
+The shared session contains human authentication, not a union of tool permissions. Every `/mcp/{id}` request still resolves its own Kubernetes-backed route metadata and obtains its own Athenz access-token scope.
+
 HTTP is allowed only when `ALLOW_INSECURE_HTTP=true`. Use HTTPS outside the current development phase.
 
 ## Athenz Workload Identity

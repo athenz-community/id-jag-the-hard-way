@@ -1,6 +1,7 @@
 PORT ?= 3102
 HOST ?= 127.0.0.1
 OPEN_UI ?= false
+NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE ?= @mlajkim/mcp-credential-broker@latest
 AUTH_SECRET ?= idthw-mcp-hub-local-auth-secret
 AUTH_URL ?= http://localhost:$(PORT)
 MCP_HUB_IDP_NAME ?= Keycloak
@@ -44,7 +45,9 @@ build:
 	cp -R .next/static .next/standalone/.next/
 
 build-image:
-	docker build -t $(IMAGE) .
+	docker build \
+		--build-arg "MCP_BROKER_PACKAGE=$(NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE)" \
+		-t $(IMAGE) .
 
 register-idp-client:
 	cd .. && \

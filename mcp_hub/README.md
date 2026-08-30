@@ -109,6 +109,14 @@ Each returned server includes:
 - `gatewayUrl`, the public MCP client URL when `MCP_HUB_MCP_GATEWAY_URL` is configured
 - `proxyUrl`, the corresponding Core MCP Proxy URL
 
+The client-configuration page converts `gatewayUrl` into a separate stdio entry backed by `@mlajkim/mcp-credential-broker` from GitHub Packages. It shows the required `~/.npmrc` registry/authentication entries before the generated client configuration. Codex configurations also forward `GITHUB_PACKAGES_TOKEN` to the `npx` child process. The package defaults to `@mlajkim/mcp-credential-broker@latest`; set `NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE` at build time to use a PR tag such as `@mlajkim/mcp-credential-broker@pr-208`:
+
+```sh
+NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE='@mlajkim/mcp-credential-broker@pr-208' make local
+```
+
+The first entry opens Keycloak login through MCP Gateway automatically; all entries for that Gateway reuse one opaque local session, so clients do not need a separate native OAuth login per MCP server. Kubernetes remains the source of each route ID and Gateway URL.
+
 Configure the proxy origin with `MCP_HUB_CORE_PROXY_URL`. Local Docker `make local` uses `host.docker.internal` plus the local Core MCP Proxy port; host-side development can use `127.0.0.1`, and an in-cluster MCP Hub should use `http://core-mcp-proxy.mcp-hub:8080`.
 
 That API route reads Kubernetes deployments from all namespaces visible to the current Kubernetes client.
@@ -339,26 +347,20 @@ Set the public gateway origin:
 MCP_HUB_MCP_GATEWAY_URL=http://mcp-gateway.idthw.org:24445
 ```
 
-The client-configuration page then generates:
-
-```json
-{
-  "servers": {
-    "k8s-docs-server": {
-      "type": "http",
-      "url": "http://mcp-gateway.idthw.org:24445/mcp/k8s-docs-server"
-    }
-  }
-}
-```
-
-For Codex, the same page generates OAuth-enabled TOML without the unsupported `type` key:
+Codex is selected by default on the client-configuration page, which generates:
 
 ```toml
 [mcp_servers.k8s-docs-server]
 enabled = true
-url = "http://mcp-gateway.idthw.org:24445/mcp/k8s-docs-server"
-auth = "oauth"
+startup_timeout_sec = 360
+command = "npx"
+env_vars = ["GITHUB_PACKAGES_TOKEN"]
+args = [
+    "-y",
+    "@mlajkim/mcp-credential-broker@latest",
+    "--allow-insecure-http",
+    "http://mcp-gateway.idthw.org:24445/mcp/k8s-docs-server",
+]
 ```
 
 The Tools page uses the deployment's Core MCP Proxy route to perform live `tools/list` discovery from the MCP Hub server. This avoids treating a host-only `127.0.0.1` port-forward as container-local and preserves the Hub workload-certificate → user-scoped Athenz token flow.
