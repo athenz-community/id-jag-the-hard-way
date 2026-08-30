@@ -5,6 +5,7 @@ import {
   lstat,
   mkdir,
   open,
+  readdir,
   readFile,
   rename,
   unlink,
@@ -45,6 +46,7 @@ const DEFAULT_EXPIRY_SKEW_MS = 60_000
 const DEFAULT_LOCK_STALE_MS = 10 * 60_000
 const DEFAULT_MAX_WAIT_MS = 11 * 60_000
 const DEFAULT_POLL_INTERVAL_MS = 150
+const CREDENTIAL_FILE_NAME = /^[a-f0-9]{64}\.json$/
 
 export class SharedSessionStore {
   private readonly expirySkewMs: number
@@ -131,6 +133,19 @@ export class SharedSessionStore {
     }
 
     throw new Error("Timed out waiting to invalidate a rejected Gateway session")
+  }
+
+  async clearAll(): Promise<number> {
+    await ensurePrivateDirectory(this.cacheDirectory)
+    const entries = await readdir(this.cacheDirectory, { withFileTypes: true })
+    let cleared = 0
+
+    for (const entry of entries) {
+      if (!CREDENTIAL_FILE_NAME.test(entry.name) || (!entry.isFile() && !entry.isSymbolicLink())) continue
+      if (await unlinkIfPresent(path.join(this.cacheDirectory, entry.name))) cleared += 1
+    }
+
+    return cleared
   }
 
   private async readUsable(file: string, issuer: string) {
@@ -260,8 +275,10 @@ function assertCredential(credential: GatewayCredential, issuer: string, now: nu
 async function unlinkIfPresent(file: string) {
   try {
     await unlink(file)
+    return true
   } catch (error) {
-    if (!isFileMissingError(error)) throw error
+    if (isFileMissingError(error)) return false
+    throw error
   }
 }
 

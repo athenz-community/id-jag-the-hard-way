@@ -57,6 +57,14 @@ JSON clients with stdio support use the same command:
 
 No `codex mcp login` command is required. On startup, the first broker process immediately opens the Gateway login in the default browser. Other broker processes wait for it and then reuse the same session.
 
+To sign out of every locally cached MCP Gateway session without starting a connector or opening a browser, run:
+
+```sh
+npx -y @mlajkim/mcp-credential-broker@latest --logout
+```
+
+This removes only the broker's hashed credential files from `~/.idthw/mcp-credential-broker/`. It preserves unrelated files and does not delete Codex, npm, or Keycloak credentials. The next connector request starts a fresh browser sign-in.
+
 For source-tree development:
 
 ```sh

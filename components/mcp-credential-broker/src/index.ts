@@ -12,6 +12,7 @@ type CliOptions = {
   target?: URL
   allowInsecureHttp: boolean
   help: boolean
+  logout: boolean
   version: boolean
 }
 
@@ -23,6 +24,12 @@ export async function run(argv = process.argv.slice(2)) {
   }
   if (options.version) {
     process.stdout.write(`${PACKAGE_VERSION}\n`)
+    return
+  }
+  if (options.logout) {
+    const cleared = await new SharedSessionStore(defaultCacheDirectory()).clearAll()
+    const sessions = cleared === 1 ? "session" : "sessions"
+    process.stdout.write(`Cleared ${cleared} locally cached MCP Gateway ${sessions}.\n`)
     return
   }
   if (!options.target) throw new Error("Missing MCP Gateway route URL")
@@ -57,6 +64,7 @@ function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     allowInsecureHttp: process.env.IDTHW_MCP_ALLOW_INSECURE_HTTP === "true",
     help: false,
+    logout: false,
     version: false,
   }
 
@@ -65,6 +73,8 @@ function parseArgs(argv: string[]): CliOptions {
       options.allowInsecureHttp = true
     } else if (argument === "--help" || argument === "-h") {
       options.help = true
+    } else if (argument === "--logout") {
+      options.logout = true
     } else if (argument === "--version" || argument === "-v") {
       options.version = true
     } else if (argument.startsWith("-")) {
@@ -75,15 +85,20 @@ function parseArgs(argv: string[]): CliOptions {
       throw new Error(`Unexpected argument: ${argument}`)
     }
   }
+  if (options.logout && options.target) throw new Error("--logout does not accept a Gateway route URL")
   return options
 }
 
 function helpText() {
   return [
     "Usage: idthw-mcp-connect [--allow-insecure-http] <gateway-route-url>",
+    "       idthw-mcp-connect --logout",
     "",
     "Connect one stdio MCP entry to an IDTHW MCP Gateway route.",
     "The first process opens browser authentication; concurrent entries reuse the shared session.",
+    "",
+    "Options:",
+    "  --logout  Clear all locally cached MCP Gateway sessions and exit.",
     "",
     "Environment:",
     "  IDTHW_MCP_CREDENTIAL_CACHE_DIR  Override the private shared credential directory.",

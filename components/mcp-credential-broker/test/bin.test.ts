@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { execFile, spawn } from "node:child_process"
-import { mkdtemp, rm, symlink } from "node:fs/promises"
+import { mkdtemp, readdir, rm, symlink, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import os from "node:os"
@@ -30,6 +30,47 @@ it("runs the CLI when npm invokes it through a bin symlink", async () => {
 
     assert.match(stdout, /^Usage: idthw-mcp-connect/)
     assert.equal(stderr, "")
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+it("logs out by clearing only locally cached Gateway sessions", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "idthw-mcp-broker-logout-test-"))
+  const source = fileURLToPath(new URL("../src/index.ts", import.meta.url))
+  const linkedBin = path.join(directory, "idthw-mcp-connect.ts")
+  const cacheDirectory = path.join(directory, "credentials")
+
+  try {
+    await symlink(source, linkedBin)
+    const sessionStore = new SharedSessionStore(cacheDirectory)
+    for (const issuer of ["https://gateway-one.example", "https://gateway-two.example"]) {
+      await sessionStore.getOrCreate(issuer, async () => ({
+        version: 1,
+        issuer,
+        accessToken: `opaque-session-for-${issuer}`,
+        tokenType: "Bearer",
+        expiresAt: Date.now() + 300_000,
+      }))
+    }
+    await writeFile(path.join(cacheDirectory, "keep.txt"), "not a broker credential\n")
+
+    const { stdout, stderr } = await execFileAsync(
+      process.execPath,
+      ["--import", "tsx", linkedBin, "--logout"],
+      {
+        cwd: path.dirname(fileURLToPath(new URL("../package.json", import.meta.url))),
+        env: {
+          ...process.env,
+          IDTHW_MCP_CREDENTIAL_CACHE_DIR: cacheDirectory,
+          NODE_NO_WARNINGS: "1",
+        },
+      },
+    )
+
+    assert.equal(stdout, "Cleared 2 locally cached MCP Gateway sessions.\n")
+    assert.equal(stderr, "")
+    assert.deepEqual(await readdir(cacheDirectory), ["keep.txt"])
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
