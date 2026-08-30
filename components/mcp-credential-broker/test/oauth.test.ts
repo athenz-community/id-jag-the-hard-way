@@ -112,4 +112,3 @@ function gatewayEndpoints(): OAuthEndpoints {
     registrationEndpoint: "https://gateway.example/oauth/register",
   }
 }
-

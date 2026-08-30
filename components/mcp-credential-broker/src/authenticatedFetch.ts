@@ -30,4 +30,3 @@ function withBearer(init: RequestInit | undefined, accessToken: string): Request
   headers.set("authorization", `Bearer ${accessToken}`)
   return { ...init, headers }
 }
-

@@ -44,4 +44,3 @@ it("invalidates a rejected session and retries once with the shared replacement"
     await rm(directory, { recursive: true, force: true })
   }
 })
-
