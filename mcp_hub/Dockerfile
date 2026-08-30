@@ -2,11 +2,13 @@ FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
+ARG MCP_BROKER_PACKAGE=@mlajkim/mcp-credential-broker@latest
+
 COPY package*.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
-RUN npm run build
+RUN NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE="$MCP_BROKER_PACKAGE" npm run build
 
 FROM registry.k8s.io/kubectl:v1.34.2 AS kubectl
 
