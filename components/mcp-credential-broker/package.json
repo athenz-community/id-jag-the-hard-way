@@ -24,7 +24,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org"
   },
   "scripts": {
     "build": "tsc && node -e \"require('node:fs').chmodSync('dist/index.js', 0o755)\"",

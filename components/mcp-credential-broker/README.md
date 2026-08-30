@@ -10,19 +10,15 @@ Codex slack entry      -> broker -> /mcp/slack -------+
 
 Each MCP client entry remains separate, so clients such as Codex can show independent server connection state and tool counts. The broker does not aggregate or rename tools.
 
-## GitHub Packages Setup
+## Public npm Package
 
-The package is published to GitHub Packages. Configure npm once before using it with `npx`:
+The package is published as a public scoped package on npmjs.com. Installing or running it does not require an npm account or registry token:
 
-```ini
-# ~/.npmrc
-@mlajkim:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}
+```sh
+npx -y @mlajkim/mcp-credential-broker@latest https://mcp-gateway.example/mcp/confluence
 ```
 
-Set `GITHUB_PACKAGES_TOKEN` to a GitHub personal access token with `read:packages` permission. The package itself is public, but GitHub Packages still requires npm authentication when downloading it.
-
-Every same-repository pull request publishes a unique prerelease version and updates its `pr-<number>` tag. For example, PR 208 can be tested before merge with:
+Every same-repository pull request publishes a unique prerelease version and updates its `pr-<number>` tag on npm. For example, PR 208 can be tested before merge with:
 
 ```sh
 npx -y @mlajkim/mcp-credential-broker@pr-208 https://mcp-gateway.example/mcp/confluence

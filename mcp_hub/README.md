@@ -109,7 +109,7 @@ Each returned server includes:
 - `gatewayUrl`, the public MCP client URL when `MCP_HUB_MCP_GATEWAY_URL` is configured
 - `proxyUrl`, the corresponding Core MCP Proxy URL
 
-The client-configuration page converts `gatewayUrl` into a separate stdio entry backed by `@mlajkim/mcp-credential-broker` from GitHub Packages. It shows the required `~/.npmrc` registry/authentication entries before the generated client configuration. Codex configurations also forward `GITHUB_PACKAGES_TOKEN` to the `npx` child process. The package defaults to `@mlajkim/mcp-credential-broker@latest`; set `NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE` at build time to use a PR tag such as `@mlajkim/mcp-credential-broker@pr-208`:
+The client-configuration page converts `gatewayUrl` into a separate stdio entry backed by the public `@mlajkim/mcp-credential-broker` package from npmjs.com. Clients can install it without an npm account or registry token. The package defaults to `@mlajkim/mcp-credential-broker@latest`; set `NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE` at build time to use a PR tag such as `@mlajkim/mcp-credential-broker@pr-208`:
 
 ```sh
 NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE='@mlajkim/mcp-credential-broker@pr-208' make local
@@ -354,7 +354,6 @@ Codex is selected by default on the client-configuration page, which generates:
 enabled = true
 startup_timeout_sec = 360
 command = "npx"
-env_vars = ["GITHUB_PACKAGES_TOKEN"]
 args = [
     "-y",
     "@mlajkim/mcp-credential-broker@latest",
