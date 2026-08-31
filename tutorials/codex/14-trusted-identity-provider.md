@@ -35,7 +35,7 @@ Apply the patch that mounts the Keycloak token exchange provider JAR into the ZT
 ```sh
 kubectl patch deployment athenz-zts-server \
   -n athenz \
-  --patch-file keycloak_token_exchange_provider/hack/static/zts-plugin-jar-mount-patch.yaml
+  --patch-file components/keycloak_token_exchange_provider/hack/static/zts-plugin-jar-mount-patch.yaml
 ```
 
 Wait for the rollout:
@@ -98,7 +98,7 @@ Mount the ConfigMap into the ZTS server:
 ```sh
 kubectl patch deployment athenz-zts-server \
   -n athenz \
-  --patch-file keycloak_token_exchange_provider/hack/static/zts-providers-config-patch.yaml
+  --patch-file components/keycloak_token_exchange_provider/hack/static/zts-providers-config-patch.yaml
 ```
 
 ```sh
