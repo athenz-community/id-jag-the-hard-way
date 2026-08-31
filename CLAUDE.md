@@ -24,7 +24,7 @@ The repository contains these runtime components and supporting plugins:
 
 5. **`components/athenzd/`** — Go manager CLI for browser login and logout, idempotent ZMS service registration, optional Copper Argos X.509 enrollment, ID-JAG and Athenz access-token issuance, and management of the local GenAI credential-injector daemon.
 
-6. **`keycloak_token_exchange_provider/`** — Java 11 Maven Keycloak plugin that enables ID token delegation from Keycloak to Athenz.
+6. **`components/keycloak_token_exchange_provider/`** — Java 11 Maven Keycloak plugin that enables ID token delegation from Keycloak to Athenz.
 
 7. **`local_workload_instance_provider/`** — Standalone Java 17 Maven plugin for the optional local Copper Argos flow. It validates an OIDC ID token as workload attestation and restricts certificate enrollment to the authenticated user's Athenz home-domain subtree. It is not deployed by default; the `athenzd` FAQ mounts and registers it for testing.
 
@@ -94,7 +94,7 @@ make -C components/mcp-credential-broker install check test build
 make -C components/athenzd build test
 
 # Keycloak token exchange provider — build only (no local run)
-make -C keycloak_token_exchange_provider build
+make -C components/keycloak_token_exchange_provider build
 
 # Local workload instance provider — build and test; deployment is opt-in through the athenzd FAQ
 make -C local_workload_instance_provider build
@@ -124,7 +124,7 @@ The provider Dockerfiles are export-only — they copy their built JARs into a m
 | `api_server/authorization_proxy`   | Java 17    | Spring Boot 3.2.5, Spring Cloud Gateway |
 | `ai_client_gateway`                | TypeScript | Node.js 22, Express                     |
 | `components/athenzd`               | Go 1.25    | Cobra, Viper                            |
-| `keycloak_token_exchange_provider` | Java 11    | Maven, Keycloak SPI                     |
+| `components/keycloak_token_exchange_provider` | Java 11 | Maven, Keycloak SPI                  |
 | `local_workload_instance_provider` | Java 17    | Maven, Athenz InstanceProvider SPI      |
 | `genai_proxy`                       | TypeScript | Node.js 22 built-in HTTP/fetch APIs     |
 

@@ -7,14 +7,14 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "keycloak_token_exchange_provider/**"
+      - "components/keycloak_token_exchange_provider/**"
       - ".github/workflows/publish-keycloak-token-exchange-provider.yml"
 
   # pull_request:
   pull_request_target:
     branches: [ "main" ]
     paths:
-      - "keycloak_token_exchange_provider/**"
+      - "components/keycloak_token_exchange_provider/**"
       - ".github/workflows/publish-keycloak-token-exchange-provider.yml"
 
   workflow_dispatch:
@@ -22,7 +22,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: keycloak-token-exchange-provider
-  BUILD_DIR: ./keycloak_token_exchange_provider
+  BUILD_DIR: ./components/keycloak_token_exchange_provider
 
 jobs:
   build-and-push:
