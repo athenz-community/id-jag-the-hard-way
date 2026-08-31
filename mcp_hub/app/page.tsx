@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { consoleHref, DEFAULT_PROJECT, GENAI_PRODUCT } from "@/components/navigation/consoleRoute"
+import { consoleHref, DEFAULT_PRODUCT, DEFAULT_PROJECT, DEFAULT_SECTION } from "@/components/navigation/consoleRoute"
 import { signInToIdp } from "@/features/auth/actions/idp"
 import { idpConfig } from "@/features/auth/config/idp"
 import { auth } from "@/features/auth/lib/auth"
@@ -11,7 +11,7 @@ export default async function HomePage({
 }) {
   const session = await auth()
   if (session?.user) {
-    redirect(consoleHref({ project: DEFAULT_PROJECT, product: GENAI_PRODUCT, section: "monitoring" }))
+    redirect(consoleHref({ project: DEFAULT_PROJECT, product: DEFAULT_PRODUCT, section: DEFAULT_SECTION }))
   }
 
   const { error } = await searchParams
