@@ -7,7 +7,7 @@ IMAGE ?= genai-proxy:local
 CONTAINER_NAME ?= genai-proxy-local
 CONTAINER_PORT ?= 8080
 CONTAINER_ATHENZ_PUBLIC_KEY_PATH ?= /run/secrets/zts.public.pem
-DATA_DIR ?= ../athenzd/.athenzd/genai-proxy-data
+DATA_DIR ?= ../components/athenzd/.athenzd/genai-proxy-data
 CONTAINER_DATA_DIR ?= /var/lib/genai-proxy
 
 export GENAI_UPSTREAM_BASE_URL

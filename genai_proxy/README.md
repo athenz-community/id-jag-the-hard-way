@@ -4,7 +4,7 @@
 
 The proxy verifies each Athenz Bearer access token with the local ZTS public key. The signed `aud` claim must identify one `gen-ai.services.<project>` project, the signed `sub` must identify a human user, `client_id` must identify the calling workload, and the token must grant the `gen-ai-users` scope. It never logs or stores the AT. Before forwarding a request, it replaces the Athenz `Authorization` header with the configured upstream credential from `OPENAI_CODEX_API_KEY`.
 
-Successful generation responses are metered using the token counts reported by the upstream API and grouped by JST date, signed project, and user claims. Both Chat Completions `prompt_tokens`/`completion_tokens` and Responses API `input_tokens`/`output_tokens` are supported. Each daily entry includes the most recent usage time in JST using `HH:mm:ss` format. With `make local`, counters are stored in the gitignored `athenzd/.athenzd/genai-proxy-data/usage.json` file and survive container restarts.
+Successful generation responses are metered using the token counts reported by the upstream API and grouped by JST date, signed project, and user claims. Both Chat Completions `prompt_tokens`/`completion_tokens` and Responses API `input_tokens`/`output_tokens` are supported. Each daily entry includes the most recent usage time in JST using `HH:mm:ss` format. With `make local`, counters are stored in the gitignored `components/athenzd/.athenzd/genai-proxy-data/usage.json` file and survive container restarts.
 
 Before forwarding a metered generation request, the proxy totals the service code's recorded spend for the current JST day. Athenz has a `$240` daily limit and Spire has a `$0.002` daily limit. Once a limit is reached, later generation requests return `429 Too Many Requests` with a `Retry-After` header and are not forwarded upstream. The upstream reports tokens only after a response completes, so the request that crosses a limit completes; enforcement begins with the next request. Limits reset at `00:00 JST`.
 
@@ -18,7 +18,7 @@ export OPENAI_CODEX_API_KEY='<upstream API key>'
 make genai
 ```
 
-The parent context workspace provides the `make genai` convenience target. In a standalone `id-jag-the-hard-way` checkout, run `make -C genai_proxy local` instead. Both commands build `genai-proxy:local` and start it as the detached `genai-proxy-local` Docker container. The key is passed from the invoking environment into the running container; it is not stored in the image. Runtime logs are not attached to the terminal. The local `athenzd/.athenzd/genai-proxy-data` directory is mounted into the container for persistent usage data.
+The parent context workspace provides the `make genai` convenience target. In a standalone `id-jag-the-hard-way` checkout, run `make -C genai_proxy local` instead. Both commands build `genai-proxy:local` and start it as the detached `genai-proxy-local` Docker container. The key is passed from the invoking environment into the running container; it is not stored in the image. Runtime logs are not attached to the terminal. The local `components/athenzd/.athenzd/genai-proxy-data` directory is mounted into the container for persistent usage data.
 
 If that container already exists, `make local` asks before deleting and replacing it. Press Enter or answer `Y` to replace it; answer `n` to keep it and cancel the command.
 

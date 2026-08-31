@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build windows
 
 package genaiproxy
 
@@ -15,11 +15,11 @@ func launchDaemon(options DaemonOptions) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	daemonExecutable := filepath.Join(filepath.Dir(executable), "athenzd-genai-proxy")
+	daemonExecutable := filepath.Join(filepath.Dir(executable), "athenzd-genai-proxy.exe")
 	if _, err := os.Stat(daemonExecutable); err != nil {
-		daemonExecutable, err = exec.LookPath("athenzd-genai-proxy")
+		daemonExecutable, err = exec.LookPath("athenzd-genai-proxy.exe")
 		if err != nil {
-			return 0, fmt.Errorf("finding athenzd-genai-proxy executable: install both binaries with `make -C athenzd build`: %w", err)
+			return 0, fmt.Errorf("finding athenzd-genai-proxy executable: install both binaries with `make -C components/athenzd build`: %w", err)
 		}
 	}
 	logFile, err := os.OpenFile(options.LogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
@@ -31,7 +31,7 @@ func launchDaemon(options DaemonOptions) (int, error) {
 	command.Stdin = nil
 	command.Stdout = logFile
 	command.Stderr = logFile
-	command.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	command.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | 0x00000008}
 	if err := command.Start(); err != nil {
 		return 0, err
 	}
