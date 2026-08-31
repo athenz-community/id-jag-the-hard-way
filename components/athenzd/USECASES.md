@@ -19,7 +19,7 @@
 
 ### Prerequisites
 
-- An IdP with an `athenzd` client registered. For the IDTHW environment, follow [Test `athenzd` with IDTHW](../faqs/athenzd/test-athenzd-with-idthw.md).
+- An IdP with an `athenzd` client registered. For the IDTHW environment, follow [Test `athenzd` with IDTHW](../../faqs/athenzd/test-athenzd-with-idthw.md).
 - ZMS is configured to authenticate the IdP token with `OIDCJwtAuthority` as described in the same local test guide.
 - ZMS has `athenz.home_domain=home`; ZMS creates the reserved `home` top-level domain during initial system setup.
 - ZMS allows the authenticated user to create their personal domain through the user-domain API.

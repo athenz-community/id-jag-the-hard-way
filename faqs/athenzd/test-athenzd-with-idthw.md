@@ -52,7 +52,7 @@ Test `athenzd` against the local ID-JAG The Hard Way environment: configure Keyc
 ## Step 1. Build and install athenzd
 
 ```sh
-make -C athenzd build
+make -C components/athenzd build
 ```
 
 ```sh
@@ -66,7 +66,7 @@ Confirm the binary runs:
 athenzd version
 ```
 
-`athenzd` resolves a project config relative to the current directory. Commands that load the generated config below run inside `athenzd/`.
+`athenzd` resolves a project config relative to the current directory. Commands that load the generated config below run inside `components/athenzd/`.
 
 ## Step 2. Create the Keycloak client
 
@@ -383,7 +383,7 @@ If the helper reports HTTP `404`, stop and repair the Athenz bootstrap. The rese
 Generate the project-level config:
 
 ```sh
-make -C athenzd idjag-learner
+make -C components/athenzd idjag-learner
 ```
 
 ## Step 10. Log in and issue the service certificate
@@ -391,7 +391,7 @@ make -C athenzd idjag-learner
 Run login immediately before the ZMS checks because the local authority accepts only recently issued tokens:
 
 ```sh
-(cd athenzd && athenzd login)
+(cd components/athenzd && athenzd login)
 ```
 
 Sign in to Keycloak as:
@@ -498,7 +498,7 @@ Expected output:
 Run login again:
 
 ```sh
-(cd athenzd && athenzd login)
+(cd components/athenzd && athenzd login)
 ```
 
 The ZMS stage should now report no changes:
@@ -521,7 +521,7 @@ The second login obtains a fresh ID token and a fresh certificate because the lo
 Inspect the cached identity without printing its bearer token:
 
 ```sh
-(cd athenzd && athenzd whoami)
+(cd components/athenzd && athenzd whoami)
 ```
 
 ```text
@@ -551,7 +551,7 @@ Keep the Kubernetes environment and port-forwards running until Cleanup 6 is com
 Run a fresh login so the cached token is inside the ZMS freshness window. This also confirms the objects exist immediately before removal:
 
 ```sh
-(cd athenzd && athenzd login)
+(cd components/athenzd && athenzd login)
 ```
 
 Load the token and exact targets:
@@ -771,7 +771,7 @@ ls -l \
   "${HOME}/.config/athenzd/identity/idjag-learner.cert.pem" \
   "${HOME}/.config/athenzd/identity/idjag-learner.key.pem" \
   "${HOME}/.config/athenzd/identity/ca.cert.pem" \
-  athenzd/.athenzd/config.yaml \
+  components/athenzd/.athenzd/config.yaml \
   2>/dev/null || true
 ```
 
@@ -782,7 +782,7 @@ rm -f "${HOME}/.cache/athenzd/idjag-learner.json"
 rm -f "${HOME}/.config/athenzd/identity/idjag-learner.cert.pem"
 rm -f "${HOME}/.config/athenzd/identity/idjag-learner.key.pem"
 rm -f "${HOME}/.config/athenzd/identity/ca.cert.pem"
-rm -f athenzd/.athenzd/config.yaml
+rm -f components/athenzd/.athenzd/config.yaml
 ```
 
 ## Cleanup 8. Remove the hostname mapping
@@ -999,11 +999,11 @@ No. Cleanup removes only the child service and child domain created by this test
 - [Local workload instance provider](../../local_workload_instance_provider/README.md)
 - [Local workload provider publish workflow](../../.github/workflows/publish-local-workload-instance-provider.yml)
 - [Make Keycloak HTTPS for ZTS User Certificates](../make-keycloak-https.md)
-- [`athenzd` README](../../athenzd/README.md)
-- [`athenzd` login command](../../athenzd/cmd/athenzd/login.go)
-- [`athenzd` ZMS client](../../athenzd/internal/zms/client.go)
-- [`athenzd` ZTS enrollment client](../../athenzd/internal/zts/client.go)
-- [`athenzd` config generator](../../athenzd/hack/gen-idjag-learner-config.sh)
+- [`athenzd` README](../../components/athenzd/README.md)
+- [`athenzd` login command](../../components/athenzd/cmd/athenzd/login.go)
+- [`athenzd` ZMS client](../../components/athenzd/internal/zms/client.go)
+- [`athenzd` ZTS enrollment client](../../components/athenzd/internal/zts/client.go)
+- [`athenzd` config generator](../../components/athenzd/hack/gen-idjag-learner-config.sh)
 - [`OIDCJwtAuthority` configuration](https://github.com/ctyano/athenz-plugins#oidcjwtauthority)
 - [Athenz domain API](https://github.com/AthenZ/athenz/blob/master/core/zms/src/main/rdl/Domain.rdli)
 - [Athenz service-identity API](https://github.com/AthenZ/athenz/blob/master/core/zms/src/main/rdl/ServiceIdentity.rdli)

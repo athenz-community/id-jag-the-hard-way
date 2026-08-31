@@ -2,8 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PORT="$SCRIPT_DIR/../../tools/port.sh"
 ATHENZD_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_DIR="$(cd "$ATHENZD_DIR/../.." && pwd)"
+PORT="$REPO_DIR/tools/port.sh"
 OUT="${ATHENZD_CONFIG_OUT:-$ATHENZD_DIR/.athenzd/config.yaml}"
 FORCE="${ATHENZD_CONFIG_FORCE:-false}"
 REGENERATE_COMMAND="${ATHENZD_CONFIG_REGENERATE_COMMAND:-make idjag-learner}"
@@ -16,7 +17,7 @@ ATHENZD_GENAI_PROXY=$("$PORT" athenzd-genai-proxy)
 # The local Keycloak HTTPS cert is signed by the Athenz tutorial CA, so athenzd
 # must trust that CA to complete the token exchange over the keycloak.idp host
 # mapped to the local Keycloak HTTPS port-forward.
-CA="$(cd "$ATHENZD_DIR/.." && pwd)/athenz_dist/certs/ca.cert.pem"
+CA="$REPO_DIR/athenz_dist/certs/ca.cert.pem"
 
 mkdir -p "$(dirname "$OUT")"
 
