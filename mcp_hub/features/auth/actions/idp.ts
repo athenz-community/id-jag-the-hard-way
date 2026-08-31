@@ -2,14 +2,14 @@
 
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
-import { consoleHref, DEFAULT_PROJECT, GENAI_PRODUCT } from "@/components/navigation/consoleRoute"
+import { consoleHref, DEFAULT_PRODUCT, DEFAULT_PROJECT, DEFAULT_SECTION } from "@/components/navigation/consoleRoute"
 import { idpConfig, IDP_PROVIDER_ID } from "@/features/auth/config/idp"
 import { auth, signIn, signOut, updateSession } from "@/features/auth/lib/auth"
 
 const DEFAULT_DESTINATION = consoleHref({
   project: DEFAULT_PROJECT,
-  product: GENAI_PRODUCT,
-  section: "monitoring",
+  product: DEFAULT_PRODUCT,
+  section: DEFAULT_SECTION,
 })
 
 export async function signInToIdp() {

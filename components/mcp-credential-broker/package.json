@@ -23,8 +23,7 @@
     "url": "https://github.com/mlajkim/id-jag-the-hard-way/issues"
   },
   "publishConfig": {
-    "access": "public",
-    "registry": "https://npm.pkg.github.com"
+    "access": "public"
   },
   "scripts": {
     "build": "tsc && node -e \"require('node:fs').chmodSync('dist/index.js', 0o755)\"",
