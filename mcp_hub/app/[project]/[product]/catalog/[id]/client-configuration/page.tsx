@@ -9,8 +9,10 @@ import {
   McpServerUrlSection,
 } from "@/features/catalog/components/McpServerClientConfigurationPage"
 import { fetchCatalog } from "@/features/catalog/lib/fetchCatalog"
-import { resolveMcpDisplayUrl } from "@/features/catalog/lib/mcpTools"
+import { listLiveMcpTools, resolveMcpDisplayUrl } from "@/features/catalog/lib/mcpTools"
 import { requireHubSession } from "@/features/auth/lib/session"
+import { PermissionReadinessSection } from "@/features/permissions/components/PermissionReadinessSection"
+import { fetchPermissionReadiness } from "@/features/permissions/lib/fetchPermissionReadiness"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -20,7 +22,7 @@ export default async function McpServerClientConfigurationRoute({
 }: {
   params: Promise<{ project: string; product: string; id: string }>
 }) {
-  await requireHubSession()
+  const session = await requireHubSession()
   const { project, product, id } = await params
   const serverId = decodeRouteParam(id)
   const catalog = await fetchCatalog()
@@ -30,6 +32,10 @@ export default async function McpServerClientConfigurationRoute({
 
   const displayName = server.alias ?? server.name
   const mcpServerUrl = resolveMcpDisplayUrl(server)
+  const [permissionReadiness, toolsResult] = await Promise.all([
+    fetchPermissionReadiness(server.routeId, session.user.username),
+    listLiveMcpTools(server),
+  ])
 
   return (
     <ConsoleTemplate>
@@ -37,7 +43,11 @@ export default async function McpServerClientConfigurationRoute({
       <McpServerDetailHeader project={project} product={product} server={server} displayName={displayName} />
       <McpServerDetailTabs project={project} product={product} serverId={server.id} active="client-configuration" />
       <McpServerUrlSection mcpServerUrl={mcpServerUrl} />
-      <JsonConfigurationSection serverName={server.routeId} mcpServerUrl={mcpServerUrl} />
+      <JsonConfigurationSection
+        serverName={server.routeId}
+        mcpServerUrl={mcpServerUrl}
+        permissionCheck={<PermissionReadinessSection readiness={permissionReadiness} toolsResult={toolsResult} />}
+      />
     </ConsoleTemplate>
   )
 }

@@ -1,0 +1,44 @@
+version: 1
+servers:
+  k8s-docs-server:
+    serverRequirements:
+    - label: Signed-in user can access the MCP server
+      member: <signed_in_user>
+      role: api:role.mcp-accessor
+    - label: MCP Gateway can request MCP access
+      member: mcp-hub.mcp-gateway
+      role: api:role.mcp-accessor-jag-exchanger
+    tools:
+      get_k8s_docs:
+        requirements:
+        - label: Signed-in user can call GET /api/docs
+          member: <signed_in_user>
+          role: api:role.docs-getter
+        - label: MCP Gateway can obtain an ID-JAG for GET /api/docs on behalf of the signed-in user
+          member: mcp-hub.mcp-gateway
+          role: api:role.docs-getter-jag-exchanger
+        - label: K8s Docs MCP server can obtain an access token scoped to GET /api/docs
+          member: api.api-mcp
+          role: api:role.docs-getter-exchanger
+      post_k8s_doc:
+        requirements:
+        - label: Signed-in user can call POST /api/docs
+          member: <signed_in_user>
+          role: api:role.docs-poster
+        - label: MCP Gateway can obtain an ID-JAG for POST /api/docs on behalf of the signed-in user
+          member: mcp-hub.mcp-gateway
+          role: api:role.docs-poster-jag-exchanger
+        - label: K8s Docs MCP server can obtain an access token scoped to POST /api/docs
+          member: api.api-mcp
+          role: api:role.docs-poster-exchanger
+      delete_k8s_doc:
+        requirements:
+        - label: Signed-in user can call DELETE /api/docs/{doc_id}
+          member: <signed_in_user>
+          role: api:role.docs-deleter
+        - label: MCP Gateway can obtain an ID-JAG for DELETE /api/docs/{doc_id} on behalf of the signed-in user
+          member: mcp-hub.mcp-gateway
+          role: api:role.docs-deleter-jag-exchanger
+        - label: K8s Docs MCP server can obtain an access token scoped to DELETE /api/docs/{doc_id}
+          member: api.api-mcp
+          role: api:role.docs-deleter-exchanger
