@@ -70,6 +70,7 @@ export const AUTHORIZATION_TRANSACTION_TTL_SECONDS = positiveInteger(
 )
 export const AUTHORIZATION_CODE_TTL_SECONDS = positiveInteger(process.env.AUTHORIZATION_CODE_TTL_SECONDS, 60)
 export const IDP_LOGOUT_TICKET_TTL_SECONDS = positiveInteger(process.env.IDP_LOGOUT_TICKET_TTL_SECONDS, 60)
+export const GATEWAY_SESSION_TTL_SECONDS = positiveInteger(process.env.GATEWAY_SESSION_TTL_SECONDS, 8 * 60 * 60)
 
 export const KEYCLOAK_TOKEN_ENDPOINT = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`
 export const KEYCLOAK_AUTHORIZATION_ENDPOINT = `${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth`

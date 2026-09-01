@@ -4,7 +4,11 @@ import {
   MCP_GATEWAY_ACCESS_SCOPE,
   PUBLIC_BASE_URL,
 } from "../config/env.js"
-import { athenzAccessTokenManager } from "../services/athenz.js"
+import {
+  AthenzInsufficientScopeError,
+  athenzAccessTokenManager,
+  ReauthenticationRequiredError,
+} from "../services/athenz.js"
 import { mcpRegistryClient, RegistryServerNotFoundError, type ResolvedMcpRoute } from "../services/mcpRegistry.js"
 import { sessionStore, type GatewaySession } from "../utils/sessionStore.js"
 
@@ -73,11 +77,23 @@ export function createProtectedRouter(overrides: Partial<ProtectedRouterDependen
       const message = error instanceof Error ? error.message : "MCP Gateway forwarding failed"
       console.error("MCP Gateway request failed", { serverId, subject: session.subject, message })
       if (!response.headersSent) {
+        if (error instanceof ReauthenticationRequiredError) {
+          const token = bearerToken(request)
+          if (token) sessionStore.delete(token)
+          setAuthenticationChallenge(response, serverId)
+          response.setHeader("cache-control", "no-store")
+          response.status(401).json({
+            error: "reauth_required",
+            message: "A fresh identity-provider login is required before requesting this Athenz scope.",
+          })
+          return
+        }
+
         const status = error instanceof RegistryServerNotFoundError
           ? 404
           : error instanceof InvalidToolCallError
             ? 400
-            : error instanceof ToolScopeNotConfiguredError
+            : error instanceof ToolScopeNotConfiguredError || error instanceof AthenzInsufficientScopeError
               ? 403
               : 502
         const code = status === 404
@@ -85,7 +101,9 @@ export function createProtectedRouter(overrides: Partial<ProtectedRouterDependen
           : status === 400
             ? "invalid_tool_call"
             : status === 403
-              ? "tool_scope_not_configured"
+              ? error instanceof AthenzInsufficientScopeError
+                ? "insufficient_scope"
+                : "tool_scope_not_configured"
               : "mcp_gateway_forwarding_failed"
         response.status(status).json({ error: code, message })
       } else {
@@ -241,11 +259,21 @@ function isValidServerId(serverId: string) {
 }
 
 function requireSession(request: Request, response: Response, serverId?: string) {
-  const authorization = request.headers.authorization
-  const token = authorization?.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : ""
+  const token = bearerToken(request)
   const session = token ? sessionStore.get(token) : null
   if (session) return session
 
+  setAuthenticationChallenge(response, serverId)
+  response.status(401).json({ error: "unauthorized", message: "Authenticate through the MCP Gateway OAuth flow." })
+  return null
+}
+
+function bearerToken(request: Request) {
+  const authorization = request.headers.authorization
+  return authorization?.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : ""
+}
+
+function setAuthenticationChallenge(response: Response, serverId?: string) {
   const metadataPath = serverId
     ? `/.well-known/oauth-protected-resource/mcp/${encodeURIComponent(serverId)}`
     : "/.well-known/oauth-protected-resource"
@@ -253,6 +281,4 @@ function requireSession(request: Request, response: Response, serverId?: string)
     "www-authenticate",
     `Bearer realm="${PUBLIC_BASE_URL}", resource_metadata="${PUBLIC_BASE_URL}${metadataPath}"`,
   )
-  response.status(401).json({ error: "unauthorized", message: "Authenticate through the MCP Gateway OAuth flow." })
-  return null
 }

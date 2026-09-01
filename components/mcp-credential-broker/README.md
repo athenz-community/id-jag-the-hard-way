@@ -89,7 +89,7 @@ Non-loopback plaintext HTTP is rejected by default. A development-only Gateway c
 2. It discovers the Gateway authorization endpoints and verifies PKCE S256 support.
 3. It dynamically registers an ephemeral loopback public client.
 4. It opens Authorization Code + PKCE in the browser. MCP Gateway redirects the browser to Keycloak and retains the resulting ID token server-side.
-5. The broker receives only an opaque, short-lived Gateway bearer session.
+5. The broker receives only an opaque, bounded-lifetime Gateway bearer session. Its lifetime is independent of the shorter server-side ID token.
 6. Each request reaches its original route. MCP Gateway resolves that route through the Kubernetes-backed MCP Hub registry and obtains the route-specific Athenz scope.
 
 The npm/stdio broker is intentionally a **public client**. Shipping a client secret in an npm package would not make it confidential. OAuth still exists between this broker and MCP Gateway; what disappears is client-specific OAuth setup and the manual Codex login command.
@@ -107,6 +107,7 @@ Credentials are keyed by the discovered authorization-server issuer, not by MCP 
 - An exclusive cross-process lock permits only one browser flow at a time.
 - A terminated connector's old lock is reclaimed after ten minutes.
 - Expired credentials are replaced, and an HTTP 401 invalidates only the matching cached token before one retry.
+- A Gateway `401 reauth_required` therefore starts browser login for a fresh ID token when no cached ID-JAG can satisfy a request.
 - `--logout` clears every cached Gateway session under the same per-issuer lock and revokes each opaque token remotely.
 - `--logout --idp` additionally opens Keycloak sign-out through a short-lived Gateway logout ticket; no Keycloak token is returned to or persisted by the broker.
 - ID tokens, ID-JAGs, Athenz access tokens, client secrets, authorization codes, and PKCE verifiers are never persisted.

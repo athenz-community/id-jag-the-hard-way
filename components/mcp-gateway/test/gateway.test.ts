@@ -3,14 +3,21 @@ import { createServer, type RequestListener } from "node:http"
 import type { AddressInfo } from "node:net"
 import { afterEach, describe, it } from "node:test"
 import { createApp } from "../src/app.js"
+import { ATHENZ_ZTS_AUDIENCE, GATEWAY_SESSION_TTL_SECONDS } from "../src/config/env.js"
 import type { InternalRouterDependencies } from "../src/routes/internal.js"
 import type { ProtectedRouterDependencies } from "../src/routes/protected.js"
-import { AthenzAccessTokenManager } from "../src/services/athenz.js"
+import {
+  AthenzAccessTokenManager,
+  AthenzInsufficientScopeError,
+  ReauthenticationRequiredError,
+} from "../src/services/athenz.js"
 import { McpRegistryClient } from "../src/services/mcpRegistry.js"
 import {
   clearOAuthStores,
+  createAuthorizationCode,
   deriveS256CodeChallenge,
   isAllowedRedirectUri,
+  registerClient,
   verifyS256CodeChallenge,
 } from "../src/utils/oauthStore.js"
 import { sessionStore } from "../src/utils/sessionStore.js"
@@ -43,6 +50,7 @@ describe("MCP Gateway", () => {
   it("invalidates the Gateway session and creates a one-use Keycloak browser logout", async () => {
     const sessionToken = sessionStore.create({
       idToken: "stored-id-token",
+      idTokenExpiresAt: Math.floor(Date.now() / 1000) + 300,
       subject: "keycloak-subject",
       username: "idjag-learner",
       expiresAt: Math.floor(Date.now() / 1000) + 300,
@@ -91,6 +99,7 @@ describe("MCP Gateway", () => {
     const expiresAt = Math.floor(Date.now() / 1000) + 300
     const sessionToken = sessionStore.create({
       idToken: "stored-id-token-must-not-leak",
+      idTokenExpiresAt: expiresAt,
       subject: "keycloak-subject",
       username: "idjag-learner",
       expiresAt,
@@ -165,11 +174,88 @@ describe("MCP Gateway", () => {
     })
   })
 
+  it("keeps the opaque Gateway session alive beyond the short-lived ID token", async () => {
+    const redirectUri = "http://127.0.0.1:43123/callback"
+    const verifier = "test-verifier-with-enough-random-looking-characters"
+    const client = registerClient([redirectUri])
+    const idTokenExpiresAt = Math.floor(Date.now() / 1000) + 120
+    const code = createAuthorizationCode({
+      clientId: client.clientId,
+      redirectUri,
+      clientCodeChallenge: deriveS256CodeChallenge(verifier),
+      idToken: "short-lived-id-token",
+      subject: "keycloak-subject",
+      username: "idjag-learner",
+      identityExpiresAt: idTokenExpiresAt,
+    })
+
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/oauth/token`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: client.clientId,
+          redirect_uri: redirectUri,
+          code,
+          code_verifier: verifier,
+        }),
+      })
+
+      assert.equal(response.status, 200)
+      const body = await response.json() as { access_token: string; expires_in: number }
+      assert.equal(body.expires_in, GATEWAY_SESSION_TTL_SECONDS)
+      const session = sessionStore.get(body.access_token)
+      assert.equal(session?.idTokenExpiresAt, idTokenExpiresAt)
+      assert.ok((session?.expiresAt ?? 0) > idTokenExpiresAt)
+    })
+  })
+
   it("requires a gateway session before MCP access", async () => {
     await withServer(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/mcp/k8s-docs-server`, { method: "POST" })
       assert.equal(response.status, 401)
       assert.match(response.headers.get("www-authenticate") ?? "", /oauth-protected-resource\/mcp\/k8s-docs-server/)
+    })
+  })
+
+  it("invalidates the Gateway session and requests browser login when a fresh ID token is required", async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const sessionToken = sessionStore.create({
+      idToken: "short-lived-id-token",
+      idTokenExpiresAt: now + 300,
+      subject: "keycloak-subject",
+      username: "idjag-learner",
+      expiresAt: now + 3_600,
+    })
+
+    await withServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/mcp/k8s-docs-server`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${sessionToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { name: "get_k8s_docs", arguments: {} },
+        }),
+      })
+
+      assert.equal(response.status, 401)
+      assert.match(response.headers.get("www-authenticate") ?? "", /oauth-protected-resource\/mcp\/k8s-docs-server/)
+      assert.equal((await response.json() as { error: string }).error, "reauth_required")
+      assert.equal(sessionStore.get(sessionToken), null)
+    }, {
+      resolveRoute: async () => ({
+        proxyUrl: "http://core-mcp-proxy.test/mcp/k8s-docs-server",
+        toolScopes: { get_k8s_docs: "api:role.docs-getter" },
+      }),
+      getAccessToken: async () => {
+        throw new ReauthenticationRequiredError("ID token expired")
+      },
     })
   })
 
@@ -185,6 +271,7 @@ describe("MCP Gateway", () => {
     }, async (coreMcpProxyUrl) => {
       const sessionToken = sessionStore.create({
         idToken: "stored-id-token",
+        idTokenExpiresAt: Math.floor(Date.now() / 1000) + 300,
         subject: "keycloak-subject",
         username: "idjag-learner",
         expiresAt: Math.floor(Date.now() / 1000) + 300,
@@ -235,6 +322,7 @@ describe("MCP Gateway", () => {
       const expiresAt = Math.floor(Date.now() / 1000) + 300
       const sessionToken = sessionStore.create({
         idToken: "stored-id-token",
+        idTokenExpiresAt: expiresAt,
         subject: "keycloak-subject",
         username: "idjag-learner",
         expiresAt,
@@ -300,6 +388,7 @@ describe("MCP Gateway", () => {
     }, async (coreMcpProxyUrl) => {
       const sessionToken = sessionStore.create({
         idToken: "stored-id-token",
+        idTokenExpiresAt: Math.floor(Date.now() / 1000) + 300,
         subject: "keycloak-subject",
         username: "idjag-learner",
         expiresAt: Math.floor(Date.now() / 1000) + 300,
@@ -350,6 +439,7 @@ describe("MCP Gateway", () => {
   it("rejects unmapped and malformed tools/call without requesting a fallback token", async () => {
     const sessionToken = sessionStore.create({
       idToken: "stored-id-token",
+      idTokenExpiresAt: Math.floor(Date.now() / 1000) + 300,
       subject: "keycloak-subject",
       username: "idjag-learner",
       expiresAt: Math.floor(Date.now() / 1000) + 300,
@@ -392,39 +482,192 @@ describe("MCP Gateway", () => {
     assert.equal(accessTokenRequests, 0)
   })
 
-  it("exchanges ID token to ID-JAG and AT once per session and scope", async () => {
+  it("caches actual token grants and reuses ID-JAG after the ID token expires", async () => {
+    let now = 2_000_000_000_000
+    const requestedScope = "api:role.docs-getter api:role.mcp-accessor"
+    const idJag = fakeJwt({
+      aud: ATHENZ_ZTS_AUDIENCE,
+      scp: requestedScope.split(" "),
+      exp: Math.floor((now + 900_000) / 1000),
+    })
+    let idJagRequests = 0
+    let accessTokenRequests = 0
     const forms: URLSearchParams[] = []
     const manager = new AthenzAccessTokenManager(async (form) => {
       forms.push(form)
-      return forms.length === 1
-        ? { access_token: "issued-id-jag", expires_in: 300 }
-        : { access_token: "issued-athenz-at", expires_in: 300 }
-    })
+      if (form.get("requested_token_type") === "urn:ietf:params:oauth:token-type:id-jag") {
+        idJagRequests += 1
+        return { access_token: idJag, expires_in: 900, scope: requestedScope }
+      }
+
+      accessTokenRequests += 1
+      return {
+        access_token: fakeJwt({
+          aud: "api",
+          scp: ["docs-getter", "mcp-accessor"],
+          exp: Math.floor((now + 120_000) / 1000),
+        }),
+        expires_in: 120,
+        scope: "docs-getter mcp-accessor",
+      }
+    }, () => now)
     const session = {
       idToken: "stored-id-token",
+      idTokenExpiresAt: Math.floor((now + 120_000) / 1000),
       subject: "keycloak-subject",
       username: "idjag-learner",
-      expiresAt: Math.floor(Date.now() / 1000) + 300,
+      expiresAt: Math.floor((now + 3_600_000) / 1000),
     }
 
     const [first, concurrent] = await Promise.all([
       manager.getAccessToken(session, "api:role.mcp-accessor api:role.docs-getter"),
       manager.getAccessToken(session, "api:role.docs-getter api:role.mcp-accessor"),
     ])
-    const cached = await manager.getAccessToken(session, "api:role.mcp-accessor api:role.docs-getter")
+    assert.equal(first, concurrent)
+    assert.equal(idJagRequests, 1)
+    assert.equal(accessTokenRequests, 1)
 
-    assert.equal(first, "issued-athenz-at")
-    assert.equal(concurrent, "issued-athenz-at")
-    assert.equal(cached, "issued-athenz-at")
-    assert.equal(forms.length, 2)
+    now += 180_000
+    const renewed = await manager.getAccessToken(session, requestedScope)
+
+    assert.notEqual(renewed, "")
+    assert.equal(idJagRequests, 1)
+    assert.equal(accessTokenRequests, 2)
     assert.equal(forms[0].get("subject_token"), "stored-id-token")
-    assert.equal(forms[0].get("requested_token_type"), "urn:ietf:params:oauth:token-type:id-jag")
-    assert.equal(forms[1].get("assertion"), "issued-id-jag")
-    assert.equal(forms[1].get("grant_type"), "urn:ietf:params:oauth:grant-type:jwt-bearer")
+    assert.equal(forms[0].get("audience"), ATHENZ_ZTS_AUDIENCE)
+    assert.equal(forms[1].get("assertion"), idJag)
+    assert.equal(forms[2].get("assertion"), idJag)
     const cacheStatus = manager.getCacheStatus(session)
     assert.equal(cacheStatus.entryCount, 1)
-    assert.equal(cacheStatus.entries[0].scope, "api:role.docs-getter api:role.mcp-accessor")
-    assert.equal(JSON.stringify(cacheStatus).includes("issued-athenz-at"), false)
+    assert.equal(cacheStatus.entries[0].scope, "docs-getter mcp-accessor")
+    assert.equal(JSON.stringify(cacheStatus).includes(idJag), false)
+  })
+
+  it("stores a partially granted ID-JAG under its actual audience and scope", async () => {
+    let now = 2_000_000_000_000
+    const grantedScope = "api:role.docs-getter"
+    const idJag = fakeJwt({
+      aud: ATHENZ_ZTS_AUDIENCE,
+      scp: [grantedScope],
+      exp: Math.floor((now + 900_000) / 1000),
+    })
+    let idJagRequests = 0
+    let accessTokenRequests = 0
+    const manager = new AthenzAccessTokenManager(async (form) => {
+      if (form.get("requested_token_type") === "urn:ietf:params:oauth:token-type:id-jag") {
+        idJagRequests += 1
+        return { access_token: idJag, expires_in: 900, scope: grantedScope }
+      }
+      accessTokenRequests += 1
+      assert.equal(form.get("scope"), grantedScope)
+      assert.equal(form.get("assertion"), idJag)
+      return {
+        access_token: fakeJwt({ aud: "api", scp: ["docs-getter"], exp: Math.floor((now + 300_000) / 1000) }),
+        expires_in: 300,
+        scope: "docs-getter",
+      }
+    }, () => now)
+    const session = {
+      idToken: "stored-id-token",
+      idTokenExpiresAt: Math.floor((now + 120_000) / 1000),
+      subject: "keycloak-subject",
+      username: "idjag-learner",
+      expiresAt: Math.floor((now + 3_600_000) / 1000),
+    }
+
+    await assert.rejects(
+      manager.getAccessToken(session, `${grantedScope} api:role.mcp-accessor`),
+      AthenzInsufficientScopeError,
+    )
+    now += 180_000
+
+    const accessToken = await manager.getAccessToken(session, grantedScope)
+    assert.notEqual(accessToken, "")
+    assert.equal(idJagRequests, 1)
+    assert.equal(accessTokenRequests, 1)
+  })
+
+  it("does not reuse a role-only access-token scope across different actual audiences", async () => {
+    const now = 2_000_000_000_000
+    let idJagRequests = 0
+    let accessTokenRequests = 0
+    const manager = new AthenzAccessTokenManager(async (form) => {
+      const requestedScope = form.get("scope") ?? ""
+      const [audience, role = ""] = requestedScope.split(":role.")
+      if (form.get("requested_token_type") === "urn:ietf:params:oauth:token-type:id-jag") {
+        idJagRequests += 1
+        return {
+          access_token: fakeJwt({
+            aud: ATHENZ_ZTS_AUDIENCE,
+            scp: [requestedScope],
+            exp: Math.floor((now + 600_000) / 1000),
+          }),
+          expires_in: 600,
+          scope: requestedScope,
+        }
+      }
+      accessTokenRequests += 1
+      return {
+        access_token: fakeJwt({ aud: audience, scp: [role], exp: Math.floor((now + 300_000) / 1000) }),
+        expires_in: 300,
+        scope: role,
+      }
+    }, () => now)
+    const session = {
+      idToken: "stored-id-token",
+      idTokenExpiresAt: Math.floor((now + 300_000) / 1000),
+      subject: "keycloak-subject",
+      username: "idjag-learner",
+      expiresAt: Math.floor((now + 3_600_000) / 1000),
+    }
+
+    await manager.getAccessToken(session, "api:role.reader")
+    await manager.getAccessToken(session, "other-api:role.reader")
+
+    assert.equal(idJagRequests, 2)
+    assert.equal(accessTokenRequests, 2)
+  })
+
+  it("requires browser reauthentication when neither cached token nor a fresh ID token is available", async () => {
+    const now = 2_000_000_000_000
+    let tokenRequests = 0
+    const manager = new AthenzAccessTokenManager(async () => {
+      tokenRequests += 1
+      throw new Error("must not request an ID-JAG with an expired ID token")
+    }, () => now)
+    const session = {
+      idToken: "expired-id-token",
+      idTokenExpiresAt: Math.floor((now - 1_000) / 1000),
+      subject: "keycloak-subject",
+      username: "idjag-learner",
+      expiresAt: Math.floor((now + 3_600_000) / 1000),
+    }
+
+    await assert.rejects(
+      manager.getAccessToken(session, "api:role.docs-getter"),
+      ReauthenticationRequiredError,
+    )
+    assert.equal(tokenRequests, 0)
+  })
+
+  it("requires browser reauthentication when ZTS rejects an otherwise fresh ID token", async () => {
+    const now = 2_000_000_000_000
+    const manager = new AthenzAccessTokenManager(async () => ({
+      error: "invalid_grant",
+      error_description: "The subject ID token is expired",
+    }), () => now)
+    const session = {
+      idToken: "rejected-id-token",
+      idTokenExpiresAt: Math.floor((now + 300_000) / 1000),
+      subject: "keycloak-subject",
+      username: "idjag-learner",
+      expiresAt: Math.floor((now + 3_600_000) / 1000),
+    }
+
+    await assert.rejects(
+      manager.getAccessToken(session, "api:role.docs-getter"),
+      ReauthenticationRequiredError,
+    )
   })
 
   it("resolves and caches route metadata from the MCP Hub API", async () => {
@@ -466,6 +709,7 @@ describe("MCP Gateway", () => {
     const expiresAt = Math.floor(Date.now() / 1000) + 300
     const token = sessionStore.create({
       idToken: "stored-id-token",
+      idTokenExpiresAt: expiresAt,
       subject: "keycloak-subject",
       username: "idjag-learner",
       expiresAt,
@@ -530,4 +774,10 @@ async function withHttpServer(listener: RequestListener, run: (baseUrl: string) 
       server.close((error) => error ? reject(error) : resolve())
     })
   }
+}
+
+function fakeJwt(claims: Record<string, unknown>) {
+  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url")
+  const payload = Buffer.from(JSON.stringify(claims)).toString("base64url")
+  return `${header}.${payload}.signature`
 }
