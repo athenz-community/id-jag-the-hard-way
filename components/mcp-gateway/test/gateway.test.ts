@@ -29,7 +29,61 @@ describe("MCP Gateway", () => {
 
       const metadata = await fetch(`${baseUrl}/.well-known/oauth-authorization-server`)
       assert.equal(metadata.status, 200)
-      assert.deepEqual((await metadata.json() as { code_challenge_methods_supported: string[] }).code_challenge_methods_supported, ["S256"])
+      const body = await metadata.json() as {
+        code_challenge_methods_supported: string[]
+        end_session_endpoint: string
+        idp_logout_ticket_endpoint: string
+      }
+      assert.deepEqual(body.code_challenge_methods_supported, ["S256"])
+      assert.equal(body.end_session_endpoint, "https://mcp-gateway.test/oauth/idp-logout")
+      assert.equal(body.idp_logout_ticket_endpoint, "https://mcp-gateway.test/oauth/idp-logout-ticket")
+    })
+  })
+
+  it("invalidates the Gateway session and creates a one-use Keycloak browser logout", async () => {
+    const sessionToken = sessionStore.create({
+      idToken: "stored-id-token",
+      subject: "keycloak-subject",
+      username: "idjag-learner",
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+    })
+
+    await withServer(async (baseUrl) => {
+      const ticketResponse = await fetch(`${baseUrl}/oauth/idp-logout-ticket`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ token: sessionToken }),
+      })
+      assert.equal(ticketResponse.status, 200)
+      assert.equal(ticketResponse.headers.get("cache-control"), "no-store")
+      const rawTicketBody = await ticketResponse.text()
+      assert.equal(rawTicketBody.includes("stored-id-token"), false)
+      assert.equal(rawTicketBody.includes(sessionToken), false)
+      const ticketBody = JSON.parse(rawTicketBody) as { logout_url: string }
+      const browserLogout = new URL(ticketBody.logout_url)
+      assert.equal(browserLogout.origin, "https://mcp-gateway.test")
+      assert.equal(sessionStore.get(sessionToken), null)
+
+      const logoutResponse = await fetch(
+        `${baseUrl}${browserLogout.pathname}${browserLogout.search}`,
+        { redirect: "manual" },
+      )
+      assert.equal(logoutResponse.status, 302)
+      const keycloakLogout = new URL(logoutResponse.headers.get("location") ?? "")
+      assert.equal(keycloakLogout.origin, "https://keycloak.test")
+      assert.equal(keycloakLogout.pathname, "/realms/master/protocol/openid-connect/logout")
+      assert.equal(keycloakLogout.searchParams.get("id_token_hint"), "stored-id-token")
+      assert.equal(keycloakLogout.searchParams.get("client_id"), "mcp-gateway")
+      assert.equal(
+        keycloakLogout.searchParams.get("post_logout_redirect_uri"),
+        "https://mcp-gateway.test/oauth/idp-logout/complete",
+      )
+
+      const reusedTicket = await fetch(
+        `${baseUrl}${browserLogout.pathname}${browserLogout.search}`,
+        { redirect: "manual" },
+      )
+      assert.equal(reusedTicket.status, 400)
     })
   })
 
@@ -162,7 +216,7 @@ describe("MCP Gateway", () => {
     })
   })
 
-  it("replaces the opaque session bearer with a per-session Athenz token for tools/call", async () => {
+  it("replaces the opaque session bearer with the selected tool's Athenz token", async () => {
     let receivedPath = ""
     let receivedAuthorization = ""
     let receivedSessionId = ""
@@ -211,6 +265,11 @@ describe("MCP Gateway", () => {
         resolveRoute: async () => ({
           proxyUrl: `${coreMcpProxyUrl}/mcp/k8s-docs-server`,
           accessScope: "api:role.mcp-accessor api:role.docs-getter",
+          toolScopes: {
+            get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",
+            post_k8s_doc: "api:role.docs-poster api:role.mcp-accessor",
+            delete_k8s_doc: "api:role.docs-deleter api:role.mcp-accessor",
+          },
         }),
         getAccessToken: async (session, scope) => {
           tokenRequest = { idToken: session.idToken, scope }
@@ -229,9 +288,108 @@ describe("MCP Gateway", () => {
       })
       assert.deepEqual(tokenRequest, {
         idToken: "stored-id-token",
-        scope: "api:role.mcp-accessor api:role.docs-getter",
+        scope: "api:role.docs-getter api:role.mcp-accessor",
       })
     })
+  })
+
+  it("selects GET, POST, and DELETE access scopes from tools/call params.name", async () => {
+    await withHttpServer((_request, response) => {
+      response.setHeader("content-type", "application/json")
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { content: [] } }))
+    }, async (coreMcpProxyUrl) => {
+      const sessionToken = sessionStore.create({
+        idToken: "stored-id-token",
+        subject: "keycloak-subject",
+        username: "idjag-learner",
+        expiresAt: Math.floor(Date.now() / 1000) + 300,
+      })
+      const requestedScopes: string[] = []
+
+      await withServer(async (baseUrl) => {
+        for (const toolName of ["get_k8s_docs", "post_k8s_doc", "delete_k8s_doc"]) {
+          const response = await fetch(`${baseUrl}/mcp/k8s-docs-server`, {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${sessionToken}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "tools/call",
+              params: { name: toolName, arguments: {} },
+            }),
+          })
+          assert.equal(response.status, 200)
+        }
+      }, {
+        resolveRoute: async () => ({
+          proxyUrl: `${coreMcpProxyUrl}/mcp/k8s-docs-server`,
+          accessScope: "api:role.docs-getter api:role.mcp-accessor",
+          toolScopes: {
+            get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",
+            post_k8s_doc: "api:role.docs-poster api:role.mcp-accessor",
+            delete_k8s_doc: "api:role.docs-deleter api:role.mcp-accessor",
+          },
+        }),
+        getAccessToken: async (_session, scope) => {
+          requestedScopes.push(scope)
+          return "user-scoped-athenz-at"
+        },
+      })
+
+      assert.deepEqual(requestedScopes, [
+        "api:role.docs-getter api:role.mcp-accessor",
+        "api:role.docs-poster api:role.mcp-accessor",
+        "api:role.docs-deleter api:role.mcp-accessor",
+      ])
+    })
+  })
+
+  it("rejects unmapped and malformed tools/call without requesting a fallback token", async () => {
+    const sessionToken = sessionStore.create({
+      idToken: "stored-id-token",
+      subject: "keycloak-subject",
+      username: "idjag-learner",
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+    })
+    let accessTokenRequests = 0
+
+    await withServer(async (baseUrl) => {
+      const unmapped = await fetch(`${baseUrl}/mcp/k8s-docs-server`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${sessionToken}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { name: "unconfigured_tool", arguments: {} },
+        }),
+      })
+      assert.equal(unmapped.status, 403)
+      assert.equal((await unmapped.json() as { error: string }).error, "tool_scope_not_configured")
+
+      const malformed = await fetch(`${baseUrl}/mcp/k8s-docs-server`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${sessionToken}`, "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: {} }),
+      })
+      assert.equal(malformed.status, 400)
+      assert.equal((await malformed.json() as { error: string }).error, "invalid_tool_call")
+    }, {
+      resolveRoute: async () => ({
+        proxyUrl: "http://core-mcp-proxy.test/mcp/k8s-docs-server",
+        accessScope: "api:role.docs-getter api:role.mcp-accessor",
+        toolScopes: { get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor" },
+      }),
+      getAccessToken: async () => {
+        accessTokenRequests += 1
+        return "must-not-be-issued"
+      },
+    })
+
+    assert.equal(accessTokenRequests, 0)
   })
 
   it("exchanges ID token to ID-JAG and AT once per session and scope", async () => {
@@ -280,6 +438,10 @@ describe("MCP Gateway", () => {
           routeId: "k8s-docs-server",
           proxyUrl: "http://core-mcp-proxy.mcp-hub:8080/mcp/k8s-docs-server",
           accessScope: "api:role.mcp-accessor api:role.docs-getter",
+          toolScopes: {
+            get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",
+            post_k8s_doc: "api:role.docs-poster api:role.mcp-accessor",
+          },
         }],
       }))
     }, async (registryOrigin) => {
@@ -290,6 +452,10 @@ describe("MCP Gateway", () => {
       assert.deepEqual(first, {
         proxyUrl: "http://core-mcp-proxy.mcp-hub:8080/mcp/k8s-docs-server",
         accessScope: "api:role.mcp-accessor api:role.docs-getter",
+        toolScopes: {
+          get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",
+          post_k8s_doc: "api:role.docs-poster api:role.mcp-accessor",
+        },
       })
       assert.deepEqual(cached, first)
       assert.equal(registryRequests, 1)

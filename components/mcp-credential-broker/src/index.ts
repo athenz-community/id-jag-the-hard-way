@@ -3,15 +3,21 @@
 import { ServerType, startStdioServer } from "mcp-proxy"
 import open from "open"
 import { createAuthenticatedFetch } from "./authenticatedFetch.js"
-import { discoverOAuthEndpoints, performAuthorizationCodeLogin, revokeGatewayCredential } from "./oauth.js"
+import {
+  discoverOAuthEndpoints,
+  performAuthorizationCodeLogin,
+  prepareIdentityProviderLogout,
+  revokeGatewayCredential,
+} from "./oauth.js"
 import { defaultCacheDirectory, SharedSessionStore } from "./sharedSession.js"
 
-const PACKAGE_VERSION = "0.1.2"
+const PACKAGE_VERSION = "0.1.3"
 
 type CliOptions = {
   target?: URL
   allowInsecureHttp: boolean
   help: boolean
+  idpLogout: boolean
   logout: boolean
   version: boolean
 }
@@ -28,9 +34,10 @@ export async function run(argv = process.argv.slice(2)) {
   }
   if (options.logout) {
     if (options.target) throw new Error("--logout does not accept an MCP Gateway route URL")
-    await logout(options.allowInsecureHttp)
+    await logout(options.allowInsecureHttp, options.idpLogout)
     return
   }
+  if (options.idpLogout) throw new Error("--idp requires --logout")
   if (!options.target) throw new Error("Missing MCP Gateway route URL")
 
   const endpoints = await discoverOAuthEndpoints(options.target, {
@@ -63,6 +70,7 @@ function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     allowInsecureHttp: process.env.IDTHW_MCP_ALLOW_INSECURE_HTTP === "true",
     help: false,
+    idpLogout: false,
     logout: false,
     version: false,
   }
@@ -72,6 +80,8 @@ function parseArgs(argv: string[]): CliOptions {
       options.allowInsecureHttp = true
     } else if (argument === "--logout") {
       options.logout = true
+    } else if (argument === "--idp") {
+      options.idpLogout = true
     } else if (argument === "--help" || argument === "-h") {
       options.help = true
     } else if (argument === "--version" || argument === "-v") {
@@ -90,13 +100,14 @@ function parseArgs(argv: string[]): CliOptions {
 function helpText() {
   return [
     "Usage: idthw-mcp-connect [--allow-insecure-http] <gateway-route-url>",
-    "       idthw-mcp-connect [--allow-insecure-http] --logout",
+    "       idthw-mcp-connect [--allow-insecure-http] --logout [--idp]",
     "",
     "Connect one stdio MCP entry to an IDTHW MCP Gateway route.",
     "The first process opens browser authentication; concurrent entries reuse the shared session.",
     "",
     "Options:",
     "  --logout                    Revoke and clear all cached shared Gateway sessions.",
+    "  --idp                       With --logout, also open browser sign-out for the identity provider.",
     "  --allow-insecure-http        Permit non-TLS development Gateways.",
     "  -h, --help                   Show this help.",
     "  -v, --version                Show the package version.",
@@ -108,7 +119,7 @@ function helpText() {
   ].join("\n")
 }
 
-async function logout(allowInsecureHttp: boolean) {
+async function logout(allowInsecureHttp: boolean, idpLogout: boolean) {
   const sessionStore = new SharedSessionStore(defaultCacheDirectory())
   const credentials = await sessionStore.clearAll()
   if (credentials.length === 0) {
@@ -117,17 +128,27 @@ async function logout(allowInsecureHttp: boolean) {
   }
 
   const results = await Promise.allSettled(
-    credentials.map((credential) => revokeGatewayCredential(credential, { allowInsecureHttp })),
+    credentials.map(async (credential) => {
+      if (!idpLogout) {
+        await revokeGatewayCredential(credential, { allowInsecureHttp })
+        return
+      }
+
+      const logoutUrl = await prepareIdentityProviderLogout(credential, { allowInsecureHttp })
+      console.error("Opening the browser for identity-provider sign-out...")
+      await open(logoutUrl, { wait: false })
+    }),
   )
   const failed = results.filter((result) => result.status === "rejected").length
   if (failed > 0) {
     throw new Error(
-      `Cleared ${credentials.length} local Gateway ${plural(credentials.length, "session")}, but failed to revoke ${failed} remotely`,
+      `Cleared ${credentials.length} local Gateway ${plural(credentials.length, "session")}, but failed to complete ${failed} remote ${idpLogout ? "identity-provider sign-out" : "revocation"}${failed === 1 ? "" : "s"}`,
     )
   }
 
   process.stdout.write(
-    `Signed out of ${credentials.length} shared MCP Gateway ${plural(credentials.length, "session")}.\n`,
+    `Signed out of ${credentials.length} shared MCP Gateway ${plural(credentials.length, "session")}`
+    + `${idpLogout ? " and opened identity-provider sign-out" : ""}.\n`,
   )
 }
 

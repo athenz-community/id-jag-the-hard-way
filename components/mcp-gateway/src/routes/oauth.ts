@@ -2,14 +2,18 @@ import { Router, type Request, type Response } from "express"
 import {
   KEYCLOAK_AUTHORIZATION_ENDPOINT,
   KEYCLOAK_CLIENT_ID,
+  KEYCLOAK_END_SESSION_ENDPOINT,
+  KEYCLOAK_POST_LOGOUT_REDIRECT_URI,
   PUBLIC_BASE_URL,
 } from "../config/env.js"
 import { exchangeKeycloakAuthorizationCode, verifyKeycloakIdToken } from "../services/keycloak.js"
 import {
   consumeAuthorizationCode,
   consumeAuthorizationTransaction,
+  consumeIdentityProviderLogoutTicket,
   createAuthorizationCode,
   createAuthorizationTransaction,
+  createIdentityProviderLogoutTicket,
   deriveS256CodeChallenge,
   getClient,
   isAllowedRedirectUri,
@@ -27,6 +31,8 @@ router.get("/.well-known/oauth-authorization-server", (_request, response) => {
     token_endpoint: `${PUBLIC_BASE_URL}/oauth/token`,
     registration_endpoint: `${PUBLIC_BASE_URL}/oauth/register`,
     revocation_endpoint: `${PUBLIC_BASE_URL}/oauth/revoke`,
+    end_session_endpoint: `${PUBLIC_BASE_URL}/oauth/idp-logout`,
+    idp_logout_ticket_endpoint: `${PUBLIC_BASE_URL}/oauth/idp-logout-ticket`,
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code"],
     code_challenge_methods_supported: ["S256"],
@@ -185,6 +191,48 @@ router.post("/oauth/revoke", (request, response) => {
   const token = bodyValue(request, "token")
   if (token) sessionStore.delete(token)
   response.sendStatus(200)
+})
+
+router.post("/oauth/idp-logout-ticket", (request, response) => {
+  const token = bodyValue(request, "token")
+  const session = token ? sessionStore.consume(token) : null
+  if (!session) {
+    response.setHeader("cache-control", "no-store")
+    response.status(401).json({ error: "invalid_token" })
+    return
+  }
+
+  const ticket = createIdentityProviderLogoutTicket(session.idToken)
+  const logoutUrl = new URL(`${PUBLIC_BASE_URL}/oauth/idp-logout`)
+  logoutUrl.searchParams.set("ticket", ticket)
+  response.setHeader("cache-control", "no-store")
+  response.setHeader("pragma", "no-cache")
+  response.json({ logout_url: logoutUrl.toString() })
+})
+
+router.get("/oauth/idp-logout", (request, response) => {
+  const ticket = queryValue(request, "ticket")
+  const idToken = ticket ? consumeIdentityProviderLogoutTicket(ticket) : null
+  if (!idToken) {
+    response.setHeader("cache-control", "no-store")
+    response.status(400).send("Invalid or expired identity-provider logout ticket")
+    return
+  }
+
+  const logoutUrl = new URL(KEYCLOAK_END_SESSION_ENDPOINT)
+  logoutUrl.searchParams.set("id_token_hint", idToken)
+  logoutUrl.searchParams.set("client_id", KEYCLOAK_CLIENT_ID)
+  logoutUrl.searchParams.set("post_logout_redirect_uri", KEYCLOAK_POST_LOGOUT_REDIRECT_URI)
+  response.setHeader("cache-control", "no-store")
+  response.redirect(logoutUrl.toString())
+})
+
+router.get("/oauth/idp-logout/complete", (_request, response) => {
+  response.setHeader("cache-control", "no-store")
+  response.type("html").send(
+    "<!doctype html><html><head><meta charset=\"utf-8\"><title>Signed out</title></head>"
+    + "<body><main><h1>Signed out</h1><p>You may close this window and return to your terminal.</p></main></body></html>",
+  )
 })
 
 function queryValue(request: Request, name: string) {

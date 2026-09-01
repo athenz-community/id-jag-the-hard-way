@@ -66,6 +66,24 @@ export function parseAthenzRole(value: string) {
   return { domain: match[1], role: match[2] }
 }
 
+export function parseToolAccessScopesForServer(
+  value: unknown,
+  serverId: string,
+): Record<string, string> | undefined {
+  const preset = parsePermissionPresetForServer(value, serverId, "human.scope-resolver")
+  if (!preset) return undefined
+
+  return Object.fromEntries(preset.groups.map((group) => {
+    const roles = group.requirements
+      .filter(({ configuredMember }) => configuredMember === SIGNED_IN_USER_MEMBER)
+      .map(({ role }) => role)
+    if (!group.toolName || roles.length === 0) {
+      throw new Error(`Tool ${group.toolName ?? group.label} must define a signed-in-user requirement`)
+    }
+    return [group.toolName, [...new Set(roles)].sort().join(" ")]
+  }))
+}
+
 function parseRequirements(
   value: unknown,
   location: string,

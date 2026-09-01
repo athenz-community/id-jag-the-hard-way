@@ -5,6 +5,7 @@ import {
   deriveS256CodeChallenge,
   discoverOAuthEndpoints,
   performAuthorizationCodeLogin,
+  prepareIdentityProviderLogout,
   revokeGatewayCredential,
   type FetchLike,
   type OAuthEndpoints,
@@ -133,6 +134,39 @@ describe("OAuth client", () => {
     ])
     assert.equal(revocationForm?.get("token"), "opaque-gateway-session")
     assert.equal(revocationForm?.get("token_type_hint"), "access_token")
+  })
+
+  it("obtains a one-use Gateway URL for browser identity-provider logout", async () => {
+    const requested: string[] = []
+    let ticketForm: URLSearchParams | undefined
+    const fetch: FetchLike = async (url, init) => {
+      requested.push(url.toString())
+      if (url.toString().endsWith("/.well-known/oauth-authorization-server")) {
+        return Response.json({
+          issuer: "https://gateway.example",
+          idp_logout_ticket_endpoint: "https://gateway.example/oauth/idp-logout-ticket",
+        })
+      }
+      ticketForm = init?.body as URLSearchParams
+      return Response.json({
+        logout_url: "https://gateway.example/oauth/idp-logout?ticket=one-use-ticket",
+      })
+    }
+
+    const logoutUrl = await prepareIdentityProviderLogout({
+      version: 1,
+      issuer: "https://gateway.example",
+      accessToken: "opaque-gateway-session",
+      tokenType: "Bearer",
+      expiresAt: Date.now() + 300_000,
+    }, { fetch })
+
+    assert.deepEqual(requested, [
+      "https://gateway.example/.well-known/oauth-authorization-server",
+      "https://gateway.example/oauth/idp-logout-ticket",
+    ])
+    assert.equal(ticketForm?.get("token"), "opaque-gateway-session")
+    assert.equal(logoutUrl, "https://gateway.example/oauth/idp-logout?ticket=one-use-ticket")
   })
 })
 

@@ -64,14 +64,30 @@ export function createProtectedRouter(overrides: Partial<ProtectedRouterDependen
       const route = await dependencies.resolveRoute(serverId)
       const accessToken = isPublicMcpDiscoveryRequest(request)
         ? undefined
-        : await dependencies.getAccessToken(session, route.accessScope ?? dependencies.accessScope)
+        : await dependencies.getAccessToken(
+          session,
+          accessScopeForRequest(request, route, dependencies.accessScope),
+        )
       await proxyToCore({ request, response, accessToken, serverId, proxyUrl: route.proxyUrl })
     } catch (error) {
       const message = error instanceof Error ? error.message : "MCP Gateway forwarding failed"
       console.error("MCP Gateway request failed", { serverId, subject: session.subject, message })
       if (!response.headersSent) {
-        const status = error instanceof RegistryServerNotFoundError ? 404 : 502
-        response.status(status).json({ error: status === 404 ? "mcp_server_not_found" : "mcp_gateway_forwarding_failed", message })
+        const status = error instanceof RegistryServerNotFoundError
+          ? 404
+          : error instanceof InvalidToolCallError
+            ? 400
+            : error instanceof ToolScopeNotConfiguredError
+              ? 403
+              : 502
+        const code = status === 404
+          ? "mcp_server_not_found"
+          : status === 400
+            ? "invalid_tool_call"
+            : status === 403
+              ? "tool_scope_not_configured"
+              : "mcp_gateway_forwarding_failed"
+        response.status(status).json({ error: code, message })
       } else {
         response.end()
       }
@@ -79,6 +95,37 @@ export function createProtectedRouter(overrides: Partial<ProtectedRouterDependen
   })
 
   return router
+}
+
+function accessScopeForRequest(request: Request, route: ResolvedMcpRoute, fallbackScope: string) {
+  const routeScope = route.accessScope ?? fallbackScope
+  if (request.method !== "POST" || !request.body || typeof request.body !== "object" || Array.isArray(request.body)) {
+    return routeScope
+  }
+
+  const message = request.body as { method?: unknown; params?: unknown }
+  if (message.method !== "tools/call") return routeScope
+  if (!message.params || typeof message.params !== "object" || Array.isArray(message.params)) {
+    throw new InvalidToolCallError("tools/call params must be an object")
+  }
+
+  const toolName = (message.params as { name?: unknown }).name
+  if (typeof toolName !== "string" || !toolName.trim()) {
+    throw new InvalidToolCallError("tools/call params.name must be a non-empty string")
+  }
+  if (!route.toolScopes) return routeScope
+
+  const toolScope = Object.hasOwn(route.toolScopes, toolName) ? route.toolScopes[toolName] : undefined
+  if (!toolScope) throw new ToolScopeNotConfiguredError(toolName)
+  return toolScope
+}
+
+class InvalidToolCallError extends Error {}
+
+class ToolScopeNotConfiguredError extends Error {
+  constructor(readonly toolName: string) {
+    super(`No Athenz access scope is configured for MCP tool: ${toolName}`)
+  }
 }
 
 function protectedResourceMetadata(resource: string) {

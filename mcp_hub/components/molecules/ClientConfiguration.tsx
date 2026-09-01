@@ -224,15 +224,20 @@ function tomlBasicString(value: string) {
 
 function brokerArgs(mcpServerUrl: string) {
   const args = ["-y", BROKER_PACKAGE]
+  if (requiresInsecureHttpOptIn(mcpServerUrl)) args.push("--allow-insecure-http")
+  args.push(mcpServerUrl)
+  return args
+}
+
+function requiresInsecureHttpOptIn(mcpServerUrl: string) {
   try {
     const url = new URL(mcpServerUrl)
     const isLoopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]"
-    if (url.protocol === "http:" && !isLoopback) args.push("--allow-insecure-http")
+    return url.protocol === "http:" && !isLoopback
   } catch {
     // Keep the source URL visible in the generated configuration so the connector reports the invalid value.
+    return false
   }
-  args.push(mcpServerUrl)
-  return args
 }
 
 export function ClientConfiguration({
@@ -249,7 +254,13 @@ export function ClientConfiguration({
   const client = CLIENTS.find((item) => item.key === clientKey) ?? CLIENTS[0]
   const selectedScope = client[scope]
   const config = client.buildConfig(serverName, mcpServerUrl)
-  const logoutCommand = `npx -y ${BROKER_PACKAGE} --logout`
+  const logoutCommand = [
+    "npx -y \\",
+    `  ${BROKER_PACKAGE} \\`,
+    ...(requiresInsecureHttpOptIn(mcpServerUrl) ? ["  --allow-insecure-http \\"] : []),
+    "  --logout \\",
+    "  --idp",
+  ].join("\n")
 
   return (
     <div className="config-workbench">
@@ -321,7 +332,16 @@ export function ClientConfiguration({
                           <p>{step}</p>
                         </div>
                       ))}
-                      {selectedScope.path && <code>{selectedScope.path}</code>}
+                      {selectedScope.path && (
+                        <div className="scope-path">
+                          <code>{selectedScope.path}</code>
+                          <CopyButton
+                            value={selectedScope.path}
+                            label={`Copy ${selectedScope.path} path`}
+                            className="scope-path-copy"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -342,7 +362,7 @@ export function ClientConfiguration({
             <div>
               <span className="config-eyebrow">Shared session</span>
               <h4>Ready for a fresh sign-in?</h4>
-              <p>Run this in a shell to clear the broker&apos;s local Gateway session. Your client configuration stays in place, and the next connection brings browser sign-in back.</p>
+              <p>Run this in a shell to clear the shared Gateway session and open Keycloak sign-out in your browser. Your client configuration stays in place, and the next connection brings browser sign-in back.</p>
             </div>
             <div className="broker-logout-command">
               <code>{logoutCommand}</code>

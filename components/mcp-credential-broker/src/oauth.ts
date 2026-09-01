@@ -29,6 +29,7 @@ type AuthorizationServerMetadata = {
   token_endpoint?: unknown
   registration_endpoint?: unknown
   revocation_endpoint?: unknown
+  idp_logout_ticket_endpoint?: unknown
   code_challenge_methods_supported?: unknown
 }
 
@@ -182,6 +183,46 @@ export async function revokeGatewayCredential(
     }),
   })
   if (!response.ok) throw new Error(`OAuth revocation endpoint returned HTTP ${response.status}`)
+}
+
+export async function prepareIdentityProviderLogout(
+  credential: GatewayCredential,
+  options: { fetch?: FetchLike; allowInsecureHttp?: boolean } = {},
+): Promise<string> {
+  const fetchImpl = options.fetch ?? fetch
+  const advertisedIssuer = safeUrl(credential.issuer, "cached issuer", options.allowInsecureHttp)
+  const metadata = await fetchJson<AuthorizationServerMetadata>(
+    fetchImpl,
+    authorizationServerMetadataUrl(advertisedIssuer),
+  )
+  const issuer = requiredUrl(metadata.issuer, "issuer", options.allowInsecureHttp)
+  if (issuer !== advertisedIssuer.toString().replace(/\/$/, "")) {
+    throw new Error("OAuth metadata issuer does not match the cached Gateway session")
+  }
+
+  const ticketEndpoint = requiredUrl(
+    metadata.idp_logout_ticket_endpoint,
+    "idp_logout_ticket_endpoint",
+    options.allowInsecureHttp,
+  )
+  if (new URL(ticketEndpoint).origin !== advertisedIssuer.origin) {
+    throw new Error("Identity-provider logout ticket endpoint must use the Gateway issuer origin")
+  }
+
+  const response = await fetchImpl(ticketEndpoint, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    signal: AbortSignal.timeout(OAUTH_REQUEST_TIMEOUT_MS),
+    body: new URLSearchParams({ token: credential.accessToken }),
+  })
+  if (!response.ok) throw new Error(`Identity-provider logout endpoint returned HTTP ${response.status}`)
+
+  const body = await response.json() as { logout_url?: unknown }
+  const logoutUrl = requiredUrl(body.logout_url, "logout_url", options.allowInsecureHttp)
+  if (new URL(logoutUrl).origin !== advertisedIssuer.origin) {
+    throw new Error("Identity-provider browser logout URL must use the Gateway issuer origin")
+  }
+  return logoutUrl
 }
 
 export function deriveS256CodeChallenge(verifier: string) {

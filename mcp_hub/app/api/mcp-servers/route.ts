@@ -3,6 +3,8 @@ import { auth } from "@/features/auth/lib/auth"
 import { listMcpServersFromKubernetes } from "@/features/catalog/api/kubernetesCatalog"
 import { isMcpHubServiceRequest } from "@/features/catalog/lib/mcpHubServiceAuth"
 import type { CatalogResponse } from "@/features/catalog/types/catalog"
+import { readPermissionPresetConfigMap } from "@/features/permissions/lib/fetchPermissionReadiness"
+import { parseToolAccessScopesForServer } from "@/features/permissions/lib/permissionPreset"
 
 export const dynamic = "force-dynamic"
 
@@ -14,9 +16,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const servers = await listMcpServersFromKubernetes()
+    const [servers, permissionPreset] = await Promise.all([
+      listMcpServersFromKubernetes(),
+      readPermissionPresetConfigMap(),
+    ])
+    const registryServers = servers.map((server) => ({
+      ...server,
+      toolScopes: parseToolAccessScopesForServer(permissionPreset, server.routeId),
+    }))
     return NextResponse.json<CatalogResponse>(
-      { servers },
+      { servers: registryServers },
       {
         headers: {
           "Cache-Control": "no-store",

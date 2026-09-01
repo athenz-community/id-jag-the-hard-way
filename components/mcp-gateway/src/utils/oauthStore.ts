@@ -2,6 +2,7 @@ import crypto from "node:crypto"
 import {
   AUTHORIZATION_CODE_TTL_SECONDS,
   AUTHORIZATION_TRANSACTION_TTL_SECONDS,
+  IDP_LOGOUT_TICKET_TTL_SECONDS,
 } from "../config/env.js"
 import { randomToken } from "./sessionStore.js"
 
@@ -34,6 +35,7 @@ export type AuthorizationCode = {
 const clients = new Map<string, RegisteredClient>()
 const transactions = new Map<string, AuthorizationTransaction>()
 const authorizationCodes = new Map<string, AuthorizationCode>()
+const identityProviderLogoutTickets = new Map<string, { idToken: string; expiresAt: number }>()
 
 export function registerClient(redirectUris: string[]) {
   const client = {
@@ -85,6 +87,27 @@ export function consumeAuthorizationCode(code: string) {
   return authorizationCode
 }
 
+export function createIdentityProviderLogoutTicket(idToken: string) {
+  const currentTime = now()
+  for (const [ticket, entry] of identityProviderLogoutTickets) {
+    if (entry.expiresAt <= currentTime) identityProviderLogoutTickets.delete(ticket)
+  }
+
+  const ticket = randomToken()
+  identityProviderLogoutTickets.set(ticket, {
+    idToken,
+    expiresAt: currentTime + IDP_LOGOUT_TICKET_TTL_SECONDS,
+  })
+  return ticket
+}
+
+export function consumeIdentityProviderLogoutTicket(ticket: string) {
+  const entry = identityProviderLogoutTickets.get(ticket)
+  identityProviderLogoutTickets.delete(ticket)
+  if (!entry || entry.expiresAt <= now()) return null
+  return entry.idToken
+}
+
 export function deriveS256CodeChallenge(verifier: string) {
   return crypto.createHash("sha256").update(verifier).digest("base64url")
 }
@@ -110,6 +133,7 @@ export function clearOAuthStores() {
   clients.clear()
   transactions.clear()
   authorizationCodes.clear()
+  identityProviderLogoutTickets.clear()
 }
 
 function now() {

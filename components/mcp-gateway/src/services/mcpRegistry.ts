@@ -8,11 +8,13 @@ type RegistryServer = {
   routeId?: unknown
   proxyUrl?: unknown
   accessScope?: unknown
+  toolScopes?: unknown
 }
 
 export type ResolvedMcpRoute = {
   proxyUrl: string
   accessScope?: string
+  toolScopes?: Record<string, string>
 }
 
 type RegistryResponse = {
@@ -63,12 +65,31 @@ export class McpRegistryClient {
       routes.set(server.routeId, {
         proxyUrl: proxyUrl.toString(),
         accessScope: typeof server.accessScope === "string" && server.accessScope.trim() ? server.accessScope.trim() : undefined,
+        toolScopes: parseToolScopes(server.toolScopes, server.routeId),
       })
     }
 
     this.cache = { expiresAt: now + this.cacheTtlMs, routes }
     return routes
   }
+}
+
+function parseToolScopes(value: unknown, serverId: string) {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`MCP Hub registry returned invalid toolScopes for ${serverId}`)
+  }
+
+  const toolScopes: Array<[string, string]> = []
+  for (const [toolName, configuredScope] of Object.entries(value)) {
+    if (!toolName.trim() || typeof configuredScope !== "string") {
+      throw new Error(`MCP Hub registry returned invalid toolScopes for ${serverId}`)
+    }
+    const scope = [...new Set(configuredScope.split(/\s+/).filter(Boolean))].sort().join(" ")
+    if (!scope) throw new Error(`MCP Hub registry returned an empty scope for ${serverId}/${toolName}`)
+    toolScopes.push([toolName, scope])
+  }
+  return Object.fromEntries(toolScopes)
 }
 
 export class RegistryServerNotFoundError extends Error {
