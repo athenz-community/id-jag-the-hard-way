@@ -106,13 +106,13 @@ Let's generate the necessary keys and certificate that represents `ai_client_gat
 First, create a directory and generate the RSA key pair:
 
 ```sh
-mkdir -p ./ai_client_gateway/certs
-./tools/athenz/create-private-key.sh "./ai_client_gateway/certs/ai-client-gateway"
+mkdir -p ./components/ai_client_gateway/certs
+./tools/athenz/create-private-key.sh "./components/ai_client_gateway/certs/ai-client-gateway"
 ```
 
 ```sh
-#   ·  Generating RSA key pair for: ./ai_client_gateway/certs/ai-client-gateway...
-#   ✔  Keys generated: ./ai_client_gateway/certs/ai-client-gateway.key, ./ai_client_gateway/certs/ai-client-gateway.public.key
+#   ·  Generating RSA key pair for: ./components/ai_client_gateway/certs/ai-client-gateway...
+#   ✔  Keys generated: ./components/ai_client_gateway/certs/ai-client-gateway.key, ./components/ai_client_gateway/certs/ai-client-gateway.public.key
 ```
 
 Next, we will create a Top-Level Domain (TLD) named `ai` since we haven't created it yet:
@@ -129,7 +129,7 @@ Next, we will create a Top-Level Domain (TLD) named `ai` since we haven't create
 Now, register the service open-webui under the `ai` domain using the public key we just generated:
 
 ```sh
-./tools/athenz/create-service.sh "ai" "open-webui" "./ai_client_gateway/certs/ai-client-gateway.public.key"
+./tools/athenz/create-service.sh "ai" "open-webui" "./components/ai_client_gateway/certs/ai-client-gateway.public.key"
 ```
 
 ```sh
@@ -151,24 +151,24 @@ Enable the certificate provider for this service:
 Generate the X.509 Certificate:
 
 ```sh
-./tools/athenz/fetch-cert.sh "ai" "open-webui" "./ai_client_gateway/certs/ai-client-gateway.key" "v1"
+./tools/athenz/fetch-cert.sh "ai" "open-webui" "./components/ai_client_gateway/certs/ai-client-gateway.key" "v1"
 ```
 
 ```sh
 #   ·  Fetching X.509 Certificate for ai.open-webui...
-#   ✔  Certificate saved to: ./ai_client_gateway/certs/ai-client-gateway.crt
+#   ✔  Certificate saved to: ./components/ai_client_gateway/certs/ai-client-gateway.crt
 ```
 
 Finally, the `ai_client_gateway` requires the Athenz CA certificate. Copy it from the `athenz_dist/certs` directory:
 
 ```sh
-cp ./athenz_dist/certs/ca.cert.pem ./ai_client_gateway/certs/ca.crt
+cp ./athenz_dist/certs/ca.cert.pem ./components/ai_client_gateway/certs/ca.crt
 ```
 
 Verify that all necessary certificates have been created:
 
 ```sh
-ls -al ./ai_client_gateway/certs/
+ls -al ./components/ai_client_gateway/certs/
 ```
 
 ```sh
@@ -188,9 +188,9 @@ Now, create a Kubernetes secret using the generated certificates:
 ```sh
 kubectl -n ai delete secret ai-client-gateway-cert --ignore-not-found
 kubectl -n ai create secret generic ai-client-gateway-cert \
-  --from-file=ai-client-gateway.crt=./ai_client_gateway/certs/ai-client-gateway.crt \
-  --from-file=ai-client-gateway.key=./ai_client_gateway/certs/ai-client-gateway.key \
-  --from-file=ca.crt=./ai_client_gateway/certs/ca.crt
+  --from-file=ai-client-gateway.crt=./components/ai_client_gateway/certs/ai-client-gateway.crt \
+  --from-file=ai-client-gateway.key=./components/ai_client_gateway/certs/ai-client-gateway.key \
+  --from-file=ca.crt=./components/ai_client_gateway/certs/ca.crt
 ```
 
 ```sh

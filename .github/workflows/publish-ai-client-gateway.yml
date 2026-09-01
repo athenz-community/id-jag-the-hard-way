@@ -4,20 +4,20 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "ai_client_gateway/**"
+      - "components/ai_client_gateway/**"
       - ".github/workflows/publish-ai-client-gateway.yml"
   pull_request:
   # pull_request_target:
     branches: [ "main" ]
     paths:
-      - "ai_client_gateway/**"
+      - "components/ai_client_gateway/**"
       - ".github/workflows/publish-ai-client-gateway.yml"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ai-client-gateway
-  BUILD_DIR: ./ai_client_gateway
+  BUILD_DIR: ./components/ai_client_gateway
 
 jobs:
   build-and-push:
