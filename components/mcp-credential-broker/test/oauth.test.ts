@@ -5,6 +5,7 @@ import {
   deriveS256CodeChallenge,
   discoverOAuthEndpoints,
   performAuthorizationCodeLogin,
+  revokeGatewayCredential,
   type FetchLike,
   type OAuthEndpoints,
 } from "../src/oauth.js"
@@ -102,6 +103,37 @@ describe("OAuth client", () => {
     assert.equal(deriveS256CodeChallenge(verifier), createHash("sha256").update(verifier).digest("base64url"))
     assert.notEqual(deriveS256CodeChallenge(verifier), verifier)
   })
+
+  it("discovers the cached issuer's revocation endpoint and revokes its Gateway session", async () => {
+    const requested: string[] = []
+    let revocationForm: URLSearchParams | undefined
+    const fetch: FetchLike = async (url, init) => {
+      requested.push(url.toString())
+      if (url.toString().endsWith("/.well-known/oauth-authorization-server")) {
+        return Response.json({
+          issuer: "https://gateway.example",
+          revocation_endpoint: "https://gateway.example/oauth/revoke",
+        })
+      }
+      revocationForm = init?.body as URLSearchParams
+      return new Response(null, { status: 200 })
+    }
+
+    await revokeGatewayCredential({
+      version: 1,
+      issuer: "https://gateway.example",
+      accessToken: "opaque-gateway-session",
+      tokenType: "Bearer",
+      expiresAt: Date.now() + 300_000,
+    }, { fetch })
+
+    assert.deepEqual(requested, [
+      "https://gateway.example/.well-known/oauth-authorization-server",
+      "https://gateway.example/oauth/revoke",
+    ])
+    assert.equal(revocationForm?.get("token"), "opaque-gateway-session")
+    assert.equal(revocationForm?.get("token_type_hint"), "access_token")
+  })
 })
 
 function gatewayEndpoints(): OAuthEndpoints {
@@ -112,4 +144,3 @@ function gatewayEndpoints(): OAuthEndpoints {
     registrationEndpoint: "https://gateway.example/oauth/register",
   }
 }
-

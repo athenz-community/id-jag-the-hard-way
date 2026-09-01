@@ -1,6 +1,6 @@
 {
   "name": "@mlajkim/mcp-credential-broker",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Shared OAuth credential broker and stdio connector for IDTHW MCP Gateway routes",
   "type": "module",
   "bin": {
@@ -23,7 +23,8 @@
     "url": "https://github.com/mlajkim/id-jag-the-hard-way/issues"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "scripts": {
     "build": "tsc && node -e \"require('node:fs').chmodSync('dist/index.js', 0o755)\"",

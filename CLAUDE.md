@@ -20,7 +20,7 @@ The repository contains these runtime components and supporting plugins:
 
 3. **`components/mcp-gateway/`** — Node.js/TypeScript authenticated MCP front door for the MCP Hub demo. It performs Keycloak login, keeps the ID token in a server-side session, resolves routes through the MCP Hub API, exchanges ID token → ID-JAG → Athenz access token per session, and forwards `/mcp/{id}` through Core MCP Proxy. It does not replace or change the tutorial's `components/ai_client_gateway/` yet.
 
-4. **`components/mcp-credential-broker/`** — Publishable Node.js/TypeScript stdio connector for MCP clients. Separate processes connect to separate MCP Gateway routes while sharing one opaque, browser-authenticated Gateway session through a private local cache and cross-process lock. It is an OAuth public client using Authorization Code + PKCE; it never embeds a confidential-client secret.
+4. **`components/mcp-credential-broker/`** — Publishable Node.js/TypeScript stdio connector for MCP clients. Separate processes connect to separate MCP Gateway routes while sharing one opaque, browser-authenticated Gateway session through a private local cache and cross-process lock. It is an OAuth public client using Authorization Code + PKCE; it never embeds a confidential-client secret. Its `--logout` option clears every locally cached Gateway session and revokes each opaque token through the issuer's advertised OAuth revocation endpoint.
 
 5. **`components/athenzd/`** — Go manager CLI for browser login and logout, idempotent ZMS service registration, optional Copper Argos X.509 enrollment, ID-JAG and Athenz access-token issuance, and management of the local GenAI credential-injector daemon.
 
