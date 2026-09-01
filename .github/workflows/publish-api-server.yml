@@ -4,24 +4,24 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "api_server/**"
+      - "components/api_server/**"
       - ".github/workflows/publish-api-server.yml"
-      - "!api_server/authorization_proxy/**"
-      - "!api_server/mcp/**"
+      - "!components/api_server/authorization_proxy/**"
+      - "!components/api_server/mcp/**"
   pull_request:
   # pull_request_target:
     branches: [ "main" ]
     paths:
-      - "api_server/**"
+      - "components/api_server/**"
       - ".github/workflows/publish-api-server.yml"
-      - "!api_server/authorization_proxy/**"
-      - "!api_server/mcp/**"
+      - "!components/api_server/authorization_proxy/**"
+      - "!components/api_server/mcp/**"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: api-server
-  BUILD_DIR: ./api_server
+  BUILD_DIR: ./components/api_server
 
 jobs:
   build-and-push:

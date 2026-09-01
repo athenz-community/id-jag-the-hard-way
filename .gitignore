@@ -31,11 +31,11 @@ replay_pid*
 ai_client_gateway/certs/
 ai_client_gateway/node_modules/
 
-api_server/authorization_proxy/target/
-api_server/policies/
-api_server/target/
-api_server/mcp/node_modules/
-api_server/mcp/certs
+components/api_server/authorization_proxy/target/
+components/api_server/policies/
+components/api_server/target/
+components/api_server/mcp/node_modules/
+components/api_server/mcp/certs
 
 components/keycloak_token_exchange_provider/target/
 local_workload_instance_provider/target/

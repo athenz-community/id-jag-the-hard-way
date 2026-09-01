@@ -9,4 +9,4 @@
 
 # Notice
 
-This document itself is depending on the main repository **id-jag-the-hard-way**. If you want to learn about this project, please refer to the main [README.md](../README.md)
+This document itself is depending on the main repository **id-jag-the-hard-way**. If you want to learn about this project, please refer to the main [README.md](../../README.md)
