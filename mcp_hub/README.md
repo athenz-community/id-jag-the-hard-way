@@ -129,11 +129,15 @@ role: api:role.docs-getter
 
 It resolves to `human.<preferred_username>` by default. Override the Athenz domain with `MCP_HUB_PERMISSION_SIGNED_IN_USER_DOMAIN`. All other member values must be complete literal Athenz principals such as `mcp-hub.mcp-gateway` or `api.api-mcp`. Partial interpolation and unknown placeholders are rejected. A malformed preset produces a visible configuration error rather than silently omitting a requirement and reporting a false ready state.
 
-The current K8s Docs preset checks:
+For every tool, the current K8s Docs preset checks:
 
-- the signed-in user in `api:role.mcp-accessor` and `api:role.docs-getter`
-- `mcp-hub.mcp-gateway` in the corresponding `api:role.*-jag-exchanger` roles
-- `api.api-mcp` in `api:role.docs-getter-exchanger` for downstream token exchange
+- the signed-in user in the tool-specific role and the shared `api:role.mcp-accessor` role
+- `mcp-hub.mcp-gateway` in the shared `api:role.mcp-accessor-jag-exchanger` role and the tool-specific `api:role.*-jag-exchanger` role
+- `api.api-mcp` in the tool-specific exchanger role for downstream token exchange
+
+Shared MCP-access requirements are intentionally repeated inside each tool entry. The UI shows one permission row per live tool and no separate server-access section.
+
+When a server returns five or more tools, the client-configuration page collapses the permission rows by default behind **Expand tools** so the configuration in step 2 remains visible without a long initial scroll. Servers with fewer than five tools keep their rows expanded.
 
 Override the ConfigMap location when needed with `MCP_HUB_PERMISSION_CONFIG_MAP_NAMESPACE`, `MCP_HUB_PERMISSION_CONFIG_MAP_NAME`, and `MCP_HUB_PERMISSION_CONFIG_MAP_KEY`. In-cluster MCP Hub service accounts need read access to that ConfigMap.
 

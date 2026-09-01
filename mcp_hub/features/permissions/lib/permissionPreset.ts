@@ -31,21 +31,9 @@ export function parsePermissionPresetForServer(
   }
 
   const server = requireRecord(configuredServer, `permission preset for ${serverId}`)
-  assertOnlyKeys(server, ["serverRequirements", "tools"], `permission preset for ${serverId}`)
+  assertOnlyKeys(server, ["tools"], `permission preset for ${serverId}`)
 
   const groups: PermissionPresetGroup[] = []
-  if (server.serverRequirements !== undefined) {
-    groups.push({
-      kind: "server",
-      label: "Protected MCP execution",
-      requirements: parseRequirements(
-        server.serverRequirements,
-        `server requirements for ${serverId}`,
-        signedInPrincipal,
-      ),
-    })
-  }
-
   if (server.tools !== undefined) {
     const tools = requireRecord(server.tools, `tool requirements for ${serverId}`)
     for (const [toolName, configuredTool] of Object.entries(tools)) {

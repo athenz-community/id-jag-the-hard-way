@@ -6,7 +6,7 @@ export type PermissionRequirement = {
 }
 
 export type PermissionPresetGroup = {
-  kind: "server" | "tool"
+  kind: "tool"
   label: string
   requirements: PermissionRequirement[]
   toolName?: string

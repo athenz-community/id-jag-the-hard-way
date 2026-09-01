@@ -1,4 +1,7 @@
-import { CheckCircle2, CircleX, TriangleAlert } from "lucide-react"
+"use client"
+
+import { CheckCircle2, ChevronDown, ChevronRight, CircleX, TriangleAlert } from "lucide-react"
+import { useState } from "react"
 import type { McpTool, McpToolsResult } from "@/features/catalog/types/tools"
 import { PermissionRequestDialog } from "@/features/permissions/components/PermissionRequestDialog"
 import type {
@@ -7,22 +10,7 @@ import type {
   PermissionReadinessGroup,
 } from "@/features/permissions/types/permissions"
 
-type PermissionDisplayStatus = PermissionReadiness["status"] | "unconfigured"
-
-const STATUS_COPY: Record<PermissionCheckStatus, { label: string; summary: string }> = {
-  ready: {
-    label: "Permission ready",
-    summary: "All required permissions are ready",
-  },
-  missing: {
-    label: "Permission required",
-    summary: "Some required permissions are missing",
-  },
-  unavailable: {
-    label: "Could not verify",
-    summary: "Some permissions could not be verified",
-  },
-}
+const COLLAPSED_TOOL_COUNT = 5
 
 export function PermissionReadinessSection({
   readiness,
@@ -31,19 +19,17 @@ export function PermissionReadinessSection({
   readiness: PermissionReadiness | null
   toolsResult: McpToolsResult
 }) {
+  const [toolsExpanded, setToolsExpanded] = useState(false)
   const evaluatedReadiness = readiness?.status === "configuration-error" ? undefined : readiness
-  const serverGroups = evaluatedReadiness?.groups.filter((group) => group.kind === "server") ?? []
   const toolGroups = new Map(
     evaluatedReadiness?.groups
-      .filter((group) => group.kind === "tool" && group.toolName)
+      .filter((group) => group.toolName)
       .map((group) => [group.toolName as string, group]) ?? [],
   )
-  const hasUnconfiguredTool = toolsResult.tools.some((tool) => !toolGroups.has(tool.name))
-  const status = sectionStatus(readiness, toolsResult, hasUnconfiguredTool)
 
   return (
     <div className="permission-readiness-section" aria-labelledby="permission-readiness-heading">
-      <PermissionHeading status={status} />
+      <PermissionHeading />
 
       {readiness?.status === "configuration-error" ? (
         <div className="permission-config-error" role="alert">
@@ -52,14 +38,6 @@ export function PermissionReadinessSection({
             <strong>Permission preset configuration error</strong>
             <p>{readiness.message}</p>
           </div>
-        </div>
-      ) : null}
-
-      {serverGroups.length > 0 ? (
-        <div className="permission-readiness-groups">
-          {serverGroups.map((group) => (
-            <ServerPermissionGroup group={group} key={`${group.kind}:${group.label}`} />
-          ))}
         </div>
       ) : null}
 
@@ -79,16 +57,26 @@ export function PermissionReadinessSection({
           </div>
         ) : null}
 
-        {toolsResult.tools.length > 0 ? (
-          <div className="permission-tool-list">
-            {toolsResult.tools.map((tool, index) => (
-              <ToolPermissionRow
-                group={toolGroups.get(tool.name)}
-                key={`${tool.name}:${index}`}
-                tool={tool}
-              />
-            ))}
-          </div>
+        {toolsResult.tools.length > COLLAPSED_TOOL_COUNT ? (
+          <>
+            <ToolPermissionList
+              toolGroups={toolGroups}
+              tools={toolsExpanded ? toolsResult.tools : toolsResult.tools.slice(0, COLLAPSED_TOOL_COUNT)}
+            />
+            <button
+              className="permission-tools-toggle"
+              type="button"
+              aria-expanded={toolsExpanded}
+              onClick={() => setToolsExpanded((expanded) => !expanded)}
+            >
+              {toolsExpanded
+                ? <ChevronDown size={15} aria-hidden="true" />
+                : <ChevronRight size={15} aria-hidden="true" />}
+              {toolsExpanded ? "Collapse tools" : "Expand tools"}
+            </button>
+          </>
+        ) : toolsResult.tools.length > 0 ? (
+          <ToolPermissionList toolGroups={toolGroups} tools={toolsResult.tools} />
         ) : toolsResult.error ? null : (
           <div className="permission-tools-empty">This MCP server returned no tools.</div>
         )}
@@ -97,21 +85,22 @@ export function PermissionReadinessSection({
   )
 }
 
-function ServerPermissionGroup({ group }: { group: PermissionReadinessGroup }) {
-  const status = groupStatus(group)
-
+function ToolPermissionList({
+  toolGroups,
+  tools,
+}: {
+  toolGroups: Map<string, PermissionReadinessGroup>
+  tools: McpTool[]
+}) {
   return (
-    <div className="permission-server-row" data-status={status}>
-      <PermissionStatusIcon status={status} />
-      <div className="permission-tool-identity">
-        <span>Shared execution access</span>
-        <strong>{group.label}</strong>
-      </div>
-      <PermissionRequestDialog
-        requirements={group.requirements}
-        subject={group.label}
-        triggerLabel={status === "ready" ? "View permissions" : status === "missing" ? "Request permission" : "View requirements"}
-      />
+    <div className="permission-tool-list">
+      {tools.map((tool, index) => (
+        <ToolPermissionRow
+          group={toolGroups.get(tool.name)}
+          key={`${tool.name}:${index}`}
+          tool={tool}
+        />
+      ))}
     </div>
   )
 }
@@ -172,13 +161,7 @@ function PermissionStatusIcon({ status }: { status: PermissionCheckStatus }) {
   )
 }
 
-function PermissionHeading({ status }: { status: PermissionDisplayStatus }) {
-  const summary = status === "configuration-error"
-    ? "Preset cannot be evaluated"
-    : status === "unconfigured"
-      ? "Permission configuration needed"
-      : STATUS_COPY[status].summary
-
+function PermissionHeading() {
   return (
     <div className="permission-readiness-heading">
       <div className="permission-heading-step">
@@ -192,7 +175,6 @@ function PermissionHeading({ status }: { status: PermissionDisplayStatus }) {
           </p>
         </div>
       </div>
-      <span className="permission-summary" data-status={status}>{summary}</span>
     </div>
   )
 }
@@ -201,17 +183,5 @@ function groupStatus(group: PermissionReadinessGroup): PermissionCheckStatus {
   const statuses = group.requirements.map(({ status }) => status)
   if (statuses.includes("unavailable")) return "unavailable"
   if (statuses.includes("missing")) return "missing"
-  return "ready"
-}
-
-function sectionStatus(
-  readiness: PermissionReadiness | null,
-  toolsResult: McpToolsResult,
-  hasUnconfiguredTool: boolean,
-): PermissionDisplayStatus {
-  if (readiness?.status === "configuration-error") return "configuration-error"
-  if (readiness?.status === "missing") return "missing"
-  if (readiness?.status === "unavailable" || toolsResult.error) return "unavailable"
-  if (!readiness || hasUnconfiguredTool) return "unconfigured"
   return "ready"
 }
