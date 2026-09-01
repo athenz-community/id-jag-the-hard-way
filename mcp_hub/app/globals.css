@@ -1723,6 +1723,21 @@ body:has(.permission-request-dialog[open]) {
   font-weight: 800;
 }
 
+.scope-path {
+  position: relative;
+}
+
+.scope-path code {
+  padding-right: 42px;
+}
+
+.scope-path-copy {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  transform: translateY(-50%);
+}
+
 .codex-login-command {
   display: flex;
   align-items: center;
@@ -1814,7 +1829,7 @@ body:has(.permission-request-dialog[open]) {
 .broker-logout-command {
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   border: 1px solid #1d2430;
   border-radius: 7px;
@@ -1831,7 +1846,8 @@ body:has(.permission-request-dialog[open]) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.6;
+  white-space: pre;
 }
 
 .broker-logout-command .copy-button {

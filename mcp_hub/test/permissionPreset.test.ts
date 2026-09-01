@@ -4,6 +4,7 @@ import test from "node:test"
 import { parse } from "yaml"
 import {
   parsePermissionPresetForServer,
+  parseToolAccessScopesForServer,
   SIGNED_IN_USER_MEMBER,
 } from "../features/permissions/lib/permissionPreset.ts"
 
@@ -69,6 +70,20 @@ test("resolves the exact signed-in-user placeholder and keeps literal principals
   assert.equal(preset.groups[0].requirements[2].member, "mcp-hub.mcp-gateway")
   assert.equal(preset.groups[0].label, "Tool: get_k8s_docs")
   assert.equal(preset.groups[0].toolName, "get_k8s_docs")
+})
+
+test("derives each tool's Gateway scope from signed-in-user requirements only", async () => {
+  const source = await readFile(
+    new URL("../config/permission-presets.yaml", import.meta.url),
+    "utf8",
+  )
+  const configured = parse(source, { maxAliasCount: 50 }) as unknown
+
+  assert.deepEqual(parseToolAccessScopesForServer(configured, "k8s-docs-server"), {
+    get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",
+    post_k8s_doc: "api:role.docs-poster api:role.mcp-accessor",
+    delete_k8s_doc: "api:role.docs-deleter api:role.mcp-accessor",
+  })
 })
 
 test("returns no preset for a server that is intentionally not configured", () => {

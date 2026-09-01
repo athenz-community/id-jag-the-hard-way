@@ -101,6 +101,7 @@ Each returned server includes:
 - `routeId`, the stable globally unique ID used in `/mcp/{id}`
 - `gatewayUrl`, the public MCP client URL when `MCP_HUB_MCP_GATEWAY_URL` is configured
 - `proxyUrl`, the corresponding Core MCP Proxy URL
+- `toolScopes`, when permission presets configure tool execution, mapping each MCP tool name to the signed-in user's required Athenz scopes
 
 The client-configuration page converts `gatewayUrl` into a separate stdio entry backed by `@mlajkim/mcp-credential-broker` from the standard npm registry. The package defaults to `@mlajkim/mcp-credential-broker@latest`; set `NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE` at build time to use another published version:
 
@@ -108,7 +109,7 @@ The client-configuration page converts `gatewayUrl` into a separate stdio entry 
 NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE='@mlajkim/mcp-credential-broker@0.1.2' make local
 ```
 
-The first entry opens Keycloak login through MCP Gateway automatically; all entries for that Gateway reuse one opaque local session, so clients do not need a separate native OAuth login per MCP server. Run `npx -y @mlajkim/mcp-credential-broker@latest --logout` to clear and revoke the shared session before a fresh browser sign-in. Kubernetes remains the source of each route ID and Gateway URL.
+The first entry opens Keycloak login through MCP Gateway automatically; all entries for that Gateway reuse one opaque local session, so clients do not need a separate native OAuth login per MCP server. Run `npx -y @mlajkim/mcp-credential-broker@latest --logout --idp` to clear the shared Gateway session and open Keycloak browser sign-out before a fresh sign-in. Use `--logout` without `--idp` when only the Gateway session should be revoked. Kubernetes remains the source of each route ID and Gateway URL.
 
 ## Permission Readiness Presets
 
@@ -264,6 +265,8 @@ Optional space-separated Athenz scopes that MCP Gateway requests for the signed-
 ```yaml
 mcp.idthw.dev/access-scope: "api:role.mcp-accessor api:role.docs-getter"
 ```
+
+This is a legacy route-level fallback. For a server with permission presets, `/api/mcp-servers` publishes a `toolScopes` map derived from each tool's `<signed_in_user>` requirements, and MCP Gateway selects the exact mapping from `tools/call.params.name`. An unmapped tool on such a server fails closed rather than receiving this fallback scope.
 
 If omitted, MCP Gateway uses its `MCP_GATEWAY_ACCESS_SCOPE` fallback.
 

@@ -69,7 +69,14 @@ export const AUTHORIZATION_TRANSACTION_TTL_SECONDS = positiveInteger(
   300,
 )
 export const AUTHORIZATION_CODE_TTL_SECONDS = positiveInteger(process.env.AUTHORIZATION_CODE_TTL_SECONDS, 60)
+export const IDP_LOGOUT_TICKET_TTL_SECONDS = positiveInteger(process.env.IDP_LOGOUT_TICKET_TTL_SECONDS, 60)
 
 export const KEYCLOAK_TOKEN_ENDPOINT = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`
 export const KEYCLOAK_AUTHORIZATION_ENDPOINT = `${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth`
+export const KEYCLOAK_END_SESSION_ENDPOINT = process.env.KEYCLOAK_END_SESSION_ENDPOINT
+  ? requiredUrl("KEYCLOAK_END_SESSION_ENDPOINT")
+  : `${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/logout`
+export const KEYCLOAK_POST_LOGOUT_REDIRECT_URI = process.env.KEYCLOAK_POST_LOGOUT_REDIRECT_URI
+  ? requiredUrl("KEYCLOAK_POST_LOGOUT_REDIRECT_URI")
+  : `${PUBLIC_BASE_URL}/oauth/idp-logout/complete`
 export const KEYCLOAK_JWKS_ENDPOINT = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs`

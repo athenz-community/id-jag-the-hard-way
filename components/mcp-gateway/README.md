@@ -18,9 +18,10 @@ The gateway:
 3. Validates the Keycloak ID token and stores it in a server-side session.
 4. Gives the MCP client an opaque gateway session token, never the ID token or Athenz token.
 5. Resolves `{id}` through MCP Hub's `/api/mcp-servers` registry API.
-6. For protected MCP methods, exchanges the session's ID token for ID-JAG and then an Athenz access token through mTLS. Protocol bootstrap, `ping`, and `tools/list` do not mint an Athenz token.
+6. For `tools/call`, resolves the exact tool name to the Athenz scopes published by MCP Hub, then exchanges the session's ID token for ID-JAG and an access token through mTLS. Protocol bootstrap, `ping`, and `tools/list` do not mint an Athenz token.
 7. Caches that Athenz token by gateway session and normalized scope.
 8. Strips the opaque session bearer before forwarding. Public discovery is forwarded without authorization; protected methods receive the Athenz bearer.
+9. Supports an explicit browser sign-out flow that invalidates the opaque Gateway session and redirects a one-use logout ticket to Keycloak without exposing the stored ID token to the broker.
 
 Kubernetes remains the underlying registration source. MCP Hub's API is the registry contract consumed by the gateway.
 
@@ -45,7 +46,7 @@ http://mcp-gateway.idthw.org/mcp/k8s-docs-server
 
 Use `components/mcp-credential-broker` as the stdio command for every route. The MCP client still sees separate entries such as `confluence`, `jira`, and `slack`, while all broker processes share one opaque session for this Gateway issuer. The first process opens Keycloak login automatically and the others wait for that session; no client-specific `mcp login` command is needed.
 
-The shared session contains human authentication, not a union of tool permissions. Every `/mcp/{id}` request still resolves its own Kubernetes-backed route metadata. Only protected methods obtain the route's Athenz access-token scope; clients can initialize and enumerate tools without that access permission.
+The shared session contains human authentication, not a union of tool permissions. Every `/mcp/{id}` request still resolves its own Kubernetes-backed route metadata. Each `tools/call` obtains only the scopes mapped to `params.name`; clients can initialize and enumerate tools without that access permission. When a server publishes a tool map, an unknown tool fails closed instead of receiving the route-wide fallback scope.
 
 HTTP is allowed only when `ALLOW_INSECURE_HTTP=true`. Use HTTPS outside the current development phase.
 
@@ -97,7 +98,7 @@ kubectl -n mcp-hub create secret generic mcp-hub-registry \
   | kubectl apply -f -
 ```
 
-The registry response supplies `routeId`, `proxyUrl`, and the optional route-specific `accessScope`. For Kubernetes, configure MCP Hub's `MCP_HUB_CORE_PROXY_URL` as:
+The registry response supplies `routeId`, `proxyUrl`, the optional route fallback `accessScope`, and optional `toolScopes` keyed by MCP tool name. MCP Hub derives `toolScopes` from each tool's `<signed_in_user>` permission requirements. For Kubernetes, configure MCP Hub's `MCP_HUB_CORE_PROXY_URL` as:
 
 ```text
 http://core-mcp-proxy.mcp-hub:8080
@@ -126,6 +127,8 @@ make -C components/mcp-gateway local \
   KEYCLOAK_PUBLIC_URL=http://localhost:34443 \
   ALLOW_INSECURE_HTTP=true
 ```
+
+`register-idp-client` also registers `${PUBLIC_BASE_URL}/oauth/idp-logout/complete` as the allowed Keycloak post-logout redirect. The local Gateway derives that same URL by default. Override `KEYCLOAK_POST_LOGOUT_REDIRECT_URI` only when the browser must return somewhere else after Keycloak logout.
 
 The local defaults use:
 

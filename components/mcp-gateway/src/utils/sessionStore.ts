@@ -35,6 +35,14 @@ class SessionStore {
     return this.sessions.delete(tokenHash(token))
   }
 
+  consume(token: string) {
+    const key = tokenHash(token)
+    const session = this.sessions.get(key)
+    this.sessions.delete(key)
+    if (!session || session.expiresAt <= now()) return null
+    return session
+  }
+
   listActive() {
     const activeSessions: GatewaySession[] = []
     const currentTime = now()

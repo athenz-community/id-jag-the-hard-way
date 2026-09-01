@@ -114,7 +114,7 @@ export async function fetchPermissionReadiness(
   return { groups, status }
 }
 
-async function readPermissionPresetConfigMap() {
+export async function readPermissionPresetConfigMap() {
   const namespace = process.env.MCP_HUB_PERMISSION_CONFIG_MAP_NAMESPACE ?? DEFAULT_CONFIG_MAP_NAMESPACE
   const name = process.env.MCP_HUB_PERMISSION_CONFIG_MAP_NAME ?? DEFAULT_CONFIG_MAP_NAME
   const key = process.env.MCP_HUB_PERMISSION_CONFIG_MAP_KEY ?? DEFAULT_CONFIG_MAP_KEY

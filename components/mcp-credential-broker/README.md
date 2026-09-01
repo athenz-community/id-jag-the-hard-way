@@ -26,6 +26,14 @@ npx -y @mlajkim/mcp-credential-broker@latest --logout
 
 Logout removes each local cached session and revokes its opaque token through the revocation endpoint advertised by that Gateway. The next connector request opens browser sign-in again.
 
+To also terminate the Keycloak browser SSO session, use the explicit identity-provider option:
+
+```sh
+npx -y @mlajkim/mcp-credential-broker@latest --logout --idp
+```
+
+The broker requests a short-lived, one-use logout URL from each Gateway and opens it in the default browser. The Gateway keeps the Keycloak ID token server-side and redirects the browser to Keycloak's end-session endpoint. Because this can sign the browser out of other applications in the same Keycloak realm, ordinary `--logout` remains Gateway-only.
+
 Every same-repository pull request publishes a unique prerelease version and updates its `pr-<number>` tag on npm. For example, PR 212 can be tested before merge with:
 
 ```sh
@@ -100,6 +108,7 @@ Credentials are keyed by the discovered authorization-server issuer, not by MCP 
 - A terminated connector's old lock is reclaimed after ten minutes.
 - Expired credentials are replaced, and an HTTP 401 invalidates only the matching cached token before one retry.
 - `--logout` clears every cached Gateway session under the same per-issuer lock and revokes each opaque token remotely.
+- `--logout --idp` additionally opens Keycloak sign-out through a short-lived Gateway logout ticket; no Keycloak token is returned to or persisted by the broker.
 - ID tokens, ID-JAGs, Athenz access tokens, client secrets, authorization codes, and PKCE verifiers are never persisted.
 
 The shared opaque session proves one signed-in human identity; it does not combine route permissions. Route-specific scope and policy enforcement stay in MCP Gateway and Athenz.
