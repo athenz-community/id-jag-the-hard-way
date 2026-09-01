@@ -4,7 +4,7 @@
 
 # Protect MCP Server - Codex
 
-In this tutorial, we will secure the MCP server using an Authorization Proxy - exactly as we protected the API server with Athenz in earlier tutorials.
+In this tutorial, we will secure MCP tool execution using an Authorization Proxy - exactly as we protected the API server with Athenz in earlier tutorials. MCP protocol bootstrap and `tools/list` remain public so clients can discover the server and its available tools before requesting access.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
@@ -22,7 +22,7 @@ In this tutorial, we will secure the MCP server using an Authorization Proxy - e
 
 ## Run Authorization Proxy for API MCP
 
-Deploy the authorization proxy as a sidecar container in the `mcp` deployment:
+Deploy the authorization proxy as a sidecar container in the `mcp` deployment. It allows protocol bootstrap and tool discovery without an access token, while protecting methods such as `tools/call`:
 
 ```sh
 kubectl patch deploy mcp -n api --patch "$(cat <<'EOF'
@@ -114,7 +114,7 @@ Ask Codex:
 get docs from k8s doc server!
 ```
 
-This fails because the proxy requires `access` on the `api:mcp` resource, and we have not created that policy yet.
+Codex can still initialize and list the available tools. The tool call fails because the proxy requires `access` on the `api:mcp` resource for protected methods, and we have not created that policy yet.
 
 ```sh
 kubectl logs deploy/mcp -n api -c auth-proxy
@@ -191,7 +191,7 @@ get docs from k8s doc server!
 
 ## Review Summary of Changes
 
-We deployed the Authorization Proxy in front of the MCP server. Only callers whose Access Token carries the `api:role.mcp-accessor` scope can reach the MCP server.
+We deployed the Authorization Proxy in front of the MCP server. Any client can initialize and list tools without an Athenz access role. Protected methods such as `tools/call` reach the MCP server only when the caller's Access Token carries the `api:role.mcp-accessor` scope.
 
 ## What's next?
 

@@ -1,6 +1,5 @@
 import type { McpServer } from "@/features/catalog/types/catalog"
 import type { McpTool, McpToolsResult } from "@/features/catalog/types/tools"
-import { getMcpAccessToken } from "./athenzAccessToken"
 
 const DEFAULT_LOCAL_MCP_URL = process.env.MCP_HUB_LOCAL_MCP_URL ?? "http://127.0.0.1:24443/mcp"
 
@@ -19,19 +18,13 @@ export async function listLiveMcpTools(server: McpServer): Promise<McpToolsResul
   const endpoint = resolveMcpToolsEndpoint(server)
 
   try {
-    const accessToken = await getMcpAccessToken()
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      Accept: "application/json, text/event-stream",
-    }
-    if (accessToken) {
-      headers.Authorization = `Bearer ${accessToken}`
-    }
-
     const response = await fetch(endpoint, {
       method: "POST",
       cache: "no-store",
-      headers,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: 1,

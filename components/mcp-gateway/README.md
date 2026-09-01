@@ -18,9 +18,9 @@ The gateway:
 3. Validates the Keycloak ID token and stores it in a server-side session.
 4. Gives the MCP client an opaque gateway session token, never the ID token or Athenz token.
 5. Resolves `{id}` through MCP Hub's `/api/mcp-servers` registry API.
-6. Exchanges the session's ID token for ID-JAG and then an Athenz access token through mTLS.
+6. For protected MCP methods, exchanges the session's ID token for ID-JAG and then an Athenz access token through mTLS. Protocol bootstrap, `ping`, and `tools/list` do not mint an Athenz token.
 7. Caches that Athenz token by gateway session and normalized scope.
-8. Replaces the opaque session bearer with the Athenz bearer and forwards the MCP request to Core MCP Proxy.
+8. Strips the opaque session bearer before forwarding. Public discovery is forwarded without authorization; protected methods receive the Athenz bearer.
 
 Kubernetes remains the underlying registration source. MCP Hub's API is the registry contract consumed by the gateway.
 
@@ -45,7 +45,7 @@ http://mcp-gateway.idthw.org/mcp/k8s-docs-server
 
 Use `components/mcp-credential-broker` as the stdio command for every route. The MCP client still sees separate entries such as `confluence`, `jira`, and `slack`, while all broker processes share one opaque session for this Gateway issuer. The first process opens Keycloak login automatically and the others wait for that session; no client-specific `mcp login` command is needed.
 
-The shared session contains human authentication, not a union of tool permissions. Every `/mcp/{id}` request still resolves its own Kubernetes-backed route metadata and obtains its own Athenz access-token scope.
+The shared session contains human authentication, not a union of tool permissions. Every `/mcp/{id}` request still resolves its own Kubernetes-backed route metadata. Only protected methods obtain the route's Athenz access-token scope; clients can initialize and enumerate tools without that access permission.
 
 HTTP is allowed only when `ALLOW_INSECURE_HTTP=true`. Use HTTPS outside the current development phase.
 

@@ -100,8 +100,8 @@ export function PermissionRequestDialog({
             {configurationMissing
               ? "MCP Hub has no permission preset for this tool, so your access cannot be checked yet."
               : permissionsReady
-              ? "You already have the required permissions below. Open a role in Athenz to review its membership."
-              : "Review all required permissions below. Open each missing role in Athenz to register access; MCP Hub does not submit requests yet."}
+              ? "You already have the required permissions below. Select a role to review its membership in Athenz."
+              : "Review all required permissions below. Select a missing role to register access in Athenz; MCP Hub does not submit requests yet."}
           </p>
 
           {configurationMissing ? (
@@ -113,24 +113,41 @@ export function PermissionRequestDialog({
             </div>
           ) : (
             <div className="permission-dialog-requirements">
-              {requirements.map((requirement) => (
-              <div className="permission-dialog-requirement" key={`${requirement.member}:${requirement.role}`}>
-                <div>
-                  <strong>{requirement.label}</strong>
-                  <span className="permission-dialog-status" data-status={requirement.status}>
-                    {requirement.status === "ready" ? "Available" : requirement.status === "missing" ? "Missing" : "Could not verify"}
-                  </span>
-                  <code>{requirement.member}</code>
-                </div>
-                <div className="permission-dialog-role">
-                  <code>{requirement.role}</code>
-                  <a href={requirement.roleUrl} target="_blank" rel="noreferrer">
-                    Open in Athenz
-                    <ExternalLink size={13} aria-hidden="true" />
-                  </a>
-                </div>
-              </div>
-              ))}
+              <table className="permission-dialog-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Required access</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Member</th>
+                    <th scope="col">Role</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {requirements.map((requirement) => (
+                    <tr key={`${requirement.member}:${requirement.role}`}>
+                      <td>{requirement.label}</td>
+                      <td>
+                        <span className="permission-dialog-status" data-status={requirement.status}>
+                          {requirement.status === "ready" ? "Available" : requirement.status === "missing" ? "Missing" : "Could not verify"}
+                        </span>
+                      </td>
+                      <td><code>{requirement.member}</code></td>
+                      <td>
+                        <a
+                          className="permission-dialog-role-link"
+                          href={requirement.roleUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Open ${requirement.role} in Athenz`}
+                        >
+                          <code>{requirement.role}</code>
+                          <ExternalLink size={12} aria-hidden="true" />
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 
