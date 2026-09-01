@@ -16,9 +16,9 @@ The repository contains these runtime components and supporting plugins:
    - **`components/api_server/mcp/`** — Node.js/TypeScript MCP (Model Context Protocol) server that performs token exchange with Athenz ZTS before calling the API server.
    - **`components/api_server/authorization_proxy/`** — Spring Boot 3.2.5 proxy that sits in front of the MCP server and validates Athenz access tokens.
 
-2. **`ai_client_gateway/`** — Node.js/TypeScript Express proxy that intercepts AI client requests, converts ID tokens to ID-JAG tokens via Athenz, and injects the appropriate access token before forwarding to the MCP server.
+2. **`components/ai_client_gateway/`** — Node.js/TypeScript Express proxy that intercepts AI client requests, converts ID tokens to ID-JAG tokens via Athenz, and injects the appropriate access token before forwarding to the MCP server.
 
-3. **`components/mcp-gateway/`** — Node.js/TypeScript authenticated MCP front door for the MCP Hub demo. It performs Keycloak login, keeps the ID token in a server-side session, resolves routes through the MCP Hub API, exchanges ID token → ID-JAG → Athenz access token per session, and forwards `/mcp/{id}` through Core MCP Proxy. It does not replace or change the tutorial's `ai_client_gateway/` yet.
+3. **`components/mcp-gateway/`** — Node.js/TypeScript authenticated MCP front door for the MCP Hub demo. It performs Keycloak login, keeps the ID token in a server-side session, resolves routes through the MCP Hub API, exchanges ID token → ID-JAG → Athenz access token per session, and forwards `/mcp/{id}` through Core MCP Proxy. It does not replace or change the tutorial's `components/ai_client_gateway/` yet.
 
 4. **`components/mcp-credential-broker/`** — Publishable Node.js/TypeScript stdio connector for MCP clients. Separate processes connect to separate MCP Gateway routes while sharing one opaque, browser-authenticated Gateway session through a private local cache and cross-process lock. It is an OAuth public client using Authorization Code + PKCE; it never embeds a confidential-client secret.
 
@@ -80,7 +80,7 @@ make -C components/api_server mcp-local
 make -C components/api_server mcp-proxy-local
 
 # AI Client Gateway (Node.js/TypeScript, port 3101)
-make -C ai_client_gateway local
+make -C components/ai_client_gateway local
 
 # MCP Gateway authenticated routing (Node.js/TypeScript, port 3103)
 PUBLIC_BASE_URL='<full-gateway-url>' \
@@ -122,7 +122,7 @@ The provider Dockerfiles are export-only — they copy their built JARs into a m
 | `components/api_server`                       | Java 17    | Maven, Athenz libs                      |
 | `components/api_server/mcp`                   | TypeScript | Node.js 22, Express 5                   |
 | `components/api_server/authorization_proxy`   | Java 17    | Spring Boot 3.2.5, Spring Cloud Gateway |
-| `ai_client_gateway`                | TypeScript | Node.js 22, Express                     |
+| `components/ai_client_gateway`     | TypeScript | Node.js 22, Express                     |
 | `components/athenzd`               | Go 1.25    | Cobra, Viper                            |
 | `components/keycloak_token_exchange_provider` | Java 11 | Maven, Keycloak SPI                  |
 | `local_workload_instance_provider` | Java 17    | Maven, Athenz InstanceProvider SPI      |

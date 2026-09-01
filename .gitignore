@@ -28,8 +28,8 @@
 hs_err_pid*
 replay_pid*
 
-ai_client_gateway/certs/
-ai_client_gateway/node_modules/
+components/ai_client_gateway/certs/
+components/ai_client_gateway/node_modules/
 
 components/api_server/authorization_proxy/target/
 components/api_server/policies/
