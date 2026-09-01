@@ -2,6 +2,7 @@ import crypto from "node:crypto"
 
 export type GatewaySession = {
   idToken: string
+  idTokenExpiresAt: number
   subject: string
   username: string
   expiresAt: number
@@ -11,7 +12,9 @@ class SessionStore {
   private readonly sessions = new Map<string, GatewaySession>()
 
   create(session: GatewaySession) {
-    if (session.expiresAt <= now()) throw new Error("Cannot create an already-expired session")
+    const currentTime = now()
+    if (session.idTokenExpiresAt <= currentTime) throw new Error("Cannot create a session with an expired ID token")
+    if (session.expiresAt <= currentTime) throw new Error("Cannot create an already-expired session")
 
     const token = randomToken()
     this.sessions.set(tokenHash(token), session)

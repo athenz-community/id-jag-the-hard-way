@@ -59,6 +59,8 @@ spec:
                 secretKeyRef:
                   name: mcp-gateway-keycloak
                   key: client-secret
+            - name: GATEWAY_SESSION_TTL_SECONDS
+              value: "28800"
             - name: ALLOW_INSECURE_HTTP
               value: "true"
             - name: MCP_HUB_REGISTRY_URL

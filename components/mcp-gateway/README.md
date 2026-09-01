@@ -18,10 +18,12 @@ The gateway:
 3. Validates the Keycloak ID token and stores it in a server-side session.
 4. Gives the MCP client an opaque gateway session token, never the ID token or Athenz token.
 5. Resolves `{id}` through MCP Hub's `/api/mcp-servers` registry API.
-6. For `tools/call`, resolves the exact tool name to the Athenz scopes published by MCP Hub, then exchanges the session's ID token for ID-JAG and an access token through mTLS. Protocol bootstrap, `ping`, and `tools/list` do not mint an Athenz token.
-7. Caches that Athenz token by gateway session and normalized scope.
-8. Strips the opaque session bearer before forwarding. Public discovery is forwarded without authorization; protected methods receive the Athenz bearer.
-9. Supports an explicit browser sign-out flow that invalidates the opaque Gateway session and redirects a one-use logout ticket to Keycloak without exposing the stored ID token to the broker.
+6. For `tools/call`, resolves the exact tool name to the Athenz scopes published by MCP Hub. Protocol bootstrap, `ping`, and `tools/list` do not mint an Athenz token.
+7. Checks the access-token cache first, then an ID-JAG cache indexed by the token's actual `aud` and `scp`/`scope` claims, with usability bounded by its actual `exp`. It uses the stored ID token only when no usable ID-JAG covers the requested scope.
+8. Rejects partial grants for the current request but retains them under their actual granted scope, so they can satisfy a later narrower request.
+9. Requests fresh browser authentication with HTTP 401 when neither a cached credential nor a fresh ID token can complete the exchange.
+10. Strips the opaque session bearer before forwarding. Public discovery is forwarded without authorization; protected methods receive the Athenz bearer.
+11. Supports an explicit browser sign-out flow that invalidates the opaque Gateway session and redirects a one-use logout ticket to Keycloak without exposing the stored ID token to the broker.
 
 Kubernetes remains the underlying registration source. MCP Hub's API is the registry contract consumed by the gateway.
 
@@ -47,6 +49,8 @@ http://mcp-gateway.idthw.org/mcp/k8s-docs-server
 Use `components/mcp-credential-broker` as the stdio command for every route. The MCP client still sees separate entries such as `confluence`, `jira`, and `slack`, while all broker processes share one opaque session for this Gateway issuer. The first process opens Keycloak login automatically and the others wait for that session; no client-specific `mcp login` command is needed.
 
 The shared session contains human authentication, not a union of tool permissions. Every `/mcp/{id}` request still resolves its own Kubernetes-backed route metadata. Each `tools/call` obtains only the scopes mapped to `params.name`; clients can initialize and enumerate tools without that access permission. When a server publishes a tool map, an unknown tool fails closed instead of receiving the route-wide fallback scope.
+
+The opaque Gateway session has its own bounded lifetime, configured by `GATEWAY_SESSION_TTL_SECONDS` (eight hours by default), so a valid cached ID-JAG can renew an access token after the shorter Keycloak ID token expires. If another scope needs a new ID-JAG after that ID token expires, the Gateway invalidates the opaque session and returns `401 reauth_required`; the credential broker then opens browser login and retries once.
 
 HTTP is allowed only when `ALLOW_INSECURE_HTTP=true`. Use HTTPS outside the current development phase.
 
@@ -136,6 +140,7 @@ The local defaults use:
 MCP_HUB_REGISTRY_URL=http://127.0.0.1:3102/api/mcp-servers
 MCP_HUB_REGISTRY_TOKEN=idthw-local-mcp-registry-token
 MCP_GATEWAY_ACCESS_SCOPE=api:role.mcp-accessor api:role.docs-getter
+GATEWAY_SESSION_TTL_SECONDS=28800
 ```
 
 ## Kubernetes Run

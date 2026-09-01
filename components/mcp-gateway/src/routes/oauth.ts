@@ -4,6 +4,7 @@ import {
   KEYCLOAK_CLIENT_ID,
   KEYCLOAK_END_SESSION_ENDPOINT,
   KEYCLOAK_POST_LOGOUT_REDIRECT_URI,
+  GATEWAY_SESSION_TTL_SECONDS,
   PUBLIC_BASE_URL,
 } from "../config/env.js"
 import { exchangeKeycloakAuthorizationCode, verifyKeycloakIdToken } from "../services/keycloak.js"
@@ -171,18 +172,21 @@ router.post("/oauth/token", (request, response) => {
     return
   }
 
+  const now = Math.floor(Date.now() / 1000)
+  const expiresAt = now + GATEWAY_SESSION_TTL_SECONDS
   const accessToken = sessionStore.create({
     idToken: authorizationCode.idToken,
+    idTokenExpiresAt: authorizationCode.identityExpiresAt,
     subject: authorizationCode.subject,
     username: authorizationCode.username,
-    expiresAt: authorizationCode.identityExpiresAt,
+    expiresAt,
   })
   response.setHeader("cache-control", "no-store")
   response.setHeader("pragma", "no-cache")
   response.json({
     access_token: accessToken,
     token_type: "Bearer",
-    expires_in: Math.max(0, authorizationCode.identityExpiresAt - Math.floor(Date.now() / 1000)),
+    expires_in: GATEWAY_SESSION_TTL_SECONDS,
     scope: "openid email profile",
   })
 })
