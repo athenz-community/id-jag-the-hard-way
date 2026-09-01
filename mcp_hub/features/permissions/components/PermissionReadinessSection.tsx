@@ -104,7 +104,7 @@ function ServerPermissionGroup({ group }: { group: PermissionReadinessGroup }) {
     <div className="permission-server-row" data-status={status}>
       <PermissionStatusIcon status={status} />
       <div className="permission-tool-identity">
-        <span>MCP server access</span>
+        <span>Shared execution access</span>
         <strong>{group.label}</strong>
       </div>
       <PermissionRequestDialog
@@ -188,7 +188,7 @@ function PermissionHeading({ status }: { status: PermissionDisplayStatus }) {
             Check your permissions
           </h3>
           <p className="section-copy">
-            Tools you have permission to use have a checkmark. For other tools, open Request permission to view and register the required access.
+            All tools are visible. Checkmarks show which protected calls you can make; for other tools, open Request permission to view the required access.
           </p>
         </div>
       </div>

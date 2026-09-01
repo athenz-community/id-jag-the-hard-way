@@ -13,7 +13,7 @@ const validPreset = {
     "k8s-docs-server": {
       serverRequirements: [
         {
-          label: "Signed-in user can access the MCP server",
+          label: "Signed-in user can invoke protected MCP methods",
           member: SIGNED_IN_USER_MEMBER,
           role: "api:role.mcp-accessor",
         },

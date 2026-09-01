@@ -41,9 +41,9 @@ make -C mcp_hub local OPEN_UI=true
 
 Each browser can keep up to five IdP sessions by default. The app bar lists the cached users for one-click switching; **Sign in as a different user** goes through Keycloak only when adding an account that is not already sessioned. Set `MCP_HUB_ACCOUNT_CACHE_SIZE` from `1` to `8` to change the limit. Identity claims and refresh tokens remain inside the encrypted, HTTP-only Auth.js cookie, while the UI receives only account display summaries. Signing out clears the full browser account cache and signs the current account out through the IdP.
 
-MCP Hub does not generate a private key or user certificate in the browser session. Its `mcp-hub.hub-ui` workload certificate stays server-side and exchanges the signed-in user's ID token through ID-JAG. Resulting Athenz access tokens are cached separately per OIDC subject and scope.
+MCP Hub does not generate a private key or user certificate in the browser session. Its `mcp-hub.hub-ui` workload certificate stays server-side and is used to read permission membership from ZMS. Live tool discovery does not mint an Athenz access token. MCP Gateway performs ID-JAG exchange only when an authenticated client invokes a protected MCP method such as `tools/call`.
 
-The current in-memory authentication cache status is available at `GET /api/mcp-cache-status`. It reports the Hub's Athenz access-token cache plus the MCP Gateway's current OAuth session users and per-session Athenz cache metadata. Configure the Gateway source with `MCP_HUB_GATEWAY_STATUS_URL`; local Docker defaults to `http://host.docker.internal:<mcp-gateway-port>/internal/cache-status`. The Hub authenticates that internal request with `MCP_HUB_REGISTRY_TOKEN` and whitelists the response fields. Neither endpoint returns access tokens, ID tokens, ID-JAGs, opaque session tokens, or their hashes. Like `/api/mcp-servers`, the Hub endpoint accepts either an authenticated MCP Hub browser session or `Authorization: Bearer <MCP_HUB_REGISTRY_TOKEN>` and always returns `Cache-Control: no-store`.
+The current in-memory authentication cache status is available at `GET /api/mcp-cache-status`. Its Hub access-token field remains empty for response compatibility, and it reports MCP Gateway's current OAuth session users and per-session Athenz cache metadata for protected calls. Configure the Gateway source with `MCP_HUB_GATEWAY_STATUS_URL`; local Docker defaults to `http://host.docker.internal:<mcp-gateway-port>/internal/cache-status`. The Hub authenticates that internal request with `MCP_HUB_REGISTRY_TOKEN` and whitelists the response fields. Neither endpoint returns access tokens, ID tokens, ID-JAGs, opaque session tokens, or their hashes. Like `/api/mcp-servers`, the Hub endpoint accepts either an authenticated MCP Hub browser session or `Authorization: Bearer <MCP_HUB_REGISTRY_TOKEN>` and always returns `Cache-Control: no-store`.
 
 ## Gen AI Product
 
@@ -78,14 +78,7 @@ make local \
 MCP_HUB_ATHENZ_UI_URL=https://athenz-ui.example.test make local
 ```
 
-When the ZMS connection hostname differs from the name on its TLS certificate,
-set `MCP_HUB_ZMS_TLS_SERVER_NAME` to the certificate name. MCP Hub uses it for
-both TLS SNI and the HTTP `Host` header because ZMS validates that they match.
-Likewise, set `MCP_HUB_ZTS_TLS_SERVER_NAME` when the ZTS connection hostname
-differs from its TLS name; the Hub applies it to both SNI and the HTTP `Host`
-header. The local Docker workflow defaults both values to `localhost` because
-it reaches the host through `host.docker.internal`, while the local ZMS and ZTS
-certificates are issued for `localhost`.
+When the ZMS connection hostname differs from the name on its TLS certificate, set `MCP_HUB_ZMS_TLS_SERVER_NAME` to the certificate name. MCP Hub uses it for both TLS SNI and the HTTP `Host` header because ZMS validates that they match. The local Docker workflow defaults this value to `localhost` because it reaches ZMS through `host.docker.internal`, while the local certificate is issued for `localhost`.
 
 The local cost values are explicitly estimates based on fixed demo rates; they are not billing data.![alt text](image.png)
 
@@ -125,7 +118,7 @@ Edit the pure settings document at [`config/permission-presets.yaml`](./config/p
 
 The current preset contains only `k8s-docs-server`. Confluence intentionally has no entry, so any tools it returns remain visible with the yellow `No configuration found` state.
 
-The permission setup uses the live MCP `tools/list` response as the source of truth for available tools. Every returned tool is shown before manual client setup. A tool without a matching YAML entry is marked yellow as `No configuration found`; a configured tool shows its checked Athenz status. Missing permissions open a request dialog that lists the unresolved principal-to-role memberships and links to Athenz. MCP Hub does not submit the request yet.
+The permission setup uses the public live MCP `tools/list` response as the source of truth for available tools. Listing tools does not require an Athenz access role or mint an access token. Every returned tool is shown before manual client setup; the configured requirements describe protected execution, not discovery. A tool without a matching YAML entry is marked yellow as `No configuration found`; a configured tool shows its checked Athenz status. Missing permissions open a request dialog that lists the unresolved principal-to-role memberships and links to Athenz. MCP Hub does not submit the request yet.
 
 Use the exact reserved member value `<signed_in_user>` when a requirement belongs to the current browser session:
 
@@ -171,7 +164,7 @@ For the current local workflow, no additional MCP Hub RBAC setup is required bey
 
 ## Live Tool Discovery
 
-The Tools page discovers tools from the running MCP server with JSON-RPC `tools/list`. Deployment annotations can provide the endpoint URL, but the tool definitions come from the live MCP server.
+The Tools page discovers tools from the running MCP server with public JSON-RPC `tools/list`. MCP Hub does not send an `Authorization` header for this request. Deployment annotations can provide the endpoint URL, but the tool definitions come from the live MCP server.
 
 For local development, port-forward the MCP service before opening the Tools page:
 
@@ -191,7 +184,7 @@ For a specific MCP deployment, set the public MCP endpoint with:
 mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
 ```
 
-Live tool discovery uses the server's Core MCP Proxy route so the Hub can attach the signed-in user's Athenz access token obtained with the Hub workload certificate. The annotation remains the direct public endpoint and is used by the client-configuration page only as a fallback when `MCP_HUB_MCP_GATEWAY_URL` is not configured. If the value is just a host and port, such as `http://localhost:24443`, MCP Hub normalizes it to `/mcp`.
+Live tool discovery uses the server's Core MCP Proxy route without an Athenz access token. The annotation remains the direct public endpoint and is used by the client-configuration page only as a fallback when `MCP_HUB_MCP_GATEWAY_URL` is not configured. If the value is just a host and port, such as `http://localhost:24443`, MCP Hub normalizes it to `/mcp`.
 
 When MCP Hub runs in-cluster, the default endpoint is derived from the selected server name and namespace:
 
@@ -389,7 +382,7 @@ args = [
 ]
 ```
 
-The Tools page uses the deployment's Core MCP Proxy route to perform live `tools/list` discovery from the MCP Hub server. This avoids treating a host-only `127.0.0.1` port-forward as container-local and preserves the Hub workload-certificate → user-scoped Athenz token flow.
+The Tools page uses the deployment's Core MCP Proxy route to perform public live `tools/list` discovery from the MCP Hub server. This avoids treating a host-only `127.0.0.1` port-forward as container-local. Protected client calls continue through MCP Gateway's workload-certificate → user-scoped Athenz token flow.
 
 ## Example MCP Deployment
 

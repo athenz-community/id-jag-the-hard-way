@@ -6,10 +6,10 @@ The goal of this FAQ is to run MCP Hub locally.
 
 - [Step 1. Configure IdP Login](#step-1-configure-idp-login)
 - [Step 2. Setup X.509 Cert for the UI](#step-2-setup-x509-cert-for-the-ui)
-- [Step 3. Grant Per-User MCP Access](#step-3-grant-per-user-mcp-access)
+- [Step 3. Grant Access for Protected Tool Calls](#step-3-grant-access-for-protected-tool-calls)
 - [Step 4. Run MCP Hub](#step-4-run-mcp-hub)
 - [Step 5. Import K8s API Docs Server](#step-5-import-k8s-api-docs-server)
-- [Step 6. Verify Protected MCP Tools](#step-6-verify-protected-mcp-tools)
+- [Step 6. Verify Public Tool Discovery](#step-6-verify-public-tool-discovery)
 
 <!-- /TOC -->
 
@@ -56,7 +56,7 @@ After the first login, use **Sign in as a different user** to add another Keyclo
 
 ## Step 2. Setup X.509 Cert for the UI
 
-The UI server needs its own Athenz workload certificate to exchange each signed-in user's ID token through ID-JAG. This certificate and private key remain server-side; they are not stored in the browser session.
+The UI server needs its own Athenz workload certificate to read permission membership from ZMS. This certificate and private key remain server-side; they are not stored in the browser session. MCP Hub does not use the certificate to mint a user-scoped access token for tool discovery.
 
 ```sh
 ./tools/athenz/create-tld.sh "mcp-hub"
@@ -91,9 +91,9 @@ By default, MCP Hub reads these files:
 - `mcp_hub/certs/mcp-hub-ui.key`
 - `mcp_hub/certs/ca.crt`
 
-## Step 3. Grant Per-User MCP Access
+## Step 3. Grant Access for Protected Tool Calls
 
-The API MCP authorization proxy requires `access` on `api:mcp`. Add each human user to `api:role.mcp-accessor`, then allow the MCP Hub workload to perform ID-JAG exchange into that role:
+`tools/list` is public and does not need the `mcp-accessor` role. Actual tool calls remain protected: the API MCP authorization proxy requires `access` on `api:mcp`, so add each user who should invoke tools to `api:role.mcp-accessor`, then allow MCP Gateway to perform ID-JAG exchange into that role:
 
 ```sh
 ./tools/athenz/create-role.sh "api" "mcp-accessor"
@@ -104,7 +104,7 @@ The API MCP authorization proxy requires `access` on `api:mcp`. Add each human u
 
 ./tools/athenz/create-role.sh "api" "mcp-accessor-jag-exchanger"
 ./tools/athenz/add-policy.sh "api" "mcp-accessor-jag-exchanger" "zts.jag_exchange" "role.mcp-accessor"
-./tools/athenz/add-role-member.sh "api" "mcp-accessor-jag-exchanger" "mcp-hub.hub-ui"
+./tools/athenz/add-role-member.sh "api" "mcp-accessor-jag-exchanger" "mcp-hub.mcp-gateway"
 ```
 
 ```sh
@@ -115,20 +115,17 @@ The API MCP authorization proxy requires `access` on `api:mcp`. Add each human u
 #   ✔  human.idjag-learner  →  api:role.mcp-accessor
 #   ✔  human.alice  →  api:role.mcp-accessor
 #   ✔  human.bob  →  api:role.mcp-accessor
-#   ✔  mcp-hub.hub-ui  →  api:role.mcp-accessor-jag-exchanger
+#   ✔  mcp-hub.mcp-gateway  →  api:role.mcp-accessor-jag-exchanger
 ```
 
-Authentication proves who the user is; Athenz role membership determines which authenticated users may access the protected MCP server.
+Authentication proves who the user is; Athenz role membership determines which authenticated users may invoke protected MCP methods. It does not hide the tool catalog.
 
 ## Step 4. Run MCP Hub
 
-Start MCP Hub after the certificate files exist. The local Makefile sets `MCP_HUB_ZTS_URL` from `./tools/port.sh zts`.
-
-Set `MCP_HUB_MCP_ACCESS_SCOPE` because this FAQ imports the protected API MCP server. Without this environment variable, MCP Hub does not fetch an access token and calls MCP servers without an `Authorization` header.
+Start MCP Hub after the certificate files exist. Live `tools/list` discovery intentionally sends no `Authorization` header, so no MCP access scope or ZTS configuration is needed by the Hub.
 
 ```sh
-env MCP_HUB_MCP_ACCESS_SCOPE="api:role.mcp-accessor" \
-  MCP_HUB_MCP_GATEWAY_URL="http://mcp-gateway.idthw.org:$(./tools/port.sh mcp-gateway)" \
+env MCP_HUB_MCP_GATEWAY_URL="http://mcp-gateway.idthw.org:$(./tools/port.sh mcp-gateway)" \
   make -C mcp_hub local PORT=3102 OPEN_UI=true
 ```
 
@@ -136,8 +133,6 @@ If you need custom paths, override these environment variables:
 
 ```sh
 env \
-  MCP_HUB_ZTS_URL="https://localhost:$(./tools/port.sh zts)/zts/v1" \
-  MCP_HUB_MCP_ACCESS_SCOPE="api:role.mcp-accessor" \
   MCP_HUB_MCP_GATEWAY_URL="http://mcp-gateway.idthw.org:$(./tools/port.sh mcp-gateway)" \
   MCP_HUB_CORE_PROXY_URL="http://host.docker.internal:$(./tools/port.sh core-mcp-proxy)" \
   MCP_HUB_REGISTRY_TOKEN="idthw-local-mcp-registry-token" \
@@ -179,8 +174,8 @@ Refresh MCP Hub. The K8s API Docs Server should appear:
 
 ![k8s_doc_server_visible](./assets/k8s_doc_server_visible.png)
 
-## Step 6. Verify Protected MCP Tools
+## Step 6. Verify Public Tool Discovery
 
-Sign in through Keycloak and open the K8s API Docs Server tools page. MCP Hub should exchange that user's ID token through ID-JAG, fetch a user-scoped Athenz access token, and load the protected tool list. Use the user menu in the top bar to switch to another configured user and repeat the check.
+Sign in through Keycloak and open the K8s API Docs Server tools page. MCP Hub should load the live tool list without exchanging that user's ID token or requiring `api:role.mcp-accessor`. Use the user menu to switch to a user without the role and confirm that the same tools remain visible; the client-configuration page should show the missing execution permissions separately.
 
 ![alt text](image.png)

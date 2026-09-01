@@ -4,7 +4,7 @@
 
 # Protect MCP Server
 
-In this tutorial, we will secure the MCP server using an Authorization Proxy - exactly as we protected the API server with Athenz in earlier tutorials.
+In this tutorial, we will secure MCP tool execution using an Authorization Proxy - exactly as we protected the API server with Athenz in earlier tutorials. MCP protocol bootstrap and `tools/list` remain public so clients can discover the server and its available tools before requesting access.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
@@ -22,7 +22,7 @@ In this tutorial, we will secure the MCP server using an Authorization Proxy - e
 
 ## Run Authorization Proxy for API MCP
 
-Deploy the authorization proxy as a sidecar container in the `mcp` deployment. It will intercept all incoming requests and verify the Athenz Access Token before forwarding to the real MCP server:
+Deploy the authorization proxy as a sidecar container in the `mcp` deployment. It allows protocol bootstrap and tool discovery without an access token, and verifies the Athenz Access Token before forwarding protected methods such as `tools/call` to the real MCP server:
 
 ```sh
 kubectl patch deploy mcp -n api --patch "$(cat <<'EOF'
@@ -127,7 +127,7 @@ get docs from k8s doc server!
 
 ![12_no_permission_to_access_mcp](./assets/12_no_permission_to_access_mcp.png)
 
-This fails because the proxy requires `access` on the `api:mcp` resource, and we have not created that policy yet.
+The client can still initialize and list the available tools. The tool call fails because the proxy requires `access` on the `api:mcp` resource for protected methods, and we have not created that policy yet.
 
 You can also see from the log of the `auth-proxy` container that the request was rejected:
 
@@ -242,7 +242,7 @@ kubectl logs deploy/mcp -n api -c auth-proxy
 
 ## Review Summary of Changes
 
-We deployed the Authorization Proxy in front of the MCP server. Only callers whose Access Token carries the `api:role.mcp-accessor` scope can reach the MCP server. Everything else is rejected at the proxy - the MCP server itself never sees an unauthorized request.
+We deployed the Authorization Proxy in front of the MCP server. Any client can initialize and list tools without an Athenz access role. Protected methods such as `tools/call` reach the MCP server only when the caller's Access Token carries the `api:role.mcp-accessor` scope.
 
 ## What's next?
 

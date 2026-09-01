@@ -119,7 +119,50 @@ describe("MCP Gateway", () => {
     })
   })
 
-  it("replaces the opaque session bearer with a per-session Athenz token and forwards by server id", async () => {
+  it("forwards MCP discovery without requesting an Athenz access token", async () => {
+    let receivedAuthorization = "not-observed"
+    let receivedBody = ""
+
+    await withHttpServer(async (request, response) => {
+      receivedAuthorization = request.headers.authorization ?? ""
+      for await (const chunk of request) receivedBody += chunk.toString()
+      response.setHeader("content-type", "application/json")
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { tools: [] } }))
+    }, async (coreMcpProxyUrl) => {
+      const sessionToken = sessionStore.create({
+        idToken: "stored-id-token",
+        subject: "keycloak-subject",
+        username: "idjag-learner",
+        expiresAt: Math.floor(Date.now() / 1000) + 300,
+      })
+
+      await withServer(async (baseUrl) => {
+        const response = await fetch(`${baseUrl}/mcp/k8s-docs-server`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${sessionToken}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+        })
+
+        assert.equal(response.status, 200)
+      }, {
+        resolveRoute: async () => ({
+          proxyUrl: `${coreMcpProxyUrl}/mcp/k8s-docs-server`,
+          accessScope: "api:role.mcp-accessor api:role.docs-getter",
+        }),
+        getAccessToken: async () => {
+          throw new Error("Public MCP discovery must not request an Athenz access token")
+        },
+      })
+
+      assert.equal(receivedAuthorization, "")
+      assert.deepEqual(JSON.parse(receivedBody), { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} })
+    })
+  })
+
+  it("replaces the opaque session bearer with a per-session Athenz token for tools/call", async () => {
     let receivedPath = ""
     let receivedAuthorization = ""
     let receivedSessionId = ""
@@ -152,7 +195,12 @@ describe("MCP Gateway", () => {
             "content-type": "application/json",
             "mcp-session-id": "client-session",
           },
-          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "tools/call",
+            params: { name: "get_k8s_docs", arguments: {} },
+          }),
         })
 
         assert.equal(response.status, 200)
@@ -173,7 +221,12 @@ describe("MCP Gateway", () => {
       assert.equal(receivedPath, "/mcp/k8s-docs-server?trace=1")
       assert.equal(receivedAuthorization, "Bearer user-scoped-athenz-at")
       assert.equal(receivedSessionId, "client-session")
-      assert.deepEqual(JSON.parse(receivedBody), { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} })
+      assert.deepEqual(JSON.parse(receivedBody), {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "get_k8s_docs", arguments: {} },
+      })
       assert.deepEqual(tokenRequest, {
         idToken: "stored-id-token",
         scope: "api:role.mcp-accessor api:role.docs-getter",

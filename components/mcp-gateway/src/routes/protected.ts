@@ -62,8 +62,9 @@ export function createProtectedRouter(overrides: Partial<ProtectedRouterDependen
 
     try {
       const route = await dependencies.resolveRoute(serverId)
-      const accessScope = route.accessScope ?? dependencies.accessScope
-      const accessToken = await dependencies.getAccessToken(session, accessScope)
+      const accessToken = isPublicMcpDiscoveryRequest(request)
+        ? undefined
+        : await dependencies.getAccessToken(session, route.accessScope ?? dependencies.accessScope)
       await proxyToCore({ request, response, accessToken, serverId, proxyUrl: route.proxyUrl })
     } catch (error) {
       const message = error instanceof Error ? error.message : "MCP Gateway forwarding failed"
@@ -97,7 +98,7 @@ async function proxyToCore({
 }: {
   request: Request
   response: Response
-  accessToken: string
+  accessToken?: string
   serverId: string
   proxyUrl: string
 }) {
@@ -153,7 +154,7 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade",
 ])
 
-function forwardedRequestHeaders(request: Request, accessToken: string) {
+function forwardedRequestHeaders(request: Request, accessToken?: string) {
   const headers = new Headers()
   for (const [key, value] of Object.entries(request.headers)) {
     if (!value || HOP_BY_HOP_HEADERS.has(key.toLowerCase()) || key.toLowerCase() === "host" || key.toLowerCase() === "authorization") {
@@ -161,9 +162,25 @@ function forwardedRequestHeaders(request: Request, accessToken: string) {
     }
     headers.set(key, Array.isArray(value) ? value.join(", ") : value)
   }
-  headers.set("authorization", `Bearer ${accessToken}`)
+  if (accessToken) headers.set("authorization", `Bearer ${accessToken}`)
   return headers
 }
+
+function isPublicMcpDiscoveryRequest(request: Request) {
+  if (request.method !== "POST" || !request.body || typeof request.body !== "object" || Array.isArray(request.body)) {
+    return false
+  }
+
+  const method = (request.body as { method?: unknown }).method
+  return typeof method === "string" && PUBLIC_MCP_METHODS.has(method)
+}
+
+const PUBLIC_MCP_METHODS = new Set([
+  "initialize",
+  "notifications/initialized",
+  "ping",
+  "tools/list",
+])
 
 function requestBody(request: Request): BodyInit | undefined {
   if (request.method === "GET" || request.method === "HEAD" || request.body === undefined) return undefined

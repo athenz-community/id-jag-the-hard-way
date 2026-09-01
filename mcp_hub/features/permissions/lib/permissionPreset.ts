@@ -37,7 +37,7 @@ export function parsePermissionPresetForServer(
   if (server.serverRequirements !== undefined) {
     groups.push({
       kind: "server",
-      label: "Server access",
+      label: "Protected MCP execution",
       requirements: parseRequirements(
         server.serverRequirements,
         `server requirements for ${serverId}`,

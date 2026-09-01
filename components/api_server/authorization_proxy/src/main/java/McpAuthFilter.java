@@ -19,6 +19,8 @@ import java.time.format.DateTimeFormatter;
 
 @Component
 public class McpAuthFilter implements Filter {
+    private static final int MAX_MCP_REQUEST_BYTES = 1024 * 1024;
+
     @Value("${mcp.resource:mcp}")
     private String mcpResource;
 
@@ -102,6 +104,24 @@ public class McpAuthFilter implements Filter {
             return;
         }
 
+        HttpServletRequest downstreamRequest = request;
+        if ("POST".equalsIgnoreCase(request.getMethod()) && isMcpEndpoint(request.getRequestURI())) {
+            byte[] body = request.getInputStream().readNBytes(MAX_MCP_REQUEST_BYTES + 1);
+            if (body.length > MAX_MCP_REQUEST_BYTES) {
+                sendJsonError(response, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                    "Request Too Large",
+                    "MCP requests must not exceed 1 MiB.");
+                return;
+            }
+
+            downstreamRequest = new ReplayableHttpServletRequest(request, body);
+            if (McpPublicMethods.contains(body)) {
+                System.out.println(String.format("[%s] [INFO] [MCP-Auth-Proxy] Authorization check skipped for public MCP discovery method", getTimestamp()));
+                chain.doFilter(downstreamRequest, response);
+                return;
+            }
+        }
+
         String authHeader = request.getHeader("Authorization");
         String token = (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
 
@@ -141,7 +161,7 @@ public class McpAuthFilter implements Filter {
             System.out.println(String.format("[%s] [INFO] [MCP-Auth-Proxy] ➡️ Forwarding to downstream MCP Server for API Server", 
                     getTimestamp()));
             
-            chain.doFilter(request, response);
+            chain.doFilter(downstreamRequest, response);
 
         } catch (Exception e) {
             System.err.println(String.format("[%s] [ERROR] [MCP-Auth-Proxy] 🔥 Auth Engine Error during %s %s: %s", 
@@ -149,6 +169,10 @@ public class McpAuthFilter implements Filter {
             e.printStackTrace();
             sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Auth Engine Error", e.getMessage());
         }
+    }
+
+    private boolean isMcpEndpoint(String requestUri) {
+        return "/mcp".equals(requestUri) || "/mcp/".equals(requestUri);
     }
 
     /**

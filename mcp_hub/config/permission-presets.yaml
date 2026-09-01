@@ -2,10 +2,10 @@ version: 1
 servers:
   k8s-docs-server:
     serverRequirements:
-    - label: Signed-in user can access the MCP server
+    - label: Signed-in user can invoke protected MCP methods
       member: <signed_in_user>
       role: api:role.mcp-accessor
-    - label: MCP Gateway can request MCP access
+    - label: MCP Gateway can request protected MCP access
       member: mcp-hub.mcp-gateway
       role: api:role.mcp-accessor-jag-exchanger
     tools:
