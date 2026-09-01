@@ -39,6 +39,9 @@ Registration is a real product goal. Users/providers should eventually be able t
 - `/api/mcp-servers` is also the service-authenticated registry contract used by MCP Gateway; it returns each stable route ID and Core MCP Proxy URL.
 - `/api/mcp-cache-status` exposes the Hub's sanitized Athenz access-token cache and aggregates sanitized MCP Gateway OAuth-session/cache metadata from `MCP_HUB_GATEWAY_STATUS_URL`. It must never expose token or session credential values.
 - The Tools page calls the running MCP server with JSON-RPC `tools/list`; Kubernetes annotations are not the source of truth for tools.
+- Curated permission requirements live as pure settings in `config/permission-presets.yaml`. `make local` generates the `mcp-hub-permission-presets` Kubernetes ConfigMap from that file, and the client-configuration page reads it before checking current direct role memberships through ZMS with the Hub's server-side certificate. Athenz remains the source of truth for real membership; the Hub does not grant or synchronize permissions.
+- Permission setup must enumerate tools from the live MCP `tools/list` result, not from the preset. The YAML maps requirements onto those tool names; tools without a preset remain visible with a warning, and request dialogs are informational until a real permission-request workflow exists.
+- `<signed_in_user>` is the only supported dynamic permission-preset member. It must occupy the complete `member` value. Unknown or partial placeholders are configuration errors and must never be skipped in a way that could produce a false ready state.
 - Most navigation and not-yet-implemented controls are disabled so missing surfaces are obvious.
 - Public images live in `public/icons/` and are referenced as `/icons/<file>`.
 - For the first real-data slice, prefer reading Kubernetes Deployments/Services with MCP Hub labels and annotations over adding a database.

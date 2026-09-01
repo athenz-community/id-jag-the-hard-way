@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, ClipboardList, Home } from "lucide-react"
 import Link from "next/link"
+import type { ReactNode } from "react"
 import { CopyButton } from "@/components/atoms/CopyButton"
 import { ServerLogo } from "@/components/atoms/ServerLogo"
 import { catalogServerSuffix, consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
@@ -120,15 +121,27 @@ export function McpServerUrlSection({ mcpServerUrl }: { mcpServerUrl: string }) 
   )
 }
 
-export function JsonConfigurationSection({ serverName, mcpServerUrl }: { serverName: string; mcpServerUrl: string }) {
+export function JsonConfigurationSection({
+  serverName,
+  mcpServerUrl,
+  permissionCheck,
+}: {
+  serverName: string
+  mcpServerUrl: string
+  permissionCheck: ReactNode
+}) {
   return (
     <section className="detail-section config-section" aria-labelledby="json-config-heading">
+      <span className="setup-sequence-label">MCP client setup</span>
       <h2 id="json-config-heading" className="section-title">
-        Client configuration
+        Configure your MCP client
       </h2>
-      <p className="section-copy">Add this configuration to your MCP client settings.</p>
 
-      <ClientConfiguration serverName={serverName} mcpServerUrl={mcpServerUrl} />
+      <ClientConfiguration
+        serverName={serverName}
+        mcpServerUrl={mcpServerUrl}
+        permissionCheck={permissionCheck}
+      />
     </section>
   )
 }

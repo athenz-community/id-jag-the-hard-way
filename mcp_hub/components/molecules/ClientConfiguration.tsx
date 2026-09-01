@@ -1,6 +1,7 @@
 "use client"
 
 import { Play } from "lucide-react"
+import type { ReactNode } from "react"
 import { useState } from "react"
 import { CopyButton } from "@/components/atoms/CopyButton"
 
@@ -234,7 +235,15 @@ function brokerArgs(mcpServerUrl: string) {
   return args
 }
 
-export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: string; mcpServerUrl: string }) {
+export function ClientConfiguration({
+  serverName,
+  mcpServerUrl,
+  permissionCheck,
+}: {
+  serverName: string
+  mcpServerUrl: string
+  permissionCheck: ReactNode
+}) {
   const [clientKey, setClientKey] = useState<ClientKey>("codex")
   const [scope, setScope] = useState<ScopeKey>("project")
   const client = CLIENTS.find((item) => item.key === clientKey) ?? CLIENTS[0]
@@ -280,22 +289,18 @@ export function ClientConfiguration({ serverName, mcpServerUrl }: { serverName: 
             <p>The first server opens browser sign-in once after npm starts the broker. Other server entries wait and reuse the shared Gateway session.</p>
           </div>
 
+          {permissionCheck}
+
           <div className="manual-grid">
             <div className="config-rail">
               <div className="config-step-card">
-                <span className="step-marker">1</span>
+                <span className="step-marker">2</span>
                 <div>
                   <h4>Copy the {client.format} configuration</h4>
                   <p>This sample is generated for {client.label} using the current MCP server URL.</p>
-                </div>
-              </div>
-
-              <div className="config-step-card">
-                <span className="step-marker">2</span>
-                <div>
-                  <h4>Save the configuration based on scope</h4>
-                  <p>Scope determines whether this applies at the project level or globally.</p>
                   <div className="scope-config">
+                    <h4>Save the configuration based on scope</h4>
+                    <p>Scope determines whether this applies at the project level or globally.</p>
                     <div className="scope-tabs" aria-label="Configuration scope">
                       {(["project", "global"] as const).map((scopeKey) => (
                         <button

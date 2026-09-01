@@ -117,6 +117,33 @@ NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE='@mlajkim/mcp-credential-broker@0.1.1'
 
 The first entry opens Keycloak login through MCP Gateway automatically; all entries for that Gateway reuse one opaque local session, so clients do not need a separate native OAuth login per MCP server. Kubernetes remains the source of each route ID and Gateway URL.
 
+## Permission Readiness Presets
+
+The client-configuration page can show required Athenz role memberships before the manual client setup. MCP Hub owns only the curated requirement definition; Athenz remains the source of truth for current role membership. The Hub checks membership through ZMS with its server-side certificate and never adds or synchronizes permissions.
+
+Edit the pure settings document at [`config/permission-presets.yaml`](./config/permission-presets.yaml). It starts with `version` and `servers` and contains no Kubernetes resource wrapper. `make local`, and therefore the repository-root `make ui`, generates and applies the `mcp-hub/mcp-hub-permission-presets` ConfigMap from that file before building and starting MCP Hub. The ConfigMap stores the document under `permission-presets.yaml`.
+
+The current preset contains only `k8s-docs-server`. Confluence intentionally has no entry, so any tools it returns remain visible with the yellow `No configuration found` state.
+
+The permission setup uses the live MCP `tools/list` response as the source of truth for available tools. Every returned tool is shown before manual client setup. A tool without a matching YAML entry is marked yellow as `No configuration found`; a configured tool shows its checked Athenz status. Missing permissions open a request dialog that lists the unresolved principal-to-role memberships and links to Athenz. MCP Hub does not submit the request yet.
+
+Use the exact reserved member value `<signed_in_user>` when a requirement belongs to the current browser session:
+
+```yaml
+member: <signed_in_user>
+role: api:role.docs-getter
+```
+
+It resolves to `human.<preferred_username>` by default. Override the Athenz domain with `MCP_HUB_PERMISSION_SIGNED_IN_USER_DOMAIN`. All other member values must be complete literal Athenz principals such as `mcp-hub.mcp-gateway` or `api.api-mcp`. Partial interpolation and unknown placeholders are rejected. A malformed preset produces a visible configuration error rather than silently omitting a requirement and reporting a false ready state.
+
+The current K8s Docs preset checks:
+
+- the signed-in user in `api:role.mcp-accessor` and `api:role.docs-getter`
+- `mcp-hub.mcp-gateway` in the corresponding `api:role.*-jag-exchanger` roles
+- `api.api-mcp` in `api:role.docs-getter-exchanger` for downstream token exchange
+
+Override the ConfigMap location when needed with `MCP_HUB_PERMISSION_CONFIG_MAP_NAMESPACE`, `MCP_HUB_PERMISSION_CONFIG_MAP_NAME`, and `MCP_HUB_PERMISSION_CONFIG_MAP_KEY`. In-cluster MCP Hub service accounts need read access to that ConfigMap.
+
 Configure the proxy origin with `MCP_HUB_CORE_PROXY_URL`. Local Docker `make local` uses `host.docker.internal` plus the local Core MCP Proxy port; host-side development can use `127.0.0.1`, and an in-cluster MCP Hub should use `http://core-mcp-proxy.mcp-hub:8080`.
 
 That API route reads Kubernetes deployments from all namespaces visible to the current Kubernetes client.

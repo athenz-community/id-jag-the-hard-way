@@ -31,11 +31,23 @@ KUBECONFIG_PATH ?= $(HOME)/.kube/config
 CONTAINER_KUBECONFIG_PATH ?= /root/.kube/config
 MCP_HUB_KUBECTL_SERVER ?= $(shell kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | sed -E 's\#://(127\.0\.0\.1|localhost)(:|/)\#://host.docker.internal\2\#')
 MCP_HUB_KUBECTL_TLS_SERVER_NAME ?= $(shell kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | sed -E 's\#https?://([^:/]+).*\#\1\#')
+MCP_HUB_PERMISSION_CONFIG_MAP_NAMESPACE ?= mcp-hub
+MCP_HUB_PERMISSION_CONFIG_MAP_NAME ?= mcp-hub-permission-presets
+MCP_HUB_PERMISSION_CONFIG_MAP_KEY ?= permission-presets.yaml
+MCP_HUB_PERMISSION_SIGNED_IN_USER_DOMAIN ?= human
+MCP_HUB_PERMISSION_PRESETS_FILE ?= config/permission-presets.yaml
 MCP_HUB_CERT_KEY ?= certs/mcp-hub-ui.key
 MCP_HUB_CERT ?= certs/mcp-hub-ui.crt
 MCP_HUB_CERT_KEY_VERSION ?= v1
 
-.PHONY: build build-image local register-idp-client renew-cert restart
+.PHONY: apply-permission-presets build build-image local register-idp-client renew-cert restart
+
+apply-permission-presets:
+	kubectl create configmap "$(MCP_HUB_PERMISSION_CONFIG_MAP_NAME)" \
+		--namespace "$(MCP_HUB_PERMISSION_CONFIG_MAP_NAMESPACE)" \
+		--from-file="$(MCP_HUB_PERMISSION_CONFIG_MAP_KEY)=$(MCP_HUB_PERMISSION_PRESETS_FILE)" \
+		--dry-run=client \
+		--output=yaml | kubectl apply -f -
 
 build:
 	npm install
@@ -71,7 +83,7 @@ renew-cert:
 restart: renew-cert
 	$(MAKE) local
 
-local:
+local: apply-permission-presets
 	@if docker container inspect "$(CONTAINER_NAME)" >/dev/null 2>&1; then \
 		printf 'Container "%s" already exists. Delete it? [Y/n] ' "$(CONTAINER_NAME)"; \
 		if ! read -r answer; then \
@@ -117,6 +129,10 @@ local:
 		--env KUBECONFIG=$(CONTAINER_KUBECONFIG_PATH) \
 		--env "MCP_HUB_KUBECTL_SERVER=$(MCP_HUB_KUBECTL_SERVER)" \
 		--env "MCP_HUB_KUBECTL_TLS_SERVER_NAME=$(MCP_HUB_KUBECTL_TLS_SERVER_NAME)" \
+		--env "MCP_HUB_PERMISSION_CONFIG_MAP_NAMESPACE=$(MCP_HUB_PERMISSION_CONFIG_MAP_NAMESPACE)" \
+		--env "MCP_HUB_PERMISSION_CONFIG_MAP_NAME=$(MCP_HUB_PERMISSION_CONFIG_MAP_NAME)" \
+		--env "MCP_HUB_PERMISSION_CONFIG_MAP_KEY=$(MCP_HUB_PERMISSION_CONFIG_MAP_KEY)" \
+		--env "MCP_HUB_PERMISSION_SIGNED_IN_USER_DOMAIN=$(MCP_HUB_PERMISSION_SIGNED_IN_USER_DOMAIN)" \
 		--mount type=bind,source="$(abspath certs)",target=$(CONTAINER_CERT_DIR),readonly \
 		--mount type=bind,source="$(abspath $(KUBECONFIG_PATH))",target=$(CONTAINER_KUBECONFIG_PATH),readonly \
 		$(IMAGE) >/dev/null
