@@ -35,6 +35,57 @@ it("runs the CLI when npm invokes it through a bin symlink", async () => {
   }
 })
 
+it("revokes and clears the shared Gateway session with --logout", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "idthw-mcp-broker-logout-test-"))
+  const source = fileURLToPath(new URL("../src/index.ts", import.meta.url))
+  const linkedBin = path.join(directory, "idthw-mcp-connect.ts")
+  let revokedToken = ""
+
+  try {
+    await symlink(source, linkedBin)
+    await withMockGateway(async (gatewayUrl) => {
+      const cacheDirectory = path.join(directory, "credentials")
+      const sessionStore = new SharedSessionStore(cacheDirectory)
+      await sessionStore.getOrCreate(gatewayUrl, async () => ({
+        version: 1,
+        issuer: gatewayUrl,
+        accessToken: "opaque-session-to-revoke",
+        tokenType: "Bearer",
+        expiresAt: Date.now() + 300_000,
+      }))
+
+      const { stdout, stderr } = await execFileAsync(
+        process.execPath,
+        ["--import", "tsx", linkedBin, "--logout"],
+        {
+          cwd: path.dirname(fileURLToPath(new URL("../package.json", import.meta.url))),
+          env: {
+            ...process.env,
+            IDTHW_MCP_CREDENTIAL_CACHE_DIR: cacheDirectory,
+            NODE_NO_WARNINGS: "1",
+          },
+        },
+      )
+
+      assert.equal(stdout, "Signed out of 1 shared MCP Gateway session.\n")
+      assert.equal(stderr, "")
+      assert.equal(revokedToken, "opaque-session-to-revoke")
+      const replacement = await sessionStore.getOrCreate(gatewayUrl, async () => ({
+        version: 1,
+        issuer: gatewayUrl,
+        accessToken: "new-session",
+        tokenType: "Bearer",
+        expiresAt: Date.now() + 300_000,
+      }))
+      assert.equal(replacement.accessToken, "new-session")
+    }, {
+      onRevoke: (token) => { revokedToken = token },
+    })
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 it("completes an MCP initialize handshake when launched through a bin symlink", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "idthw-mcp-broker-handshake-test-"))
   const source = fileURLToPath(new URL("../src/index.ts", import.meta.url))
@@ -94,7 +145,10 @@ it("completes an MCP initialize handshake when launched through a bin symlink", 
   }
 })
 
-async function withMockGateway(run: (gatewayUrl: string) => Promise<void>) {
+async function withMockGateway(
+  run: (gatewayUrl: string) => Promise<void>,
+  options: { onRevoke?: (token: string) => void } = {},
+) {
   let gatewayUrl = ""
   const server = createServer(async (request, response) => {
     if (request.url === "/.well-known/oauth-protected-resource/mcp/confluence-mcp") {
@@ -109,8 +163,16 @@ async function withMockGateway(run: (gatewayUrl: string) => Promise<void>) {
         authorization_endpoint: `${gatewayUrl}/oauth/authorize`,
         token_endpoint: `${gatewayUrl}/oauth/token`,
         registration_endpoint: `${gatewayUrl}/oauth/register`,
+        revocation_endpoint: `${gatewayUrl}/oauth/revoke`,
         code_challenge_methods_supported: ["S256"],
       }))
+      return
+    }
+    if (request.url === "/oauth/revoke" && request.method === "POST") {
+      let rawBody = ""
+      for await (const chunk of request) rawBody += chunk.toString()
+      options.onRevoke?.(new URLSearchParams(rawBody).get("token") ?? "")
+      response.writeHead(200).end()
       return
     }
     if (request.url === "/mcp/confluence-mcp" && request.method === "GET") {

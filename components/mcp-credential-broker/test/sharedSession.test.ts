@@ -100,6 +100,33 @@ describe("SharedSessionStore", () => {
     })
   })
 
+  it("clears every cached Gateway session for logout", async () => {
+    await withTemporaryDirectory(async (directory) => {
+      const secondIssuer = "https://second-gateway.example"
+      const store = new SharedSessionStore(directory)
+      await store.getOrCreate(ISSUER, async () => credential("first-session", Date.now() + 300_000))
+      await store.getOrCreate(
+        secondIssuer,
+        async () => credential("second-session", Date.now() + 300_000, secondIssuer),
+      )
+
+      const cleared = await store.clearAll()
+
+      assert.deepEqual(
+        cleared.map(({ issuer, accessToken }) => ({ issuer, accessToken })).sort((a, b) => a.issuer.localeCompare(b.issuer)),
+        [
+          { issuer: ISSUER, accessToken: "first-session" },
+          { issuer: secondIssuer, accessToken: "second-session" },
+        ],
+      )
+      const replacement = await store.getOrCreate(
+        ISSUER,
+        async () => credential("replacement-session", Date.now() + 300_000),
+      )
+      assert.equal(replacement.accessToken, "replacement-session")
+    })
+  })
+
   it("does not follow a credential-cache directory symlink", async () => {
     if (process.platform === "win32") return
     await withTemporaryDirectory(async (directory) => {
@@ -132,8 +159,8 @@ describe("SharedSessionStore", () => {
   })
 })
 
-function credential(accessToken: string, expiresAt: number): GatewayCredential {
-  return { version: 1, issuer: ISSUER, accessToken, tokenType: "Bearer", expiresAt }
+function credential(accessToken: string, expiresAt: number, issuer = ISSUER): GatewayCredential {
+  return { version: 1, issuer, accessToken, tokenType: "Bearer", expiresAt }
 }
 
 async function withTemporaryDirectory(run: (directory: string) => Promise<void>) {

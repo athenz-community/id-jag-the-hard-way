@@ -28,6 +28,7 @@ type AuthorizationServerMetadata = {
   authorization_endpoint?: unknown
   token_endpoint?: unknown
   registration_endpoint?: unknown
+  revocation_endpoint?: unknown
   code_challenge_methods_supported?: unknown
 }
 
@@ -151,6 +152,38 @@ export async function performAuthorizationCodeLogin(
   }
 }
 
+export async function revokeGatewayCredential(
+  credential: GatewayCredential,
+  options: { fetch?: FetchLike; allowInsecureHttp?: boolean } = {},
+): Promise<void> {
+  const fetchImpl = options.fetch ?? fetch
+  const advertisedIssuer = safeUrl(credential.issuer, "cached issuer", options.allowInsecureHttp)
+  const metadata = await fetchJson<AuthorizationServerMetadata>(
+    fetchImpl,
+    authorizationServerMetadataUrl(advertisedIssuer),
+  )
+  const issuer = requiredUrl(metadata.issuer, "issuer", options.allowInsecureHttp)
+  if (issuer !== advertisedIssuer.toString().replace(/\/$/, "")) {
+    throw new Error("OAuth metadata issuer does not match the cached Gateway session")
+  }
+
+  const revocationEndpoint = requiredUrl(
+    metadata.revocation_endpoint,
+    "revocation_endpoint",
+    options.allowInsecureHttp,
+  )
+  const response = await fetchImpl(revocationEndpoint, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    signal: AbortSignal.timeout(OAUTH_REQUEST_TIMEOUT_MS),
+    body: new URLSearchParams({
+      token: credential.accessToken,
+      token_type_hint: "access_token",
+    }),
+  })
+  if (!response.ok) throw new Error(`OAuth revocation endpoint returned HTTP ${response.status}`)
+}
+
 export function deriveS256CodeChallenge(verifier: string) {
   return crypto.createHash("sha256").update(verifier).digest("base64url")
 }
@@ -227,10 +260,20 @@ async function fetchJson<T>(fetchImpl: FetchLike, url: URL): Promise<T> {
 
 function requiredUrl(value: unknown, field: string, allowInsecureHttp = false) {
   if (typeof value !== "string") throw new Error(`OAuth metadata did not contain ${field}`)
+  const url = safeUrl(value, field, allowInsecureHttp)
+  return url.toString().replace(/\/$/, "")
+}
+
+function safeUrl(value: string, field: string, allowInsecureHttp = false) {
   const url = new URL(value)
   assertSafeUrl(url, allowInsecureHttp)
   if (url.username || url.password || url.hash) throw new Error(`OAuth ${field} URL is not safe`)
-  return url.toString().replace(/\/$/, "")
+  return url
+}
+
+function authorizationServerMetadataUrl(issuer: URL) {
+  const issuerPath = issuer.pathname === "/" ? "" : issuer.pathname.replace(/\/$/, "")
+  return new URL(`/.well-known/oauth-authorization-server${issuerPath}`, issuer.origin)
 }
 
 function assertSafeUrl(url: URL, allowInsecureHttp = false) {

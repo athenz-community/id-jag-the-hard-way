@@ -5,6 +5,7 @@ import {
   lstat,
   mkdir,
   open,
+  readdir,
   readFile,
   rename,
   unlink,
@@ -107,7 +108,7 @@ export class SharedSessionStore {
     throw new Error("Timed out waiting for another MCP connector to finish browser authentication")
   }
 
-  async invalidate(issuer: string, accessToken: string): Promise<void> {
+  async invalidate(issuer: string, accessToken: string): Promise<boolean> {
     await ensurePrivateDirectory(this.cacheDirectory)
     const paths = sessionPaths(this.cacheDirectory, issuer)
     const deadline = Date.now() + this.maxWaitMs
@@ -119,8 +120,9 @@ export class SharedSessionStore {
           const credential = await readCredential(paths.credential)
           if (credential?.issuer === issuer && credential.accessToken === accessToken) {
             await unlinkIfPresent(paths.credential)
+            return true
           }
-          return
+          return false
         } finally {
           await releaseOwnedLock(paths.lock, owner.nonce)
         }
@@ -131,6 +133,29 @@ export class SharedSessionStore {
     }
 
     throw new Error("Timed out waiting to invalidate a rejected Gateway session")
+  }
+
+  async clearAll(): Promise<GatewayCredential[]> {
+    await ensurePrivateDirectory(this.cacheDirectory)
+    const entries = await readdir(this.cacheDirectory, { withFileTypes: true })
+    const cleared: GatewayCredential[] = []
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !/^[a-f0-9]{64}\.json$/.test(entry.name)) continue
+
+      const file = path.join(this.cacheDirectory, entry.name)
+      const credential = await readCredential(file)
+      if (!credential || sessionPaths(this.cacheDirectory, credential.issuer).credential !== file) {
+        await unlinkIfPresent(file)
+        continue
+      }
+
+      if (await this.invalidate(credential.issuer, credential.accessToken)) {
+        cleared.push(credential)
+      }
+    }
+
+    return cleared
   }
 
   private async readUsable(file: string, issuer: string) {

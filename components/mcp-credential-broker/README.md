@@ -10,13 +10,29 @@ Codex slack entry      -> broker -> /mcp/slack -------+
 
 Each MCP client entry remains separate, so clients such as Codex can show independent server connection state and tool counts. The broker does not aggregate or rename tools.
 
-## Run with npx
+## Public npm Package
 
-The package uses the standard npm registry and can be run directly with `npx`:
+The package is published as a public scoped package on npmjs.com. Installing or running it does not require an npm account or registry token:
 
 ```sh
 npx -y @mlajkim/mcp-credential-broker@latest https://mcp-gateway.example/mcp/confluence
 ```
+
+To sign out every connector that shares the cached Gateway session, run:
+
+```sh
+npx -y @mlajkim/mcp-credential-broker@latest --logout
+```
+
+Logout removes each local cached session and revokes its opaque token through the revocation endpoint advertised by that Gateway. The next connector request opens browser sign-in again.
+
+Every same-repository pull request publishes a unique prerelease version and updates its `pr-<number>` tag on npm. For example, PR 212 can be tested before merge with:
+
+```sh
+npx -y @mlajkim/mcp-credential-broker@pr-212 --logout
+```
+
+Merging to `main` publishes the version from `package.json` under the `latest` tag after the package checks pass.
 
 ## Client Configuration
 
@@ -83,6 +99,7 @@ Credentials are keyed by the discovered authorization-server issuer, not by MCP 
 - An exclusive cross-process lock permits only one browser flow at a time.
 - A terminated connector's old lock is reclaimed after ten minutes.
 - Expired credentials are replaced, and an HTTP 401 invalidates only the matching cached token before one retry.
+- `--logout` clears every cached Gateway session under the same per-issuer lock and revokes each opaque token remotely.
 - ID tokens, ID-JAGs, Athenz access tokens, client secrets, authorization codes, and PKCE verifiers are never persisted.
 
 The shared opaque session proves one signed-in human identity; it does not combine route permissions. Route-specific scope and policy enforcement stay in MCP Gateway and Athenz.
