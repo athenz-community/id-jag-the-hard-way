@@ -4,20 +4,20 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "api_server/authorization_proxy/**"
+      - "components/api_server/authorization_proxy/**"
       - ".github/workflows/publish-mcp-authorization-proxy.yml"
   pull_request:
   # pull_request_target:
     branches: [ "main" ]
     paths:
-      - "api_server/authorization_proxy/**"
+      - "components/api_server/authorization_proxy/**"
       - ".github/workflows/publish-mcp-authorization-proxy.yml"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: mcp-authorization-proxy
-  BUILD_DIR: ./api_server/authorization_proxy
+  BUILD_DIR: ./components/api_server/authorization_proxy
 
 jobs:
   build-and-push:

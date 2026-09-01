@@ -4,20 +4,20 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "api_server/mcp/**"
+      - "components/api_server/mcp/**"
       - ".github/workflows/publish-mcp.yml"
   pull_request:
   # pull_request_target:
     branches: [ "main" ]
     paths:
-      - "api_server/mcp/**"
+      - "components/api_server/mcp/**"
       - ".github/workflows/publish-mcp.yml"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: mcp
-  BUILD_DIR: ./api_server/mcp
+  BUILD_DIR: ./components/api_server/mcp
 
 jobs:
   build-and-push:

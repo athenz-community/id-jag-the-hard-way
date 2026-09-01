@@ -12,9 +12,9 @@ The architecture implements the [ID-JAG specification](https://techblog.lycorp.c
 
 The repository contains these runtime components and supporting plugins:
 
-1. **`api_server/`** — Java 17 (Maven) REST API that enforces Athenz access tokens. Also contains two sub-services:
-   - **`api_server/mcp/`** — Node.js/TypeScript MCP (Model Context Protocol) server that performs token exchange with Athenz ZTS before calling the API server.
-   - **`api_server/authorization_proxy/`** — Spring Boot 3.2.5 proxy that sits in front of the MCP server and validates Athenz access tokens.
+1. **`components/api_server/`** — Java 17 (Maven) REST API that enforces Athenz access tokens. Also contains two sub-services:
+   - **`components/api_server/mcp/`** — Node.js/TypeScript MCP (Model Context Protocol) server that performs token exchange with Athenz ZTS before calling the API server.
+   - **`components/api_server/authorization_proxy/`** — Spring Boot 3.2.5 proxy that sits in front of the MCP server and validates Athenz access tokens.
 
 2. **`ai_client_gateway/`** — Node.js/TypeScript Express proxy that intercepts AI client requests, converts ID tokens to ID-JAG tokens via Athenz, and injects the appropriate access token before forwarding to the MCP server.
 
@@ -71,13 +71,13 @@ All local development uses `make` commands. Maven commands pass `-Dmaven.resolve
 
 ```sh
 # API Server (Java, port 14443)
-make -C api_server local
+make -C components/api_server local
 
 # MCP Server (Node.js/TypeScript, port 8101)
-make -C api_server mcp-local
+make -C components/api_server mcp-local
 
 # MCP Authorization Proxy (Spring Boot, port 8102 → 8101)
-make -C api_server mcp-proxy-local
+make -C components/api_server mcp-proxy-local
 
 # AI Client Gateway (Node.js/TypeScript, port 3101)
 make -C ai_client_gateway local
@@ -119,9 +119,9 @@ The provider Dockerfiles are export-only — they copy their built JARs into a m
 
 | Component                          | Language   | Runtime / Framework                     |
 |------------------------------------|------------|-----------------------------------------|
-| `api_server`                       | Java 17    | Maven, Athenz libs                      |
-| `api_server/mcp`                   | TypeScript | Node.js 22, Express 5                   |
-| `api_server/authorization_proxy`   | Java 17    | Spring Boot 3.2.5, Spring Cloud Gateway |
+| `components/api_server`                       | Java 17    | Maven, Athenz libs                      |
+| `components/api_server/mcp`                   | TypeScript | Node.js 22, Express 5                   |
+| `components/api_server/authorization_proxy`   | Java 17    | Spring Boot 3.2.5, Spring Cloud Gateway |
 | `ai_client_gateway`                | TypeScript | Node.js 22, Express                     |
 | `components/athenzd`               | Go 1.25    | Cobra, Viper                            |
 | `components/keycloak_token_exchange_provider` | Java 11 | Maven, Keycloak SPI                  |
