@@ -6,7 +6,7 @@ source "${TOOLS_DIR}/color.sh"
 _zts_port=$("$TOOLS_DIR/port.sh" zts)
 
 if [ $# -lt 4 ]; then
-  fatal "Usage: $0 <cert_path> <key_path> <id_jag_token> <scope> [output_file] [--actor <actor>] [--output <output_file>]"
+  fatal "Usage: $0 <cert_path> <key_path> <id_jag_token> <scope> [output_file] [--actor <actor>] [--audience <audience>] [--output <output_file>]"
 fi
 
 cert_path=$1
@@ -17,6 +17,7 @@ shift 4
 
 output=""
 actor=""
+audience=""
 ca_cert="./athenz_dist/certs/ca.cert.pem"
 zts_url="https://localhost:${_zts_port}/zts/v1/oauth2/token"
 
@@ -25,6 +26,11 @@ while [ $# -gt 0 ]; do
     --actor)
       [ $# -ge 2 ] || fatal "Missing value for --actor"
       actor=$2
+      shift 2
+      ;;
+    --audience)
+      [ $# -ge 2 ] || fatal "Missing value for --audience"
+      audience=$2
       shift 2
       ;;
     --output)
@@ -62,6 +68,10 @@ curl_args=(
 
 if [ -n "${actor}" ]; then
   curl_args+=(--data-urlencode "actor=${actor}")
+fi
+
+if [ -n "${audience}" ]; then
+  curl_args+=(--data-urlencode "audience=${audience}")
 fi
 
 response=$(curl "${curl_args[@]}")
