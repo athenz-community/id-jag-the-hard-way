@@ -1,14 +1,14 @@
 # Goal
 
-Verify all nine ID-JAG-to-access-token scope combinations:
+Verify all twelve ID-JAG-to-access-token scope combinations, including the default behavior when the access-token request omits the `scope` parameter:
 
-| ID-JAG input            | Single-scope AT | Same-domain multi-scope AT | Multi-domain AT |
-|-------------------------|:---------------:|:--------------------------:|:---------------:|
-| Single scope            |    ✅ Success    |        👍 Rejected         |   👍 Rejected   |
-| Same-domain multi-scope |    ✅ Success    |         ✅ Success          |   👍 Rejected   |
-| Multi-domain scope      |    ✅ Success    |         ✅ Success          |    ✅ Success    |
+| ID-JAG input            | Single-scope AT | Same-domain multi-scope AT | Multi-domain AT |  No scope specified AT (default)  |
+|-------------------------|:---------------:|:--------------------------:|:---------------:|:---------------------------------:|
+| Single scope            |    ✅ Success    |        👍 Rejected         |   👍 Rejected   |       ✅ Inherits one scope        |
+| Same-domain multi-scope |    ✅ Success    |         ✅ Success          |   👍 Rejected   |      ✅ Inherits both scopes       |
+| Multi-domain scope      |    ✅ Success    |         ✅ Success          |    ✅ Success    | ✅ Inherits all; audience required |
 
-An access-token exchange may keep or remove scopes from the ID-JAG, but it must not add a scope.
+An access-token exchange may keep or remove scopes from the ID-JAG, but it must not add a scope. The default fourth column keeps the complete ID-JAG assertion scope. A multi-domain result still requires a scope-domain audience.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
@@ -24,10 +24,11 @@ An access-token exchange may keep or remove scopes from the ID-JAG, but it must 
 <details>
 <summary>Last verified on Sep 2, 2026 — ✅ Success</summary>
 
-| # | Date        | Confirmed Working                                                                             |
-|---|-------------|-----------------------------------------------------------------------------------------------|
-| 1 | Sep 2, 2026 | ✅ All six allowed combinations succeeded; 👍 all three scope-expansion attempts were rejected |
-| 2 | Sep 2, 2026 | 👍 Missing and invalid audiences were rejected; ✅ both scope-domain audiences succeeded       |
+| # | Date        | Confirmed Working                                                                                       |
+|---|-------------|---------------------------------------------------------------------------------------------------------|
+| 1 | Sep 2, 2026 | ✅ All six allowed combinations succeeded; 👍 all three scope-expansion attempts were rejected           |
+| 2 | Sep 2, 2026 | 👍 Missing and invalid audiences were rejected; ✅ both scope-domain audiences succeeded                 |
+| 3 | Sep 2, 2026 | ✅ An omitted request scope inherited the complete ID-JAG scope; multi-domain still required an audience |
 
 </details>
 
@@ -41,6 +42,8 @@ An access-token exchange may keep or remove scopes from the ID-JAG, but it must 
 
 Run all commands from the ID-JAG The Hard Way repository root.
 Raw access-token values are recorded as `<redacted>`; rerun the preceding command when the complete current token is required.
+The helper's optional fourth argument is the requested scope. Leaving it out omits the `scope` form field entirely; it does not send `scope=`.
+The ID-JAG assertion still contains its mandatory scope claim. Only the ID-JAG-to-access-token request omits the optional scope parameter. Although the current ZTS implementation treats a blank `scope=` as not requested, these checks use true parameter omission so the result does not depend on that normalization.
 
 ## Setup 1. Create the second-domain role and JAG exchange permission
 
@@ -175,6 +178,35 @@ _single_id_jag=$(./tools/athenz/fetch-id-jag.sh \
 # }
 ```
 
+Omitting the requested scope succeeds and inherits the ID-JAG's single scope:
+
+```sh
+./tools/athenz/fetch-access-token-with-id-jag.sh \
+  ./keys/human-idjag-learner-claude.crt \
+  ./keys/human-idjag-learner-claude.key \
+  "$_single_id_jag"
+```
+
+```sh
+#   ·  Fetching Access Token with ID_JAG without a requested scope...
+#   ✔  Access token issued with ID_JAG without a requested scope
+# {
+#   "typ": "at+jwt",
+#   "alg": "RS256"
+# }
+# {
+#   "sub": "human.idjag-learner",
+#   "scp": [
+#     "docs-getter"
+#   ],
+#   "client_id": "human.idjag-learner.claude",
+#   "aud": "api",
+#   "uid": "human.idjag-learner",
+#   "scope": "docs-getter"
+# }
+# <redacted>
+```
+
 Single scope to single scope succeeds:
 
 ```sh
@@ -292,6 +324,36 @@ _same_domain_id_jag=$(./tools/athenz/fetch-id-jag.sh \
 #   "jti": "db944ba0-e6a7-457c-90ad-6be4457af3a9",
 #   "client_id": "human.idjag-learner.claude"
 # }
+```
+
+Omitting the requested scope succeeds and inherits both same-domain scopes:
+
+```sh
+./tools/athenz/fetch-access-token-with-id-jag.sh \
+  ./keys/human-idjag-learner-claude.crt \
+  ./keys/human-idjag-learner-claude.key \
+  "$_same_domain_id_jag"
+```
+
+```sh
+#   ·  Fetching Access Token with ID_JAG without a requested scope...
+#   ✔  Access token issued with ID_JAG without a requested scope
+# {
+#   "typ": "at+jwt",
+#   "alg": "RS256"
+# }
+# {
+#   "sub": "human.idjag-learner",
+#   "scp": [
+#     "docs-getter",
+#     "mcp-accessor"
+#   ],
+#   "client_id": "human.idjag-learner.claude",
+#   "aud": "api",
+#   "uid": "human.idjag-learner",
+#   "scope": "docs-getter mcp-accessor"
+# }
+# <redacted>
 ```
 
 Downscoping to one role succeeds:
@@ -433,6 +495,89 @@ _multi_domain_id_jag=$(./tools/athenz/fetch-id-jag.sh \
 #   "jti": "e91c3db6-8ef3-4898-b8f4-249f7866a9d9",
 #   "client_id": "human.idjag-learner.claude"
 # }
+```
+
+Omitting both the requested scope and the audience is rejected. The effective scope is the complete multi-domain ID-JAG scope, so ZTS still requires an audience:
+
+```sh
+./tools/athenz/fetch-access-token-with-id-jag.sh \
+  ./keys/human-idjag-learner-claude.crt \
+  ./keys/human-idjag-learner-claude.key \
+  "$_multi_domain_id_jag"
+```
+
+```sh
+#   ·  Fetching Access Token with ID_JAG without a requested scope...
+#   ✘  Failed to issue an access token with ID_JAG. ZTS Response:
+# {
+#   "code": 400,
+#   "message": "Multiple scope domains require an audience"
+# }
+# ✘ Token issuance failed without a requested scope
+```
+
+Omitting the requested scope with `api` as the audience succeeds and inherits every ID-JAG scope:
+
+```sh
+./tools/athenz/fetch-access-token-with-id-jag.sh \
+  ./keys/human-idjag-learner-claude.crt \
+  ./keys/human-idjag-learner-claude.key \
+  "$_multi_domain_id_jag" \
+  --audience api
+```
+
+```sh
+#   ·  Fetching Access Token with ID_JAG without a requested scope...
+#   ✔  Access token issued with ID_JAG without a requested scope
+# {
+#   "typ": "at+jwt",
+#   "alg": "RS256"
+# }
+# {
+#   "sub": "human.idjag-learner",
+#   "scp": [
+#     "docs-getter",
+#     "mcp-accessor",
+#     "api.multi-scoped:role.docs-getter"
+#   ],
+#   "client_id": "human.idjag-learner.claude",
+#   "aud": "api",
+#   "uid": "human.idjag-learner",
+#   "scope": "docs-getter mcp-accessor api.multi-scoped:role.docs-getter"
+# }
+# <redacted>
+```
+
+Selecting `api.multi-scoped` as the audience also inherits every scope, but changes which domain's roles are short:
+
+```sh
+./tools/athenz/fetch-access-token-with-id-jag.sh \
+  ./keys/human-idjag-learner-claude.crt \
+  ./keys/human-idjag-learner-claude.key \
+  "$_multi_domain_id_jag" \
+  --audience api.multi-scoped
+```
+
+```sh
+#   ·  Fetching Access Token with ID_JAG without a requested scope...
+#   ✔  Access token issued with ID_JAG without a requested scope
+# {
+#   "typ": "at+jwt",
+#   "alg": "RS256"
+# }
+# {
+#   "sub": "human.idjag-learner",
+#   "scp": [
+#     "api:role.docs-getter",
+#     "api:role.mcp-accessor",
+#     "docs-getter"
+#   ],
+#   "client_id": "human.idjag-learner.claude",
+#   "aud": "api.multi-scoped",
+#   "uid": "human.idjag-learner",
+#   "scope": "api:role.docs-getter api:role.mcp-accessor docs-getter"
+# }
+# <redacted>
 ```
 
 Downscoping to one role succeeds:

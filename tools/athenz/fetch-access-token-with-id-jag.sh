@@ -5,15 +5,20 @@ TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${TOOLS_DIR}/color.sh"
 _zts_port=$("$TOOLS_DIR/port.sh" zts)
 
-if [ $# -lt 4 ]; then
-  fatal "Usage: $0 <cert_path> <key_path> <id_jag_token> <scope> [output_file] [--actor <actor>] [--audience <audience>] [--output <output_file>]"
+if [ $# -lt 3 ]; then
+  fatal "Usage: $0 <cert_path> <key_path> <id_jag_token> [scope] [output_file] [--actor <actor>] [--audience <audience>] [--output <output_file>]"
 fi
 
 cert_path=$1
 key_path=$2
 id_jag_token=$3
-scope=$4
-shift 4
+scope=""
+shift 3
+
+if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+  scope=$1
+  shift
+fi
 
 output=""
 actor=""
@@ -51,7 +56,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-info "Fetching Access Token with ID_JAG for scope: ${scope}..." >&2
+if [ -n "${scope}" ]; then
+  info "Fetching Access Token with ID_JAG for scope: ${scope}..." >&2
+else
+  info "Fetching Access Token with ID_JAG without a requested scope..." >&2
+fi
 
 curl_args=(
   -sS
@@ -62,9 +71,12 @@ curl_args=(
   -H "Content-Type: application/x-www-form-urlencoded"
   --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer"
   --data-urlencode "assertion=${id_jag_token}"
-  --data-urlencode "scope=${scope}"
   --data-urlencode "expires_in=3600"
 )
+
+if [ -n "${scope}" ]; then
+  curl_args+=(--data-urlencode "scope=${scope}")
+fi
 
 if [ -n "${actor}" ]; then
   curl_args+=(--data-urlencode "actor=${actor}")
@@ -80,10 +92,17 @@ token=$(echo "${response}" | jq -r '.access_token // empty')
 if [ -z "${token}" ]; then
   err "Failed to issue an access token with ID_JAG. ZTS Response:" >&2
   echo "${response}" | jq . >&2
-  fatal "Token issuance failed for scope: ${scope}"
+  if [ -n "${scope}" ]; then
+    fatal "Token issuance failed for scope: ${scope}"
+  fi
+  fatal "Token issuance failed without a requested scope"
 fi
 
-ok "Access token issued with ID_JAG for scope: ${scope}" >&2
+if [ -n "${scope}" ]; then
+  ok "Access token issued with ID_JAG for scope: ${scope}" >&2
+else
+  ok "Access token issued with ID_JAG without a requested scope" >&2
+fi
 echo "${token}" | jq -R 'split(".") | .[0] | @base64d | fromjson' >&2
 echo "${token}" | jq -R 'split(".") | .[1] | @base64d | fromjson' >&2
 
