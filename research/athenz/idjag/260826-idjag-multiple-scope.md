@@ -4,12 +4,8 @@ The goal of this document is to verify whether one ID-JAG can carry multiple Ath
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
-- [Step 1. Create a temporary second Athenz domain](#step-1-create-a-temporary-second-athenz-domain)
-- [Step 2. Configure the second-domain target and JAG exchange roles](#step-2-configure-the-second-domain-target-and-jag-exchange-roles)
-- [Step 3. Make the temporary domain available to ZTS](#step-3-make-the-temporary-domain-available-to-zts)
-- [Step 4. Fetch the Keycloak ID token](#step-4-fetch-the-keycloak-id-token)
-- [Step 5. Confirm a cross-domain ID-JAG is rejected](#step-5-confirm-a-cross-domain-id-jag-is-rejected)
-- [Step 6. Issue one same-domain ID-JAG with multiple scopes](#step-6-issue-one-same-domain-id-jag-with-multiple-scopes)
+- [Step 1. Confirm a cross-domain ID-JAG is rejected](#step-1-confirm-a-cross-domain-id-jag-is-rejected)
+- [Step 2. Issue one same-domain ID-JAG with multiple scopes](#step-2-issue-one-same-domain-id-jag-with-multiple-scopes)
 
 <!-- /TOC -->
 
@@ -37,80 +33,64 @@ This tutorial requires the following to be completed:
 
 Here is the procedure to get to the goals.
 
-## Step 1. Create a temporary second Athenz domain
+## Setup 1. Create a temporary second Athenz domain
 
-Use `api` as the first domain and create `api.idjag-multiple-scopes` as an isolated second domain:
+Use `api` as the first domain and create `api.multi-scoped` as an isolated second domain:
 
 ```sh
-./tools/athenz/create-subdomain.sh api idjag-multiple-scopes
+./tools/athenz/create-subdomain.sh api multi-scoped
 ```
 
 ```sh
-#   ·  Creating Subdomain: api.idjag-multiple-scopes...
-#   ✔  Subdomain created: api.idjag-multiple-scopes
+#   ·  Creating Subdomain: api.multi-scoped...
+#   ✔  Subdomain created: api.multi-scoped
 ```
 
 The completed tutorial already provides the first-domain roles `api:role.docs-getter` and `api:role.mcp-accessor`, their user memberships, and the matching JAG exchange permissions for `human.idjag-learner.claude`.
 
-## Step 2. Configure the second-domain target and JAG exchange roles
+## Setup 2. Configure the second-domain target and JAG exchange roles
 
 Create the second-domain target role and add the delegated human:
 
 ```sh
-./tools/athenz/create-role.sh api.idjag-multiple-scopes docs-getter
+./tools/athenz/create-role.sh api.multi-scoped docs-getter
 ./tools/athenz/add-role-member.sh \
-  api.idjag-multiple-scopes \
+  api.multi-scoped \
   docs-getter \
   human.idjag-learner
 ```
 
 ```sh
-#   ✔  Role created: api.idjag-multiple-scopes:role.docs-getter
-#   ✔  human.idjag-learner  →  api.idjag-multiple-scopes:role.docs-getter
+#   ✔  Role created: api.multi-scoped:role.docs-getter
+#   ✔  human.idjag-learner  →  api.multi-scoped:role.docs-getter
 ```
 
 Create the corresponding JAG exchanger role, grant `zts.jag_exchange` on the target, and add the Claude service identity:
 
 ```sh
 ./tools/athenz/create-role.sh \
-  api.idjag-multiple-scopes \
+  api.multi-scoped \
   docs-getter-jag-exchanger
 
 ./tools/athenz/add-policy.sh \
-  api.idjag-multiple-scopes \
+  api.multi-scoped \
   docs-getter-jag-exchanger \
   zts.jag_exchange \
   role.docs-getter
 
 ./tools/athenz/add-role-member.sh \
-  api.idjag-multiple-scopes \
+  api.multi-scoped \
   docs-getter-jag-exchanger \
   human.idjag-learner.claude
 ```
 
 ```sh
-#   ✔  Role created: api.idjag-multiple-scopes:role.docs-getter-jag-exchanger
-#   ✔  Policy created: api.idjag-multiple-scopes:policy.docs-getter-jag-exchanger_zts_jag_exchange_role_docs-getter
-#   ✔  human.idjag-learner.claude  →  api.idjag-multiple-scopes:role.docs-getter-jag-exchanger
+#   ✔  Role created: api.multi-scoped:role.docs-getter-jag-exchanger
+#   ✔  Policy created: api.multi-scoped:policy.docs-getter-jag-exchanger_zts_jag_exchange_role_docs-getter
+#   ✔  human.idjag-learner.claude  →  api.multi-scoped:role.docs-getter-jag-exchanger
 ```
 
-## Step 3. Make the temporary domain available to ZTS
-
-The local ZTS data store must load the newly created domain before it can issue a token for it. Wait for the normal domain-data refresh, or restart only the local ZTS deployment for a deterministic test:
-
-```sh
-kubectl -n athenz rollout restart deployment/athenz-zts-server
-kubectl -n athenz rollout status deployment/athenz-zts-server --timeout=180s
-```
-
-```sh
-# deployment.apps/athenz-zts-server restarted
-# deployment "athenz-zts-server" successfully rolled out
-```
-
-If the existing port-forward was interrupted by the rollout, wait for `tools/keep-k8s-port-forward.sh` to reconnect before continuing.
-
-## Step 4. Fetch the Keycloak ID token
+## Setup 3. Fetch the Keycloak ID token
 
 Enable Direct Access Grants for the tutorial client and fetch an ID token for `idjag-learner`:
 
@@ -161,12 +141,12 @@ _id_token=$(./tools/keycloak/get-id-token.sh \
 # }
 ```
 
-## Step 5. Confirm a cross-domain ID-JAG is rejected
+## Step 1. Confirm a cross-domain ID-JAG is rejected
 
-First test the target case by requesting one role from `api` and one role from `api.idjag-multiple-scopes` in the same ID-JAG:
+First test the target case by requesting one role from `api` and one role from `api.multi-scoped` in the same ID-JAG:
 
 ```sh
-_cross_domain_scope="api:role.docs-getter api.idjag-multiple-scopes:role.docs-getter"
+_cross_domain_scope="api:role.docs-getter api.multi-scoped:role.docs-getter"
 
 ./tools/athenz/fetch-id-jag.sh \
   ./keys/human-idjag-learner-claude.crt \
@@ -176,7 +156,7 @@ _cross_domain_scope="api:role.docs-getter api.idjag-multiple-scopes:role.docs-ge
 ```
 
 ```sh
-#   ·  Exchanging id_token for ID_JAG (scope: api:role.docs-getter api.idjag-multiple-scopes:role.docs-getter)...
+#   ·  Exchanging id_token for ID_JAG (scope: api:role.docs-getter api.multi-scoped:role.docs-getter)...
 #   ✘  Failed to fetch ID_JAG. ZTS response:
 # {
 #   "code": 400,
@@ -186,7 +166,7 @@ _cross_domain_scope="api:role.docs-getter api.idjag-multiple-scopes:role.docs-ge
 
 This failure happens during ID-JAG issuance. No cross-domain ID-JAG is issued.
 
-## Step 6. Issue one same-domain ID-JAG with multiple scopes
+## Step 2. Issue one same-domain ID-JAG with multiple scopes
 
 Use two roles from the same `api` domain as the control case. This distinguishes the cross-domain restriction from a general restriction on multiple scopes:
 
@@ -224,12 +204,12 @@ _same_domain_id_jag=$(./tools/athenz/fetch-id-jag.sh \
 Delete the isolated subdomain. This also removes the temporary roles and policy created inside it:
 
 ```sh
-./tools/athenz/delete-domain.sh api.idjag-multiple-scopes
+./tools/athenz/delete-domain.sh api.multi-scoped
 ```
 
 ```sh
-#   ·  Deleting domain: api.idjag-multiple-scopes...
-#   ✔  Domain deleted (or did not exist): api.idjag-multiple-scopes
+#   ·  Deleting domain: api.multi-scoped...
+#   ✔  Domain deleted (or did not exist): api.multi-scoped
 ```
 
 # Reference
