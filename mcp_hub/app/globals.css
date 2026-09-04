@@ -482,7 +482,7 @@ input:disabled {
   list-style: none;
 }
 
-.mcp-create-step button {
+.mcp-create-step :is(button, a) {
   width: 100%;
   display: flex;
   align-items: center;
@@ -495,9 +495,10 @@ input:disabled {
   font-size: 18px;
   font-weight: 800;
   text-align: left;
+  text-decoration: none;
 }
 
-.mcp-create-step.active button {
+.mcp-create-step.active :is(button, a) {
   background: rgb(2 96 234 / 10%);
 }
 
@@ -517,7 +518,7 @@ input:disabled {
   font-size: 18px;
 }
 
-.mcp-create-step.active .mcp-create-step-number {
+.mcp-create-step:is(.active, .finished) .mcp-create-step-number {
   background: var(--blue);
 }
 
@@ -543,6 +544,13 @@ input:disabled {
 .mcp-create-fieldset legend span,
 .mcp-create-field > label span {
   color: #e12d39;
+}
+
+.mcp-create-field-copy {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .mcp-create-choice-list {
@@ -616,8 +624,83 @@ input:disabled {
   line-height: 20px;
 }
 
+.mcp-create-field > .mcp-create-field-warning {
+  margin: 8px 0 0;
+  color: #a35b00;
+  font-weight: 750;
+}
+
 .mcp-create-field .filter-select {
   width: 100%;
+}
+
+.mcp-create-notice {
+  max-width: 880px;
+  margin: 16px 0 0;
+  border: 1px solid #9ec7f8;
+  padding: 12px 14px;
+  background: #f2f7fe;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.mcp-create-env-table-wrap {
+  max-width: 900px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+}
+
+.mcp-create-env-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  border: 1px solid var(--line);
+}
+
+.mcp-create-env-table th,
+.mcp-create-env-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.mcp-create-env-table th {
+  background: #f7f7f8;
+  color: var(--text-secondary);
+  font-weight: 800;
+}
+
+.mcp-create-env-table th span {
+  color: #e12d39;
+}
+
+.mcp-create-env-table th:nth-child(n + 3),
+.mcp-create-env-table td:nth-child(n + 3) {
+  width: 100px;
+  text-align: center;
+}
+
+.mcp-create-env-table .filter-select {
+  width: 100%;
+}
+
+.mcp-create-inline-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.mcp-create-service-account {
+  width: min(75%, 780px);
+}
+
+.mcp-create-service-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .mcp-create-suggestions {
@@ -655,6 +738,13 @@ input:disabled {
   margin: 32px -24px -24px;
   border-top: 1px solid var(--line);
   padding: 20px 24px;
+}
+
+.button.mcp-create-primary {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #ffffff;
+  text-decoration: none;
 }
 
 .filter-row {

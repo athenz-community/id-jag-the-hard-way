@@ -1,0 +1,62 @@
+"use client"
+
+import { normalizeMcpKeyName } from "@/features/mcp-servers/lib/mcpKeyName"
+import { useMcpCreateDraft } from "../McpCreateDraftContext"
+
+export function McpServerIdentityFields() {
+  const { draft, setDraft } = useMcpCreateDraft()
+
+  function updateServerName(nextServerName: string) {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      serverName: nextServerName,
+      mcpKeyName: currentDraft.mcpKeyWasCustomized
+        ? currentDraft.mcpKeyName
+        : normalizeMcpKeyName(nextServerName),
+      showMcpKeyWarning: currentDraft.mcpKeyWasCustomized,
+    }))
+  }
+
+  function updateMcpKeyName(nextMcpKeyName: string) {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      mcpKeyName: normalizeMcpKeyName(nextMcpKeyName),
+      mcpKeyWasCustomized: true,
+      showMcpKeyWarning: false,
+    }))
+  }
+
+  return (
+    <>
+      <div className="mcp-create-field">
+        <label htmlFor="mcp-name">MCP server name <span aria-label="required">*</span></label>
+        <input
+          id="mcp-name"
+          className="filter-select"
+          name="name"
+          required
+          value={draft.serverName}
+          onChange={(event) => updateServerName(event.target.value)}
+        />
+      </div>
+
+      <div className="mcp-create-field">
+        <label htmlFor="mcp-key-name">MCP key name <span aria-label="required">*</span></label>
+        <p>Automatically follows the MCP server name using lowercase letters and replacing spaces with hyphens. Must be unique.</p>
+        <input
+          id="mcp-key-name"
+          className="filter-select"
+          name="mcp-key-name"
+          required
+          value={draft.mcpKeyName}
+          onChange={(event) => updateMcpKeyName(event.target.value)}
+        />
+        {draft.showMcpKeyWarning ? (
+          <p className="mcp-create-field-warning" role="status">
+            MCP key name was customized, so it was not updated. Review it after changing the MCP server name.
+          </p>
+        ) : null}
+      </div>
+    </>
+  )
+}

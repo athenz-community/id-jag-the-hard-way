@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMcpCreateDraft } from "./McpCreateDraftContext"
 
 const DEFAULT_MCP_IMAGES = [
   "ghcr.io/mlajkim/mcp:latest",
@@ -8,7 +8,11 @@ const DEFAULT_MCP_IMAGES = [
 ]
 
 export function ContainerImageField() {
-  const [image, setImage] = useState("")
+  const { draft, setDraft } = useMcpCreateDraft()
+
+  function setImage(image: string) {
+    setDraft((currentDraft) => ({ ...currentDraft, image }))
+  }
 
   return (
     <div className="mcp-create-field">
@@ -20,7 +24,7 @@ export function ContainerImageField() {
         name="image"
         placeholder="ghcr.io/example/mcp-server:latest"
         required
-        value={image}
+        value={draft.image}
         onChange={(event) => setImage(event.target.value)}
       />
       <div className="mcp-create-suggestions">
@@ -29,7 +33,7 @@ export function ContainerImageField() {
           <button
             className="button"
             type="button"
-            disabled={image === suggestedImage}
+            disabled={draft.image === suggestedImage}
             onClick={() => setImage(suggestedImage)}
             key={suggestedImage}
           >
