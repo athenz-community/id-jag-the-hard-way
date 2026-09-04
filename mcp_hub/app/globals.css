@@ -461,6 +461,202 @@ input:disabled {
   background: var(--text);
 }
 
+.mcp-create-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 640px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.mcp-create-step-panel {
+  padding: 24px;
+  border-right: 1px solid var(--line);
+}
+
+.mcp-create-steps {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mcp-create-step button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 5px;
+  padding: 12px;
+  background: transparent;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.mcp-create-step.active button {
+  background: rgb(2 96 234 / 10%);
+}
+
+.mcp-create-step button:disabled {
+  color: #b7b7b7;
+}
+
+.mcp-create-step-number {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #b7b7b7;
+  color: #ffffff;
+  font-size: 18px;
+}
+
+.mcp-create-step.active .mcp-create-step-number {
+  background: var(--blue);
+}
+
+.mcp-create-form {
+  min-width: 0;
+  padding: 24px;
+}
+
+.mcp-create-fieldset {
+  margin: 0 0 28px;
+  border: 0;
+  padding: 0;
+}
+
+.mcp-create-fieldset legend,
+.mcp-create-field > label {
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.mcp-create-fieldset legend span,
+.mcp-create-field > label span {
+  color: #e12d39;
+}
+
+.mcp-create-choice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.mcp-create-choice {
+  min-height: 92px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 0 1 330px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 16px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.mcp-create-choice.source-choice {
+  flex-basis: 340px;
+}
+
+.mcp-create-choice.disabled {
+  background: #f5f5f5;
+  color: #949494;
+  cursor: default;
+}
+
+.mcp-create-choice.disabled small {
+  color: #949494;
+}
+
+.mcp-create-choice:has(input:checked) {
+  border-color: var(--blue);
+}
+
+.mcp-create-choice input {
+  margin-top: 3px;
+}
+
+.mcp-create-choice > span {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.mcp-create-choice strong {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.mcp-create-choice small {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.mcp-create-field {
+  width: min(75%, 780px);
+  display: grid;
+  margin-bottom: 24px;
+}
+
+.mcp-create-field > p {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.mcp-create-field .filter-select {
+  width: 100%;
+}
+
+.mcp-create-suggestions {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mcp-create-suggestions > span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.mcp-create-additional {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+
+.mcp-create-additional summary {
+  margin-bottom: 22px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.mcp-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 32px -24px -24px;
+  border-top: 1px solid var(--line);
+  padding: 20px 24px;
+}
+
 .filter-row {
   display: flex;
   align-items: center;
@@ -3112,6 +3308,23 @@ body:has(.permission-request-dialog[open]) {
 
   .main-content {
     padding: 0 16px 30px;
+  }
+
+  .mcp-create-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-create-step-panel {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .mcp-create-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mcp-create-field {
+    width: 100%;
   }
 
   .filter-row,

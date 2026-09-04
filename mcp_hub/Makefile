@@ -82,14 +82,8 @@ restart: renew-cert
 
 local: apply-permission-presets
 	@if docker container inspect "$(CONTAINER_NAME)" >/dev/null 2>&1; then \
-		printf 'Container "%s" already exists. Delete it? [Y/n] ' "$(CONTAINER_NAME)"; \
-		if ! read -r answer; then \
-			echo; echo 'No response received; keeping the existing container.'; exit 1; \
-		fi; \
-		case "$${answer:-Y}" in \
-			[Yy]|[Yy][Ee][Ss]) docker rm --force "$(CONTAINER_NAME)" >/dev/null ;; \
-			*) echo 'Keeping the existing container; make local cancelled.'; exit 1 ;; \
-		esac; \
+		echo 'Replacing existing container "$(CONTAINER_NAME)".'; \
+		docker rm --force "$(CONTAINER_NAME)" >/dev/null; \
 	fi
 	@$(MAKE) build-image
 	@docker run --detach --rm \
