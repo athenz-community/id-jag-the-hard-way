@@ -5,23 +5,23 @@ NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE ?= @mlajkim/mcp-credential-broker@late
 AUTH_SECRET ?= idthw-mcp-hub-local-auth-secret
 AUTH_URL ?= http://localhost:$(PORT)
 MCP_HUB_IDP_NAME ?= Keycloak
-MCP_HUB_IDP_ISSUER ?= https://keycloak.idp:$(shell ../tools/port.sh keycloak-https)/realms/master
+MCP_HUB_IDP_ISSUER ?= https://keycloak.idp:$(shell ../../tools/port.sh keycloak-https)/realms/master
 MCP_HUB_IDP_PUBLIC_ISSUER ?= $(MCP_HUB_IDP_ISSUER)
 MCP_HUB_IDP_WELL_KNOWN ?= $(MCP_HUB_IDP_ISSUER)/.well-known/openid-configuration
 MCP_HUB_IDP_TOKEN_ENDPOINT ?= $(MCP_HUB_IDP_ISSUER)/protocol/openid-connect/token
 MCP_HUB_IDP_CLIENT_ID ?= mcp-hub.hub-ui
 MCP_HUB_IDP_CLIENT_SECRET ?= mcp-hub-local-secret
-MCP_HUB_ATHENZ_UI_URL ?= http://localhost:$(shell ../tools/port.sh athenz-ui)
-MCP_HUB_ZMS_URL ?= https://host.docker.internal:$(shell ../tools/port.sh zms)/zms/v1
+MCP_HUB_ATHENZ_UI_URL ?= http://localhost:$(shell ../../tools/port.sh athenz-ui)
+MCP_HUB_ZMS_URL ?= https://host.docker.internal:$(shell ../../tools/port.sh zms)/zms/v1
 MCP_HUB_ZMS_TLS_SERVER_NAME ?= localhost
-MCP_HUB_LOCAL_MCP_URL ?= http://host.docker.internal:$(shell ../tools/port.sh mcp)/mcp
-MCP_HUB_MCP_GATEWAY_URL ?= http://mcp-gateway.idthw.org:$(shell ../tools/port.sh mcp-gateway)
-MCP_HUB_CORE_PROXY_URL ?= http://host.docker.internal:$(shell ../tools/port.sh core-mcp-proxy)
+MCP_HUB_LOCAL_MCP_URL ?= http://host.docker.internal:$(shell ../../tools/port.sh mcp)/mcp
+MCP_HUB_MCP_GATEWAY_URL ?= http://mcp-gateway.idthw.org:$(shell ../../tools/port.sh mcp-gateway)
+MCP_HUB_CORE_PROXY_URL ?= http://host.docker.internal:$(shell ../../tools/port.sh core-mcp-proxy)
 MCP_HUB_REGISTRY_TOKEN ?= idthw-local-mcp-registry-token
-MCP_HUB_GATEWAY_STATUS_URL ?= http://host.docker.internal:$(shell ../tools/port.sh mcp-gateway)/internal/cache-status
-GENAI_PROXY_URL ?= http://host.docker.internal:$(shell ../tools/port.sh genai-proxy)
-IMAGE ?= mcp-hub:local
-CONTAINER_NAME ?= mcp-hub-local
+MCP_HUB_GATEWAY_STATUS_URL ?= http://host.docker.internal:$(shell ../../tools/port.sh mcp-gateway)/internal/cache-status
+GENAI_PROXY_URL ?= http://host.docker.internal:$(shell ../../tools/port.sh genai-proxy)
+IMAGE ?= idthw-hub:local
+CONTAINER_NAME ?= idthw-hub-local
 CONTAINER_PORT ?= 3102
 CONTAINER_CERT_DIR ?= /app/certs
 KUBECONFIG_PATH ?= $(HOME)/.kube/config
@@ -59,7 +59,7 @@ build-image:
 		-t $(IMAGE) .
 
 register-idp-client:
-	cd .. && \
+	cd ../.. && \
 		KEYCLOAK_CLIENT_SECRET="$(MCP_HUB_IDP_CLIENT_SECRET)" \
 		KEYCLOAK_POST_LOGOUT_REDIRECT_URI="http://localhost:$(PORT)/api/auth/idp-logout/complete" \
 		KEYCLOAK_OPEN_UI=false \
@@ -70,7 +70,7 @@ register-idp-client:
 		confidential
 
 renew-cert:
-	../tools/athenz/fetch-cert.sh \
+	../../tools/athenz/fetch-cert.sh \
 		mcp-hub \
 		hub-ui \
 		"$(MCP_HUB_CERT_KEY)" \
@@ -124,5 +124,5 @@ local: apply-permission-presets
 		--mount type=bind,source="$(abspath certs)",target=$(CONTAINER_CERT_DIR),readonly \
 		--mount type=bind,source="$(abspath $(KUBECONFIG_PATH))",target=$(CONTAINER_KUBECONFIG_PATH),readonly \
 		$(IMAGE) >/dev/null
-	@if [ "$(OPEN_UI)" = "true" ]; then (../tools/open.sh "http://localhost:$(PORT)" &); fi
-	@echo "MCP Hub UI is running at http://localhost:$(PORT)"
+	@if [ "$(OPEN_UI)" = "true" ]; then (../../tools/open.sh "http://localhost:$(PORT)" &); fi
+	@echo "IDTHW Hub is running at http://localhost:$(PORT)"

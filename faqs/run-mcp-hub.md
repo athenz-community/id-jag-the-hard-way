@@ -1,13 +1,13 @@
 # Goal
 
-The goal of this FAQ is to run MCP Hub locally.
+The goal of this FAQ is to run IDTHW Hub locally and use its MCP Hub product.
 
 <!-- TOC depthFrom:2 depthTo:3 -->
 
 - [Step 1. Configure IdP Login](#step-1-configure-idp-login)
 - [Step 2. Setup X.509 Cert for the UI](#step-2-setup-x509-cert-for-the-ui)
 - [Step 3. Grant Access for Protected Tool Calls](#step-3-grant-access-for-protected-tool-calls)
-- [Step 4. Run MCP Hub](#step-4-run-mcp-hub)
+- [Step 4. Run IDTHW Hub](#step-4-run-idthw-hub)
 - [Step 5. Import K8s API Docs Server](#step-5-import-k8s-api-docs-server)
 - [Step 6. Verify Public Tool Discovery](#step-6-verify-public-tool-discovery)
 
@@ -32,10 +32,10 @@ The goal of this FAQ is to run MCP Hub locally.
 
 ## Step 1. Configure IdP Login
 
-Register MCP Hub as a confidential client in the tutorial Keycloak realm:
+Register IDTHW Hub as a confidential client in the tutorial Keycloak realm. The existing client identity remains `mcp-hub.hub-ui` because MCP Hub is the first protected product inside IDTHW Hub:
 
 ```sh
-make -C mcp_hub register-idp-client PORT=3102
+make -C components/idthw_hub register-idp-client PORT=3102
 ```
 
 This registers both callback URLs used by the hub:
@@ -45,7 +45,7 @@ http://localhost:3102/api/auth/callback/idp
 http://localhost:3102/api/auth/idp-logout/complete
 ```
 
-MCP Hub accepts any Keycloak user that has a non-empty `preferred_username` claim. Create additional users without changing the hub code:
+IDTHW Hub accepts any Keycloak user that has a non-empty `preferred_username` claim. Create additional users without changing the hub code:
 
 ```sh
 ./tools/keycloak/create-user.sh alice alice@athenz.io Alice User
@@ -56,7 +56,7 @@ After the first login, use **Sign in as a different user** to add another Keyclo
 
 ## Step 2. Setup X.509 Cert for the UI
 
-The UI server needs its own Athenz workload certificate to read permission membership from ZMS. This certificate and private key remain server-side; they are not stored in the browser session. MCP Hub does not use the certificate to mint a user-scoped access token for tool discovery.
+The IDTHW Hub server needs its own Athenz workload certificate to read permission membership from ZMS. This certificate and private key remain server-side; they are not stored in the browser session. IDTHW Hub does not use the certificate to mint a user-scoped access token for MCP Hub tool discovery.
 
 ```sh
 ./tools/athenz/create-tld.sh "mcp-hub"
@@ -69,11 +69,11 @@ The UI server needs its own Athenz workload certificate to read permission membe
 Copy the certificate and its key for the local development:
 
 ```sh
-mkdir -p "mcp_hub/certs"
-cp "./keys/mcp-hub-ui.key" "mcp_hub/certs/"
-cp "./keys/mcp-hub-ui.crt" "mcp_hub/certs/"
-cp ./athenz_dist/certs/ca.cert.pem ./mcp_hub/certs/ca.crt
-ls -al mcp_hub/certs/
+mkdir -p "components/idthw_hub/certs"
+cp "./keys/mcp-hub-ui.key" "components/idthw_hub/certs/"
+cp "./keys/mcp-hub-ui.crt" "components/idthw_hub/certs/"
+cp ./athenz_dist/certs/ca.cert.pem ./components/idthw_hub/certs/ca.crt
+ls -al components/idthw_hub/certs/
 ```
 
 ```sh
@@ -85,11 +85,11 @@ ls -al mcp_hub/certs/
 # -rw-------   1 mlajkim  staff  1679 Jul  7 08:16 mcp-hub-ui.key
 ```
 
-By default, MCP Hub reads these files:
+By default, IDTHW Hub reads these files:
 
-- `mcp_hub/certs/mcp-hub-ui.crt`
-- `mcp_hub/certs/mcp-hub-ui.key`
-- `mcp_hub/certs/ca.crt`
+- `components/idthw_hub/certs/mcp-hub-ui.crt`
+- `components/idthw_hub/certs/mcp-hub-ui.key`
+- `components/idthw_hub/certs/ca.crt`
 
 ## Step 3. Grant Access for Protected Tool Calls
 
@@ -120,13 +120,13 @@ By default, MCP Hub reads these files:
 
 Authentication proves who the user is; Athenz role membership determines which authenticated users may invoke protected MCP methods. It does not hide the tool catalog.
 
-## Step 4. Run MCP Hub
+## Step 4. Run IDTHW Hub
 
-Start MCP Hub after the certificate files exist. Live `tools/list` discovery intentionally sends no `Authorization` header, so no MCP access scope or ZTS configuration is needed by the Hub.
+Start IDTHW Hub after the certificate files exist. Live MCP Hub `tools/list` discovery intentionally sends no `Authorization` header, so no MCP access scope or ZTS configuration is needed by the Hub.
 
 ```sh
 env MCP_HUB_MCP_GATEWAY_URL="http://mcp-gateway.idthw.org:$(./tools/port.sh mcp-gateway)" \
-  make -C mcp_hub local PORT=3102 OPEN_UI=true
+  make -C components/idthw_hub local PORT=3102 OPEN_UI=true
 ```
 
 If you need custom paths, override these environment variables:
@@ -139,7 +139,7 @@ env \
   MCP_HUB_ATHENZ_CERT_PATH="./certs/mcp-hub-ui.crt" \
   MCP_HUB_ATHENZ_KEY_PATH="./certs/mcp-hub-ui.key" \
   MCP_HUB_ATHENZ_CA_PATH="./certs/ca.crt" \
-  make -C mcp_hub local PORT=3102 OPEN_UI=true
+  make -C components/idthw_hub local PORT=3102 OPEN_UI=true
 ```
 
 ## Step 5. Import K8s API Docs Server

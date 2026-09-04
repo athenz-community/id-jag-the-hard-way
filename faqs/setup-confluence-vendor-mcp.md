@@ -225,7 +225,7 @@ If the logs mention `Excluding Jira tool ... Jira configuration/authentication i
 
 MCP Hub discovers catalog entries from Kubernetes deployments labeled as part of `mcp-hub`. Add the MCP Hub labels and annotations after the deployment exists.
 
-This annotation value assumes MCP Hub is running locally and `core-mcp-proxy` is exposed on the configured local port. The default is `24442`, but use `port.sh` so local overrides keep working.
+This annotation value assumes IDTHW Hub is running locally and `core-mcp-proxy` is exposed on the configured local port. The default is `24442`, but use `port.sh` so local overrides keep working.
 
 ```sh
 _confleunce_mcp_port=$(./tools/port.sh confleunce-mcp)
@@ -244,7 +244,7 @@ kubectl annotate deploy confluence-mcp -n mcp-hub \
   --overwrite
 ```
 
-If MCP Hub is running inside Kubernetes instead of through `make -C mcp_hub local`, set the public URL annotation to the in-cluster service DNS name:
+If IDTHW Hub is running inside Kubernetes instead of through `make -C components/idthw_hub local`, set the public URL annotation to the in-cluster service DNS name:
 
 ```sh
 kubectl annotate deploy confluence-mcp -n mcp-hub \
@@ -254,14 +254,14 @@ kubectl annotate deploy confluence-mcp -n mcp-hub \
 ```
 
 > [!IMPORTANT]
-> The vendor MCP server is now running inside Kubernetes. For local MCP Hub development, MCP Hub should use `core-mcp-proxy` on the port returned by `./tools/port.sh core-mcp-proxy`.
+> The vendor MCP server is now running inside Kubernetes. For local IDTHW Hub development, its MCP Hub product should use `core-mcp-proxy` on the port returned by `./tools/port.sh core-mcp-proxy`.
 
 ## Step 6. Get MCP Client Settings from MCP Hub
 
-Open MCP Hub:
+Open the MCP Hub product in IDTHW Hub:
 
 ```sh
-OPEN_UI=true make -C mcp_hub local
+OPEN_UI=true make -C components/idthw_hub local
 ```
 
 Copy either the MCP server URL or the JSON block for your client, such as Codex or Claude Code.

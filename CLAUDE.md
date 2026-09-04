@@ -18,21 +18,23 @@ The repository contains these runtime components and supporting plugins:
 
 2. **`components/ai_client_gateway/`** — Node.js/TypeScript Express proxy that intercepts AI client requests, converts ID tokens to ID-JAG tokens via Athenz, and injects the appropriate access token before forwarding to the MCP server.
 
-3. **`components/mcp-gateway/`** — Node.js/TypeScript authenticated MCP front door for the MCP Hub demo. It performs Keycloak login, keeps the ID token in a bounded server-side session, resolves routes and exact `tools/call.params.name` access scopes through the MCP Hub API, caches ID-JAGs by their actual audience/scopes/expiry, renews scoped Athenz access tokens from those assertions, requests browser reauthentication only when a fresh ID-JAG requires a new ID token, and forwards `/mcp/{id}` through Core MCP Proxy. It does not replace or change the tutorial's `components/ai_client_gateway/` yet.
+3. **`components/idthw_hub/`** — Full-stack Next.js application for IDTHW product surfaces and server-side APIs. It currently hosts MCP Hub and Gen AI. MCP Hub remains the Kubernetes-backed registry and provider/consumer UI inside the broader IDTHW Hub.
 
-4. **`components/mcp-credential-broker/`** — Publishable Node.js/TypeScript stdio connector for MCP clients. Separate processes connect to separate MCP Gateway routes while sharing one opaque, browser-authenticated Gateway session through a private local cache and cross-process lock. It is an OAuth public client using Authorization Code + PKCE; it never embeds a confidential-client secret. Its `--logout` option clears every locally cached Gateway session and revokes each opaque token through the issuer's advertised OAuth revocation endpoint; explicit `--logout --idp` additionally opens Keycloak browser sign-out through a short-lived Gateway ticket without exposing the ID token to the broker.
+4. **`components/mcp-gateway/`** — Node.js/TypeScript authenticated MCP front door for the MCP Hub demo. It performs Keycloak login, keeps the ID token in a bounded server-side session, resolves routes and exact `tools/call.params.name` access scopes through the MCP Hub API, caches ID-JAGs by their actual audience/scopes/expiry, renews scoped Athenz access tokens from those assertions, requests browser reauthentication only when a fresh ID-JAG requires a new ID token, and forwards `/mcp/{id}` through Core MCP Proxy. It does not replace or change the tutorial's `components/ai_client_gateway/` yet.
 
-5. **`components/athenzd/`** — Go manager CLI for browser login and logout, idempotent ZMS service registration, optional Copper Argos X.509 enrollment, ID-JAG and Athenz access-token issuance, and management of the local GenAI credential-injector daemon.
+5. **`components/mcp-credential-broker/`** — Publishable Node.js/TypeScript stdio connector for MCP clients. Separate processes connect to separate MCP Gateway routes while sharing one opaque, browser-authenticated Gateway session through a private local cache and cross-process lock. It is an OAuth public client using Authorization Code + PKCE; it never embeds a confidential-client secret. Its `--logout` option clears every locally cached Gateway session and revokes each opaque token through the issuer's advertised OAuth revocation endpoint; explicit `--logout --idp` additionally opens Keycloak browser sign-out through a short-lived Gateway ticket without exposing the ID token to the broker.
 
-6. **`components/keycloak_token_exchange_provider/`** — Java 11 Maven Keycloak plugin that enables ID token delegation from Keycloak to Athenz.
+6. **`components/athenzd/`** — Go manager CLI for browser login and logout, idempotent ZMS service registration, optional Copper Argos X.509 enrollment, ID-JAG and Athenz access-token issuance, and management of the local GenAI credential-injector daemon.
 
-7. **`local_workload_instance_provider/`** — Standalone Java 17 Maven plugin for the optional local Copper Argos flow. It validates an OIDC ID token as workload attestation and restricts certificate enrollment to the authenticated user's Athenz home-domain subtree. It is not deployed by default; the `athenzd` FAQ mounts and registers it for testing.
+7. **`components/keycloak_token_exchange_provider/`** — Java 11 Maven Keycloak plugin that enables ID token delegation from Keycloak to Athenz.
 
-8. **`athenz_dist/`** — Git submodule pointing to `athenz-community/athenz-distribution`. Acts as the authorization server (ZMS + ZTS) and ZPU for the tutorial.
+8. **`local_workload_instance_provider/`** — Standalone Java 17 Maven plugin for the optional local Copper Argos flow. It validates an OIDC ID token as workload attestation and restricts certificate enrollment to the authenticated user's Athenz home-domain subtree. It is not deployed by default; the `athenzd` FAQ mounts and registers it for testing.
 
-9. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
+9. **`athenz_dist/`** — Git submodule pointing to `athenz-community/athenz-distribution`. Acts as the authorization server (ZMS + ZTS) and ZPU for the tutorial.
 
-10. **`genai_proxy/`** — Minimal locally run Node.js proxy that validates Athenz Bearer tokens with the ZTS public key, requires a `gen-ai.services.<project>` audience and `gen-ai-users` scope, replaces that token with `OPENAI_CODEX_API_KEY`, and forwards OpenAI-compatible `/v1/*` requests to the gateway configured by `GENAI_UPSTREAM_BASE_URL`. It meters both Chat Completions and Responses API token fields, keeps daily JST per-project, per-user and per-model counters with a JST `last_usage` time in `HH:mm:ss` format, owns and enforces per-service-code daily spending limits with HTTP 429 responses, persists counters under the gitignored `components/athenzd/.athenzd/` directory for `make local`, and exposes user-specific projects, limits, spend, and costs at unauthenticated `GET /api/users/{user}`.
+10. **`zpu/`** — Bash script + Dockerfile for the Athenz ZPU (policy updater) service.
+
+11. **`genai_proxy/`** — Minimal locally run Node.js proxy that validates Athenz Bearer tokens with the ZTS public key, requires a `gen-ai.services.<project>` audience and `gen-ai-users` scope, replaces that token with `OPENAI_CODEX_API_KEY`, and forwards OpenAI-compatible `/v1/*` requests to the gateway configured by `GENAI_UPSTREAM_BASE_URL`. It meters both Chat Completions and Responses API token fields, keeps daily JST per-project, per-user and per-model counters with a JST `last_usage` time in `HH:mm:ss` format, owns and enforces per-service-code daily spending limits with HTTP 429 responses, persists counters under the gitignored `components/athenzd/.athenzd/` directory for `make local`, and exposes user-specific projects, limits, spend, and costs at unauthenticated `GET /api/users/{user}`.
 
 **Default ports** — local (`make local`) vs. Kubernetes port-forward (`keep-k8s-port-forward.sh`):
 
@@ -50,6 +52,7 @@ The repository contains these runtime components and supporting plugins:
 | Agentgateway Proxy | —         | `44440`          | `80`               |
 | Agentgateway Admin UI | —      | `44441`          | `15000`            |
 | AI Client Gateway | —          | `44443`          | `3101`             |
+| IDTHW Hub         | `3102`     | —                | `3102`             |
 | MCP Gateway       | `3103`     | `24445`           | `3103`             |
 | Open WebUI        | —          | `54443`          | `8080`             |
 | GenAI Proxy       | `64443`    | —                | —                  |
@@ -81,6 +84,9 @@ make -C components/api_server mcp-proxy-local
 
 # AI Client Gateway (Node.js/TypeScript, port 3101)
 make -C components/ai_client_gateway local
+
+# IDTHW Hub (Next.js, port 3102)
+make -C components/idthw_hub local
 
 # MCP Gateway authenticated routing (Node.js/TypeScript, port 3103)
 PUBLIC_BASE_URL='<full-gateway-url>' \
@@ -123,6 +129,7 @@ The provider Dockerfiles are export-only — they copy their built JARs into a m
 | `components/api_server/mcp`                   | TypeScript | Node.js 22, Express 5                   |
 | `components/api_server/authorization_proxy`   | Java 17    | Spring Boot 3.2.5, Spring Cloud Gateway |
 | `components/ai_client_gateway`     | TypeScript | Node.js 22, Express                     |
+| `components/idthw_hub`             | TypeScript | Next.js 16                              |
 | `components/athenzd`               | Go 1.25    | Cobra, Viper                            |
 | `components/keycloak_token_exchange_provider` | Java 11 | Maven, Keycloak SPI                  |
 | `local_workload_instance_provider` | Java 17    | Maven, Athenz InstanceProvider SPI      |

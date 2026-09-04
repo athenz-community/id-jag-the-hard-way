@@ -1,6 +1,8 @@
-# MCP Hub
+# IDTHW Hub
 
-MCP Hub is a small Next.js application for discovering and eventually registering MCP servers in the IDTHW environment.
+IDTHW Hub is a full-stack Next.js application that hosts the MCP Hub, Gen AI, and future IDTHW product surfaces. Its server-side APIs also provide product contracts to other components such as MCP Gateway.
+
+MCP Hub remains the product for discovering and eventually registering MCP servers in the IDTHW environment.
 
 The catalog is backed by Kubernetes. MCP server rows are discovered from Kubernetes `Deployment` resources with MCP Hub labels and annotations. Kubernetes is the underlying source of truth, while `/api/mcp-servers` is the registry API consumed by both the UI and MCP Gateway.
 
@@ -10,13 +12,13 @@ The catalog is backed by Kubernetes. MCP server rows are discovered from Kuberne
 make local
 ```
 
-`make local` builds the image and starts the detached `mcp-hub-local` Docker container on port `3102`. If that container already exists, it asks before replacing it. The local certificates and kubeconfig are mounted read-only so the server can continue to use Athenz and the current Kubernetes context.
+`make local` builds the image and starts the detached `idthw-hub-local` Docker container on port `3102`. If that container already exists, it replaces it automatically. The local certificates and kubeconfig are mounted read-only so the server can continue to use Athenz and the current Kubernetes context.
 
 For host-side development with hot reload, run `npm install` followed by `npm run dev -- --port 3102`.
 
 ## Authentication and Multiple Users
 
-MCP Hub requires OpenID Connect login before rendering the console. The default local IdP is Keycloak, but the provider is configured with environment variables:
+IDTHW Hub requires OpenID Connect login before rendering the console. The default local IdP is Keycloak, but the provider is configured with environment variables:
 
 ```text
 MCP_HUB_IDP_NAME
@@ -35,13 +37,13 @@ AUTH_SECRET
 Register the default local Keycloak client, then run the hub:
 
 ```sh
-make -C mcp_hub register-idp-client
-make -C mcp_hub local OPEN_UI=true
+make -C components/idthw_hub register-idp-client
+make -C components/idthw_hub local OPEN_UI=true
 ```
 
 Each browser can keep up to five IdP sessions by default. The app bar lists the cached users for one-click switching; **Sign in as a different user** goes through Keycloak only when adding an account that is not already sessioned. Set `MCP_HUB_ACCOUNT_CACHE_SIZE` from `1` to `8` to change the limit. Identity claims and refresh tokens remain inside the encrypted, HTTP-only Auth.js cookie, while the UI receives only account display summaries. Signing out clears the full browser account cache and signs the current account out through the IdP.
 
-MCP Hub does not generate a private key or user certificate in the browser session. Its `mcp-hub.hub-ui` workload certificate stays server-side and is used to read permission membership from ZMS. Live tool discovery does not mint an Athenz access token. MCP Gateway performs ID-JAG exchange only when an authenticated client invokes a protected MCP method such as `tools/call`.
+IDTHW Hub does not generate a private key or user certificate in the browser session. Its existing `mcp-hub.hub-ui` workload certificate stays server-side and is used to read permission membership from ZMS. Live MCP Hub tool discovery does not mint an Athenz access token. MCP Gateway performs ID-JAG exchange only when an authenticated client invokes a protected MCP method such as `tools/call`.
 
 The current in-memory authentication cache status is available at `GET /api/mcp-cache-status`. Its Hub access-token field remains empty for response compatibility, and it reports MCP Gateway's current OAuth session users and per-session Athenz cache metadata for protected calls. Configure the Gateway source with `MCP_HUB_GATEWAY_STATUS_URL`; local Docker defaults to `http://host.docker.internal:<mcp-gateway-port>/internal/cache-status`. The Hub authenticates that internal request with `MCP_HUB_REGISTRY_TOKEN` and whitelists the response fields. Neither endpoint returns access tokens, ID tokens, ID-JAGs, opaque session tokens, or their hashes. Like `/api/mcp-servers`, the Hub endpoint accepts either an authenticated MCP Hub browser session or `Authorization: Bearer <MCP_HUB_REGISTRY_TOKEN>` and always returns `Cache-Control: no-store`.
 
@@ -69,7 +71,7 @@ Override the proxy origin when needed:
 make local GENAI_PROXY_URL=http://127.0.0.1:65000
 ```
 
-The service administrator boxes read the signed-in user's direct role memberships across all domains matching `gen-ai.services.<project>` from ZMS using the MCP Hub UI's server-side X.509 certificate. Cost-accountable membership supports both `cost-accountable-admins` and the existing `pm-cost-approval-officer-lv5` schema; manager membership supports both `gen-ai-users-managers` and `gen-ai-users-manager`. Those memberships are accumulated independently, so the same user and service can appear in both responsibility boxes. A cost accountable admin box lists every member of that project's manager role; a Gen AI user manager box lists every member of `gen-ai-users`. The queried member is still always the active signed-in user's full `user.<preferred_username>` Athenz principal; the certificate is only the Hub's credential for the ZMS request. Each service row links directly to `http://localhost:3000/domain/<domain>/role/<managed-role>/members`, so the relevant membership editor opens immediately. Override the local ZMS endpoint or Athenz UI origin when needed:
+The service administrator boxes read the signed-in user's direct role memberships across all domains matching `gen-ai.services.<project>` from ZMS using IDTHW Hub's server-side X.509 certificate. Cost-accountable membership supports both `cost-accountable-admins` and the existing `pm-cost-approval-officer-lv5` schema; manager membership supports both `gen-ai-users-managers` and `gen-ai-users-manager`. Those memberships are accumulated independently, so the same user and service can appear in both responsibility boxes. A cost accountable admin box lists every member of that project's manager role; a Gen AI user manager box lists every member of `gen-ai-users`. The queried member is still always the active signed-in user's full `user.<preferred_username>` Athenz principal; the certificate is only the Hub's credential for the ZMS request. Each service row links directly to `http://localhost:3000/domain/<domain>/role/<managed-role>/members`, so the relevant membership editor opens immediately. Override the local ZMS endpoint or Athenz UI origin when needed:
 
 ```sh
 make local \
@@ -78,7 +80,7 @@ make local \
 MCP_HUB_ATHENZ_UI_URL=https://athenz-ui.example.test make local
 ```
 
-When the ZMS connection hostname differs from the name on its TLS certificate, set `MCP_HUB_ZMS_TLS_SERVER_NAME` to the certificate name. MCP Hub uses it for both TLS SNI and the HTTP `Host` header because ZMS validates that they match. The local Docker workflow defaults this value to `localhost` because it reaches ZMS through `host.docker.internal`, while the local certificate is issued for `localhost`.
+When the ZMS connection hostname differs from the name on its TLS certificate, set `MCP_HUB_ZMS_TLS_SERVER_NAME` to the certificate name. IDTHW Hub uses it for both TLS SNI and the HTTP `Host` header because ZMS validates that they match. The local Docker workflow defaults this value to `localhost` because it reaches ZMS through `host.docker.internal`, while the local certificate is issued for `localhost`.
 
 The local cost values are explicitly estimates based on fixed demo rates; they are not billing data.![alt text](image.png)
 
@@ -90,7 +92,7 @@ The page fetches data from the local Next API route:
 /api/mcp-servers
 ```
 
-Browser requests authenticate with the MCP Hub login session. MCP Gateway can call the same endpoint with:
+Browser requests authenticate with the IDTHW Hub login session. MCP Gateway can call the same endpoint with:
 
 ```text
 Authorization: Bearer <MCP_HUB_REGISTRY_TOKEN>
@@ -115,7 +117,7 @@ The first entry opens Keycloak login through MCP Gateway automatically; all entr
 
 The client-configuration page can show required Athenz role memberships before the manual client setup. MCP Hub owns only the curated requirement definition; Athenz remains the source of truth for current role membership. The Hub checks membership through ZMS with its server-side certificate and never adds or synchronizes permissions.
 
-Edit the pure settings document at [`config/permission-presets.yaml`](./config/permission-presets.yaml). It starts with `version` and `servers` and contains no Kubernetes resource wrapper. `make local`, and therefore the repository-root `make ui`, generates and applies the `mcp-hub/mcp-hub-permission-presets` ConfigMap from that file before building and starting MCP Hub. The ConfigMap stores the document under `permission-presets.yaml`.
+Edit the pure settings document at [`config/permission-presets.yaml`](./config/permission-presets.yaml). It starts with `version` and `servers` and contains no Kubernetes resource wrapper. `make local`, and therefore the repository-root `make ui`, generates and applies the `mcp-hub/mcp-hub-permission-presets` ConfigMap from that file before building and starting IDTHW Hub. The ConfigMap stores the document under `permission-presets.yaml`.
 
 The current preset contains only `k8s-docs-server`. Confluence intentionally has no entry, so any tools it returns remain visible with the yellow `No configuration found` state.
 
@@ -140,9 +142,9 @@ Shared MCP-access requirements are intentionally repeated inside each tool entry
 
 When a server returns five or more tools, the client-configuration page collapses the permission rows by default behind **Expand tools** so the configuration in step 2 remains visible without a long initial scroll. Servers with fewer than five tools keep their rows expanded.
 
-Override the ConfigMap location when needed with `MCP_HUB_PERMISSION_CONFIG_MAP_NAMESPACE`, `MCP_HUB_PERMISSION_CONFIG_MAP_NAME`, and `MCP_HUB_PERMISSION_CONFIG_MAP_KEY`. In-cluster MCP Hub service accounts need read access to that ConfigMap.
+Override the ConfigMap location when needed with `MCP_HUB_PERMISSION_CONFIG_MAP_NAMESPACE`, `MCP_HUB_PERMISSION_CONFIG_MAP_NAME`, and `MCP_HUB_PERMISSION_CONFIG_MAP_KEY`. In-cluster IDTHW Hub service accounts need read access to that ConfigMap.
 
-Configure the proxy origin with `MCP_HUB_CORE_PROXY_URL`. Local Docker `make local` uses `host.docker.internal` plus the local Core MCP Proxy port; host-side development can use `127.0.0.1`, and an in-cluster MCP Hub should use `http://core-mcp-proxy.mcp-hub:8080`.
+Configure the proxy origin with `MCP_HUB_CORE_PROXY_URL`. Local Docker `make local` uses `host.docker.internal` plus the local Core MCP Proxy port; host-side development can use `127.0.0.1`, and an in-cluster IDTHW Hub should use `http://core-mcp-proxy.mcp-hub:8080`.
 
 That API route reads Kubernetes deployments from all namespaces visible to the current Kubernetes client.
 
@@ -165,7 +167,7 @@ The catalog reader supports two execution modes:
 - **Local development:** if `KUBERNETES_SERVICE_HOST` is not set, it shells out to `kubectl get deployments --all-namespaces` and uses your current kubeconfig permissions.
 - **In-cluster/pod mode:** if `KUBERNETES_SERVICE_HOST` is set, it reads all namespaces through the Kubernetes API using the pod service account token.
 
-For the current local workflow, no additional MCP Hub RBAC setup is required beyond your own `kubectl` access.
+For the current local workflow, no additional IDTHW Hub RBAC setup is required beyond your own `kubectl` access.
 
 ## Live Tool Discovery
 
@@ -191,7 +193,7 @@ mcp.idthw.dev/public-url: "http://localhost:24443/mcp"
 
 Live tool discovery uses the server's Core MCP Proxy route without an Athenz access token. The annotation remains the direct public endpoint and is used by the client-configuration page only as a fallback when `MCP_HUB_MCP_GATEWAY_URL` is not configured. If the value is just a host and port, such as `http://localhost:24443`, MCP Hub normalizes it to `/mcp`.
 
-When MCP Hub runs in-cluster, the default endpoint is derived from the selected server name and namespace:
+When IDTHW Hub runs in-cluster, the default endpoint is derived from the selected server name and namespace:
 
 ```text
 http://{server}.{namespace}:8081/mcp
@@ -389,7 +391,7 @@ args = [
 ]
 ```
 
-The Tools page uses the deployment's Core MCP Proxy route to perform public live `tools/list` discovery from the MCP Hub server. This avoids treating a host-only `127.0.0.1` port-forward as container-local. Protected client calls continue through MCP Gateway's workload-certificate → user-scoped Athenz token flow.
+The Tools page uses the deployment's Core MCP Proxy route to perform public live `tools/list` discovery from the IDTHW Hub server. This avoids treating a host-only `127.0.0.1` port-forward as container-local. Protected client calls continue through MCP Gateway's workload-certificate → user-scoped Athenz token flow.
 
 ## Example MCP Deployment
 
