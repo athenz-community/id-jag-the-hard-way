@@ -13,7 +13,7 @@ import {
 
 const NAV_ITEMS: Array<{ section: ConsoleSection; label: string; enabled: boolean }> = [
   { section: "catalog", label: "Catalog", enabled: true },
-  { section: "mcp-server", label: "MCP server", enabled: false },
+  { section: "mcp-server", label: "MCP server", enabled: true },
   { section: "mcp-template", label: "MCP template", enabled: false },
   { section: "playground", label: "Playground", enabled: false },
   { section: "approval", label: "Approval", enabled: false },
@@ -47,8 +47,8 @@ export function SideBar() {
               </Link>
             )
           })
-        : NAV_ITEMS.map((item) =>
-            item.enabled ? (
+        : NAV_ITEMS.map((item) => {
+            return item.enabled ? (
               <Link
                 className={`sidebar-link ${route.section === item.section ? "active" : ""}`}
                 href={consoleHref({ project: route.project, product: route.product, section: item.section })}
@@ -60,8 +60,8 @@ export function SideBar() {
               <button className={`sidebar-link ${route.section === item.section ? "active" : ""}`} type="button" disabled key={item.section}>
                 {item.label}
               </button>
-            ),
-          )}
+            )
+          })}
       <div className="sidebar-divider" />
       <button className="sidebar-support" type="button" disabled>
         <ClipboardList size={14} aria-hidden="true" />
