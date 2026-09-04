@@ -12,9 +12,11 @@ const STEPS: Array<{ id: CreateStep; label: string }> = [
 export function McpCreateSteps({
   activeStep,
   sourceHref,
+  configurationHref,
 }: {
   activeStep: CreateStep
   sourceHref: string
+  configurationHref?: string
 }) {
   const activeIndex = STEPS.findIndex((step) => step.id === activeStep)
 
@@ -24,6 +26,7 @@ export function McpCreateSteps({
         {STEPS.map((step, index) => {
           const isActive = step.id === activeStep
           const isFinished = index < activeIndex
+          const href = step.id === "source" ? sourceHref : step.id === "configuration" ? configurationHref : undefined
           const className = `mcp-create-step ${isActive ? "active" : ""} ${isFinished ? "finished" : ""}`
           const content = (
             <>
@@ -36,8 +39,8 @@ export function McpCreateSteps({
 
           return (
             <li className={className} aria-current={isActive ? "step" : undefined} key={step.id}>
-              {isFinished && step.id === "source" ? (
-                <Link href={sourceHref}>{content}</Link>
+              {isFinished && href ? (
+                <Link href={href}>{content}</Link>
               ) : (
                 <button type="button" disabled={!isActive}>{content}</button>
               )}

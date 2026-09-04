@@ -18,6 +18,8 @@ export default async function ConfigureMcpServerRoute({
   const catalogHref = consoleHref({ project, product, section: "catalog" })
   const mcpServerHref = consoleHref({ project, product, section: "mcp-server" })
   const createHref = consoleHref({ project, product, section: "mcp-server", suffix: "create" })
+  const configurationHref = consoleHref({ project, product, section: "mcp-server", suffix: "create/configuration" })
+  const confirmHref = consoleHref({ project, product, section: "mcp-server", suffix: "create/confirm" })
 
   return (
     <ConsoleTemplate>
@@ -37,8 +39,8 @@ export default async function ConfigureMcpServerRoute({
       </div>
 
       <div className="mcp-create-layout">
-        <McpCreateSteps activeStep="configuration" sourceHref={createHref} />
-        <ConfigurationForm cancelHref={mcpServerHref} sourceHref={createHref} />
+        <McpCreateSteps activeStep="configuration" sourceHref={createHref} configurationHref={configurationHref} />
+        <ConfigurationForm cancelHref={mcpServerHref} sourceHref={createHref} confirmHref={confirmHref} />
       </div>
     </ConsoleTemplate>
   )

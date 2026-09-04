@@ -8,9 +8,11 @@ import { McpServerIdentityFields } from "./McpServerIdentityFields"
 export function ConfigurationForm({
   cancelHref,
   sourceHref,
+  confirmHref,
 }: {
   cancelHref: string
   sourceHref: string
+  confirmHref: string
 }) {
   const { draft, setDraft, resetDraft } = useMcpCreateDraft()
 
@@ -127,7 +129,7 @@ export function ConfigurationForm({
       <div className="mcp-create-actions">
         <Link className="button" href={cancelHref} style={{ textDecoration: "none" }} onClick={resetDraft}>Cancel</Link>
         <Link className="button" href={sourceHref} style={{ textDecoration: "none" }}>Prev</Link>
-        <button className="button" type="button" disabled>Next</button>
+        <Link className="button mcp-create-primary" href={confirmHref}>Next</Link>
       </div>
     </form>
   )

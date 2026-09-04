@@ -731,6 +731,94 @@ input:disabled {
   cursor: pointer;
 }
 
+.mcp-confirm-section + .mcp-confirm-section {
+  margin-top: 30px;
+}
+
+.mcp-confirm-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mcp-confirm-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.mcp-confirm-list {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mcp-confirm-list > div {
+  display: grid;
+  grid-template-columns: minmax(180px, 28%) minmax(0, 1fr);
+}
+
+.mcp-confirm-list > div + div {
+  border-top: 1px solid var(--line);
+}
+
+.mcp-confirm-list dt,
+.mcp-confirm-list dd {
+  margin: 0;
+  padding: 12px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.mcp-confirm-list dt {
+  background: #f7f7f8;
+  font-weight: 800;
+}
+
+.mcp-confirm-list dd {
+  font-weight: 700;
+}
+
+.mcp-confirm-nested-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.mcp-confirm-nested-list > div {
+  display: grid;
+  grid-template-columns: minmax(150px, 32%) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.mcp-confirm-nested-list dt,
+.mcp-confirm-nested-list dd {
+  padding: 0;
+  background: transparent;
+}
+
+.mcp-confirm-env-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mcp-confirm-env-table th,
+.mcp-confirm-env-table td {
+  border: 1px solid var(--line);
+  padding: 7px 9px;
+  font-size: 12px;
+  text-align: left;
+}
+
+.mcp-confirm-env-table th {
+  background: #f7f7f8;
+}
+
 .mcp-create-actions {
   display: flex;
   justify-content: flex-end;
