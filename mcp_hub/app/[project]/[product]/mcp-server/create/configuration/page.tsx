@@ -3,12 +3,12 @@ import Link from "next/link"
 import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import { ConsoleTemplate } from "@/components/templates/ConsoleTemplate"
 import { requireHubSession } from "@/features/auth/lib/session"
-import { McpCreateSteps } from "./McpCreateSteps"
-import { SourceForm } from "./SourceForm"
+import { McpCreateSteps } from "../McpCreateSteps"
+import { ConfigurationForm } from "./ConfigurationForm"
 
 export const dynamic = "force-dynamic"
 
-export default async function CreateMcpServerRoute({
+export default async function ConfigureMcpServerRoute({
   params,
 }: {
   params: Promise<{ project: string; product: string }>
@@ -18,7 +18,6 @@ export default async function CreateMcpServerRoute({
   const catalogHref = consoleHref({ project, product, section: "catalog" })
   const mcpServerHref = consoleHref({ project, product, section: "mcp-server" })
   const createHref = consoleHref({ project, product, section: "mcp-server", suffix: "create" })
-  const configurationHref = consoleHref({ project, product, section: "mcp-server", suffix: "create/configuration" })
 
   return (
     <ConsoleTemplate>
@@ -38,8 +37,8 @@ export default async function CreateMcpServerRoute({
       </div>
 
       <div className="mcp-create-layout">
-        <McpCreateSteps activeStep="source" sourceHref={createHref} />
-        <SourceForm cancelHref={mcpServerHref} configurationHref={configurationHref} />
+        <McpCreateSteps activeStep="configuration" sourceHref={createHref} />
+        <ConfigurationForm cancelHref={mcpServerHref} sourceHref={createHref} />
       </div>
     </ConsoleTemplate>
   )
