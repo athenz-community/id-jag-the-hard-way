@@ -7,7 +7,7 @@
 
 - [FAQs for ID-JAG](#faqs-for-id-jag)
 - [Setup Tutorials](#setup-tutorials)
-  - [Run MCP Hub](#run-mcp-hub)
+  - [Run IDTHW Hub](#run-idthw-hub)
   - [Confluence Vendor MCP Server](#confluence-vendor-mcp-server)
   - [Setup Core MCP Proxy](#setup-core-mcp-proxy)
   - [Test athenzd with IDTHW](#test-athenzd-with-idthw)
@@ -74,9 +74,9 @@
 
 # Setup Tutorials
 
-## Run MCP Hub
+## Run IDTHW Hub
 
-See [Run MCP Hub](./run-mcp-hub.md).
+See [Run IDTHW Hub for MCP Hub](./run-mcp-hub.md).
 
 ## Confluence Vendor MCP Server
 

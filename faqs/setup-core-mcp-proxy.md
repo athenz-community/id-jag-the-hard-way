@@ -41,7 +41,7 @@ mcp.idthw.dev/transport=streamable-http
 
 Do not make `core-mcp-proxy` the SSOT yet. Make it a consumer of the registry. Later, if MCP Hub gets a real registration API, that API can become the write path for the same Kubernetes metadata.
 
-For live tool discovery, `public-url` is enough because the MCP Hub server calls MCP servers directly. Client configuration uses MCP Gateway when `MCP_HUB_MCP_GATEWAY_URL` is set. Core MCP Proxy can usually infer the in-cluster target from the same-name Kubernetes Service; use `upstream-url` only when the Service cannot be inferred.
+For live tool discovery, `public-url` is enough because the IDTHW Hub server calls MCP servers directly for the MCP Hub product. Client configuration uses MCP Gateway when `MCP_HUB_MCP_GATEWAY_URL` is set. Core MCP Proxy can usually infer the in-cluster target from the same-name Kubernetes Service; use `upstream-url` only when the Service cannot be inferred.
 
 ```text
 mcp.idthw.dev/public-url   direct URL used for MCP Hub live tool discovery

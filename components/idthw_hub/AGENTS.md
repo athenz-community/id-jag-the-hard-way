@@ -1,6 +1,8 @@
-# MCP Hub Agent Notes
+# IDTHW Hub Agent Notes
 
-This app is a mock-first Next.js UI for an MCP Hub, but the end goal is real: providers should be able to register MCP servers and have the hub create the runtime deployment for that MCP server.
+This full-stack Next.js application is the IDTHW Hub. It hosts multiple product surfaces and server-side APIs. MCP Hub remains one product inside it, alongside Gen AI and future IDTHW products.
+
+The MCP Hub is mock-first, but its end goal is real: providers should be able to register MCP servers and have the hub create the runtime deployment for that MCP server.
 
 ## Product Direction
 
@@ -31,7 +33,7 @@ Registration is a real product goal. Users/providers should eventually be able t
 
 ## Current State
 
-- The app is standalone under `mcp_hub/`.
+- The app is standalone under `components/idthw_hub/`.
 - It uses Next.js 16, TypeScript, Tailwind CSS imports, and mostly hand-written CSS in `app/globals.css`.
 - `make local` runs the app on port `3102`.
 - The catalog page fetches MCP server rows from the local Next API route `/api/mcp-servers`.

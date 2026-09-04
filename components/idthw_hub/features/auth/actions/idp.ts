@@ -42,7 +42,7 @@ function requestOrigin(requestHeaders: Headers) {
   const protocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0]?.trim()
     ?? (process.env.NODE_ENV === "production" ? "https" : "http")
 
-  if (!host) throw new Error("Cannot determine MCP Hub origin for IdP logout")
+  if (!host) throw new Error("Cannot determine IDTHW Hub origin for IdP logout")
   return `${protocol}://${host}`
 }
 

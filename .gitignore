@@ -47,4 +47,7 @@ tools/config.local.yaml
 tools/.port-forward.pid
 genai_proxy/.env.local
 
+# Local artifacts left behind after the Hub application moved into components.
+mcp_hub/
+
 venv/

@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "MCP Hub",
-  description: "Mock MCP Hub catalog for ID-JAG",
+  title: "IDTHW Hub",
+  description: "IDTHW console for MCP, Gen AI, and ID-JAG",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

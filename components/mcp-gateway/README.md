@@ -92,7 +92,7 @@ Create its Kubernetes certificate secret:
 
 MCP Hub still accepts browser sessions for its UI. MCP Gateway calls the same `/api/mcp-servers` endpoint with a service bearer token.
 
-Create one shared secret and configure the same value as `MCP_HUB_REGISTRY_TOKEN` on the MCP Hub server:
+Create one shared secret and configure the same value as `MCP_HUB_REGISTRY_TOKEN` on the IDTHW Hub server that exposes the MCP Hub registry endpoint:
 
 ```sh
 kubectl -n mcp-hub create secret generic mcp-hub-registry \
