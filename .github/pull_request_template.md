@@ -1,6 +1,6 @@
 # Background
 
-<!-- Why is this change needed? What problem or next step does it address? -->
+- https://github.com/mlajkim/id-jag-the-hard-way/issues/230
 
 ## What's done?
 
