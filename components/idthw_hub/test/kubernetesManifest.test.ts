@@ -24,7 +24,11 @@ test("builds namespace, secret, deployment, and service resources", () => {
 
   const deployment = resources[2] as {
     metadata: { annotations: Record<string, string> }
-    spec: { template: { spec: { containers: Array<{ env: unknown[]; image: string; name: string }> } } }
+    spec: { template: { spec: { containers: Array<{
+      env: Array<{ name: string; value: string }>
+      image: string
+      name: string
+    }> } } }
   }
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/id"], "docs-mcp")
   assert.equal(
@@ -37,6 +41,10 @@ test("builds namespace, secret, deployment, and service resources", () => {
     deployment.spec.template.spec.containers[1].image,
     "ghcr.io/mlajkim/mcp-runtime-proxy:latest",
   )
+  assert.deepEqual(deployment.spec.template.spec.containers[1].env, [
+    { name: "PORT", value: "8082" },
+    { name: "MCP_TARGET_URL", value: "http://127.0.0.1:8080" },
+  ])
 
   const service = resources[3] as { spec: { ports: Array<{ targetPort: number }> } }
   assert.equal(service.spec.ports[0].targetPort, 8082)
