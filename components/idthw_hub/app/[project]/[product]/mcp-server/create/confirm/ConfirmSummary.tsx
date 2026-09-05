@@ -2,6 +2,7 @@
 
 import { Pencil } from "lucide-react"
 import Link from "next/link"
+import { athenzServiceName } from "@/features/registration/lib/athenzServices"
 import { useMcpCreateDraft } from "../McpCreateDraftContext"
 
 function valueOrFallback(value: string) {
@@ -74,7 +75,8 @@ export function ConfirmSummary({
           </div>
           <div><dt>VPC</dt><dd>{valueOrFallback(draft.vpc)}</dd></div>
           <div><dt>VPC network</dt><dd>{valueOrFallback(draft.vpcNetwork)}</dd></div>
-          <div><dt>IAM service account</dt><dd>Not configured</dd></div>
+          <div><dt>Access management</dt><dd>{draft.accessManagement === "hub" ? "Hub-managed access" : "Server-managed access"}</dd></div>
+          <div><dt>IAM service account</dt><dd>{valueOrFallback(athenzServiceName(draft.hubServiceAccountName))}</dd></div>
         </dl>
       </section>
 

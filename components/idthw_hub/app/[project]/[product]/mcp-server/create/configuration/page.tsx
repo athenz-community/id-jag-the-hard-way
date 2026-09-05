@@ -20,6 +20,9 @@ export default async function ConfigureMcpServerRoute({
   const createHref = consoleHref({ project, product, section: "mcp-server", suffix: "create" })
   const configurationHref = consoleHref({ project, product, section: "mcp-server", suffix: "create/configuration" })
   const confirmHref = consoleHref({ project, product, section: "mcp-server", suffix: "create/confirm" })
+  const hubServiceDomain = `mcp-hub.mcps.${project}`
+  const athenzUiUrl = (process.env.MCP_HUB_ATHENZ_UI_URL ?? "http://localhost:3000").replace(/\/+$/, "")
+  const athenzServicesHref = `${athenzUiUrl}/domain/${encodeURIComponent(hubServiceDomain)}/service`
 
   return (
     <ConsoleTemplate>
@@ -40,7 +43,13 @@ export default async function ConfigureMcpServerRoute({
 
       <div className="mcp-create-layout">
         <McpCreateSteps activeStep="configuration" sourceHref={createHref} configurationHref={configurationHref} />
-        <ConfigurationForm cancelHref={mcpServerHref} sourceHref={createHref} confirmHref={confirmHref} />
+        <ConfigurationForm
+          project={project}
+          athenzServicesHref={athenzServicesHref}
+          cancelHref={mcpServerHref}
+          sourceHref={createHref}
+          confirmHref={confirmHref}
+        />
       </div>
     </ConsoleTemplate>
   )
