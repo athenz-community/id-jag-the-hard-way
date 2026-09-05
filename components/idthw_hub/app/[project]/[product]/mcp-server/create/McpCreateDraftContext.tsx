@@ -17,6 +17,8 @@ type McpCreateDraft = {
   environmentSecret: boolean
   vpc: string
   vpcNetwork: string
+  accessManagement: "hub" | "server"
+  hubServiceAccountName: string
 }
 
 const INITIAL_DRAFT: McpCreateDraft = {
@@ -34,6 +36,8 @@ const INITIAL_DRAFT: McpCreateDraft = {
   environmentSecret: false,
   vpc: "default-vpc",
   vpcNetwork: "default-vpc-network",
+  accessManagement: "hub",
+  hubServiceAccountName: "",
 }
 
 const McpCreateDraftContext = createContext<{
