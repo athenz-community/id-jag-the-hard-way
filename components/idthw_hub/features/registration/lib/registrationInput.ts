@@ -19,6 +19,10 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
   const command = trimmedString(payload.command)
   const argument = trimmedString(payload.argument)
   const serviceAccount = trimmedString(payload.serviceAccount)
+  const creationMethod = payload.creationMethod ?? "direct"
+  const description = trimmedString(payload.description ?? "")
+  const templateKey = trimmedString(payload.templateKey ?? "")
+  const visibility = payload.visibility ?? "personal"
 
   if (!project || !DNS_LABEL_PATTERN.test(project)) {
     return invalid("Project must be a lowercase Kubernetes DNS name")
@@ -38,6 +42,19 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
   }
   if (command === null || command.length > 4096) return invalid("Container command is invalid")
   if (argument === null || argument.length > 4096) return invalid("Container argument is invalid")
+  if (creationMethod !== "direct" && creationMethod !== "template") {
+    return invalid("Creation method is invalid")
+  }
+  if (description === null || description.length > 2000) return invalid("Description is invalid")
+  if (templateKey === null) return invalid("MCP template key is invalid")
+  if (creationMethod === "template" && (!templateKey || !DNS_LABEL_PATTERN.test(templateKey))) {
+    return invalid("MCP template key is invalid")
+  }
+  if (creationMethod === "direct" && templateKey) return invalid("Direct setup cannot reference an MCP template")
+  if (visibility !== "personal" && visibility !== "project") return invalid("Visibility is invalid")
+  if (creationMethod === "direct" && visibility !== "personal") {
+    return invalid("Direct setup visibility must be Personal")
+  }
   const environmentVariables = validateEnvironmentVariables(payload.environmentVariables)
   if (!environmentVariables.ok) return environmentVariables
   if (payload.accessManagement !== "hub" && payload.accessManagement !== "server") {
@@ -59,6 +76,8 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
       accessManagement: payload.accessManagement,
       argument,
       command,
+      creationMethod,
+      description,
       environmentVariables: environmentVariables.variables,
       image,
       mcpKeyName,
@@ -67,6 +86,8 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
       project,
       serverName,
       serviceAccount,
+      templateKey,
+      visibility,
     },
   }
 }

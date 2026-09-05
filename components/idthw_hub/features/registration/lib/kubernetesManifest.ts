@@ -13,6 +13,8 @@ export type McpKubernetesManifestInput = {
   accessManagement: "hub" | "server"
   argument: string
   command: string
+  creationMethod: "direct" | "template"
+  description: string
   environmentVariables: McpEnvironmentVariable[]
   image: string
   mcpKeyName: string
@@ -21,6 +23,8 @@ export type McpKubernetesManifestInput = {
   project: string
   serverName: string
   serviceAccount: string
+  templateKey: string
+  visibility: "personal" | "project"
 }
 
 type McpKubernetesResourceOptions = {
@@ -51,6 +55,12 @@ export function buildMcpKubernetesResources(
     "mcp.idthw.dev/path": input.path || "/mcp",
     "mcp.idthw.dev/transport": "streamable-http",
     "mcp.idthw.dev/access-management": input.accessManagement,
+    "mcp.idthw.dev/creation-method": input.creationMethod,
+    "mcp.idthw.dev/visibility": input.visibility,
+  }
+  if (input.description) annotations["mcp.idthw.dev/description"] = input.description
+  if (input.creationMethod === "template" && input.templateKey) {
+    annotations["mcp.idthw.dev/template-key"] = input.templateKey
   }
   if (input.serviceAccount) {
     annotations["mcp.idthw.dev/iam-service-account"] = input.serviceAccount

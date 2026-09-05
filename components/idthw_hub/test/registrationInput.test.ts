@@ -85,3 +85,30 @@ test("allows server-managed access without a service account", () => {
   })
   assert.equal(result.ok, true)
 })
+
+test("allows project visibility when creating from an MCP template", () => {
+  const result = validateMcpRegistration({
+    ...validPayload,
+    creationMethod: "template",
+    description: "Confluence tools",
+    templateKey: "confluence-mcp",
+    visibility: "project",
+  })
+  assert.equal(result.ok, true)
+  if (result.ok) {
+    assert.equal(result.input.creationMethod, "template")
+    assert.equal(result.input.templateKey, "confluence-mcp")
+    assert.equal(result.input.visibility, "project")
+  }
+})
+
+test("keeps project visibility unavailable for direct setup", () => {
+  assert.deepEqual(validateMcpRegistration({
+    ...validPayload,
+    creationMethod: "direct",
+    visibility: "project",
+  }), {
+    ok: false,
+    error: "Direct setup visibility must be Personal",
+  })
+})

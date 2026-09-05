@@ -9,12 +9,14 @@ import type {
   McpTemplateSummary,
 } from "../types.ts"
 import { buildMcpTemplateSecret } from "../lib/kubernetesTemplate.ts"
+import { validateMcpTemplate } from "../lib/templateInput.ts"
 
 const TEMPLATE_NAMESPACE = "mcp-hub"
 const TEMPLATE_PREFIX = "mcp-template-"
 const TEMPLATE_RESOURCE_LABEL = "mcp.idthw.dev/resource=mcp-template"
 
 export class McpTemplateConflictError extends Error {}
+export class McpTemplateNotFoundError extends Error {}
 
 export async function createMcpTemplate(
   input: McpTemplateInput,
@@ -65,4 +67,41 @@ export async function listMcpTemplates(
     .filter((fields) => fields.length === 2 && fields[0] && fields[1])
     .map(([key, name]) => ({ key, name, project, visibility: "Project" as const }))
     .sort((left, right) => left.name.localeCompare(right.name))
+}
+
+export async function getMcpTemplate(
+  project: string,
+  templateKey: string,
+  runKubectl: KubectlRunner = runKubectlCommand,
+): Promise<McpTemplateInput> {
+  const result = await runKubectl(kubectlArgs([
+    "get",
+    `secret/${TEMPLATE_PREFIX}${templateKey}`,
+    "--namespace",
+    TEMPLATE_NAMESPACE,
+    "--ignore-not-found",
+    "-o",
+    "jsonpath={.metadata.labels.mcp\\.idthw\\.dev/resource}{\"\\t\"}{.metadata.labels.mcp\\.idthw\\.dev/project}{\"\\t\"}{.metadata.labels.mcp\\.idthw\\.dev/template-key}{\"\\t\"}{.data.template\\.json}",
+  ]))
+  if (!result.stdout.trim()) throw new McpTemplateNotFoundError("MCP template not found")
+
+  const [resourceType, ownerProject, storedTemplateKey, encodedTemplate, ...unexpectedFields] = result.stdout.split("\t")
+  if (resourceType !== "mcp-template" || ownerProject !== project || storedTemplateKey !== templateKey) {
+    throw new McpTemplateNotFoundError("MCP template not found")
+  }
+  if (!encodedTemplate || unexpectedFields.length > 0) throw new Error("MCP template data is missing")
+
+  let payload: unknown
+  try {
+    payload = JSON.parse(Buffer.from(encodedTemplate, "base64").toString("utf8"))
+  } catch {
+    throw new Error("MCP template data is invalid")
+  }
+
+  const validation = validateMcpTemplate(payload)
+  if (!validation.ok) throw new Error(`MCP template data is invalid: ${validation.error}`)
+  if (validation.input.project !== project || validation.input.templateKey !== templateKey) {
+    throw new Error("MCP template identity does not match its Kubernetes metadata")
+  }
+  return validation.input
 }

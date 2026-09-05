@@ -29,19 +29,43 @@ export function ConfirmSummary({
   const router = useRouter()
   const [createError, setCreateError] = useState("")
   const [isCreating, setIsCreating] = useState(false)
-  const configuredEnvironmentVariables = draft.environmentVariables.filter(({ key, value }) => key || value)
+  const usesTemplate = draft.creationMethod === "template"
+  const selectedTemplate = draft.selectedTemplate
+  const runtime = usesTemplate && selectedTemplate
+    ? {
+        argument: selectedTemplate.argument,
+        command: selectedTemplate.command,
+        description: selectedTemplate.description,
+        image: selectedTemplate.image,
+        path: selectedTemplate.path,
+        port: selectedTemplate.port,
+      }
+    : {
+        argument: draft.argument,
+        command: draft.command,
+        description: "",
+        image: draft.image,
+        path: draft.path,
+        port: draft.port,
+      }
+  const environmentVariables = usesTemplate ? draft.templateEnvironmentVariables : draft.environmentVariables
+  const configuredEnvironmentVariables = environmentVariables.filter(({ key, value }) => key || value)
   const kubernetesManifest = buildMcpKubernetesManifest({
     project,
     accessManagement: draft.accessManagement,
-    argument: draft.argument,
-    command: draft.command,
-    environmentVariables: draft.environmentVariables,
-    image: draft.image,
+    argument: runtime.argument,
+    command: runtime.command,
+    creationMethod: draft.creationMethod,
+    description: runtime.description,
+    environmentVariables,
+    image: runtime.image,
     mcpKeyName: draft.mcpKeyName,
-    path: draft.path,
-    port: draft.port,
+    path: runtime.path,
+    port: runtime.port,
     serverName: draft.serverName,
     serviceAccount: draft.hubServiceAccountName,
+    templateKey: usesTemplate ? draft.selectedTemplateKey : "",
+    visibility: draft.visibility,
   })
 
   async function createMcpServer() {
@@ -54,16 +78,20 @@ export function ConfirmSummary({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           accessManagement: draft.accessManagement,
-          argument: draft.argument,
-          command: draft.command,
-          environmentVariables: draft.environmentVariables.map(({ key, value, secret }) => ({ key, value, secret })),
-          image: draft.image,
+          argument: runtime.argument,
+          command: runtime.command,
+          creationMethod: draft.creationMethod,
+          description: runtime.description,
+          environmentVariables: environmentVariables.map(({ key, value, secret }) => ({ key, value, secret })),
+          image: runtime.image,
           mcpKeyName: draft.mcpKeyName,
-          path: draft.path,
-          port: draft.port,
+          path: runtime.path,
+          port: runtime.port,
           project,
           serverName: draft.serverName,
           serviceAccount: draft.hubServiceAccountName,
+          templateKey: usesTemplate ? draft.selectedTemplateKey : "",
+          visibility: draft.visibility,
         }),
       })
       const payload = await response.json() as { error?: unknown }
@@ -88,21 +116,30 @@ export function ConfirmSummary({
           <Link className="table-action" href={sourceHref} aria-label="Edit Source"><Pencil size={16} /></Link>
         </div>
         <dl className="mcp-confirm-list">
-          <div><dt>Creation method</dt><dd>Direct setup</dd></div>
-          <div><dt>Source</dt><dd>Container registry</dd></div>
-          <div><dt>Container image URL</dt><dd>{valueOrFallback(draft.image)}</dd></div>
-          <div><dt>Target port</dt><dd>{valueOrFallback(draft.port)}</dd></div>
-          <div><dt>Protocol</dt><dd>Streamable HTTP</dd></div>
-          <div>
-            <dt>Additional settings</dt>
-            <dd>
-              <dl className="mcp-confirm-nested-list">
-                <div><dt>Path</dt><dd>{valueOrFallback(draft.path)}</dd></div>
-                <div><dt>Container command</dt><dd>{valueOrFallback(draft.command)}</dd></div>
-                <div><dt>Container argument</dt><dd>{valueOrFallback(draft.argument)}</dd></div>
-              </dl>
-            </dd>
-          </div>
+          <div><dt>Creation method</dt><dd>{usesTemplate ? "MCP template" : "Direct setup"}</dd></div>
+          {usesTemplate ? (
+            <>
+              <div><dt>MCP template name</dt><dd>{valueOrFallback(selectedTemplate?.name ?? "")}</dd></div>
+              <div><dt>Template key</dt><dd>{valueOrFallback(draft.selectedTemplateKey)}</dd></div>
+            </>
+          ) : (
+            <>
+              <div><dt>Source</dt><dd>Container registry</dd></div>
+              <div><dt>Container image URL</dt><dd>{valueOrFallback(runtime.image)}</dd></div>
+              <div><dt>Target port</dt><dd>{valueOrFallback(runtime.port)}</dd></div>
+              <div><dt>Protocol</dt><dd>Streamable HTTP</dd></div>
+              <div>
+                <dt>Additional settings</dt>
+                <dd>
+                  <dl className="mcp-confirm-nested-list">
+                    <div><dt>Path</dt><dd>{valueOrFallback(runtime.path)}</dd></div>
+                    <div><dt>Container command</dt><dd>{valueOrFallback(runtime.command)}</dd></div>
+                    <div><dt>Container argument</dt><dd>{valueOrFallback(runtime.argument)}</dd></div>
+                  </dl>
+                </dd>
+              </div>
+            </>
+          )}
         </dl>
       </section>
 
@@ -114,7 +151,7 @@ export function ConfirmSummary({
         <dl className="mcp-confirm-list">
           <div><dt>Name</dt><dd>{valueOrFallback(draft.serverName)}</dd></div>
           <div><dt>MCP key name</dt><dd>{valueOrFallback(draft.mcpKeyName)}</dd></div>
-          <div><dt>Visibility</dt><dd>Personal</dd></div>
+          <div><dt>Visibility</dt><dd>{draft.visibility === "project" ? "Project" : "Personal"}</dd></div>
           <div>
             <dt>Environment variables</dt>
             <dd>

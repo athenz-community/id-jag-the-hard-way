@@ -81,14 +81,13 @@ function validateEnvironmentVariables(value: unknown):
     if (!isRecord(configuredVariable)) return invalid(`Environment variable ${index + 1} is invalid`)
     const key = trimmedString(configuredVariable.key)
     const description = trimmedString(configuredVariable.description)
-    const defaultValue = typeof configuredVariable.defaultValue === "string"
-      ? configuredVariable.defaultValue
-      : null
+    const configuredDefaultValue = configuredVariable.defaultValue
+    const defaultValue = typeof configuredDefaultValue === "string" ? configuredDefaultValue : ""
     const { required, secret } = configuredVariable
     if (
       key === null
       || description === null
-      || defaultValue === null
+      || (configuredDefaultValue !== undefined && typeof configuredDefaultValue !== "string")
       || (required !== true && required !== false)
       || (secret !== true && secret !== false)
     ) {

@@ -6,6 +6,8 @@ const input = {
   accessManagement: "hub" as const,
   argument: "--port=8080",
   command: "/app/server",
+  creationMethod: "direct" as const,
+  description: "",
   environmentVariables: [
     { key: "API_TOKEN", secret: true, value: "must-not-appear" },
     { key: "OTHER_SECRET", secret: true, value: "another-secret" },
@@ -18,6 +20,8 @@ const input = {
   project: "k8s-docs-server",
   serverName: "Docs MCP",
   serviceAccount: "mcp-hub.mcps.k8s-docs-server.runtime",
+  templateKey: "",
+  visibility: "personal" as const,
 }
 
 test("builds namespace, secret, deployment, and service resources", () => {
@@ -33,6 +37,8 @@ test("builds namespace, secret, deployment, and service resources", () => {
     }> } } }
   }
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/id"], "docs-mcp")
+  assert.equal(deployment.metadata.annotations["mcp.idthw.dev/creation-method"], "direct")
+  assert.equal(deployment.metadata.annotations["mcp.idthw.dev/visibility"], "personal")
   assert.equal(
     deployment.metadata.annotations["mcp.idthw.dev/iam-service-account"],
     "mcp-hub.mcps.k8s-docs-server.runtime",
@@ -76,4 +82,19 @@ test("routes server-managed access directly to the MCP container", () => {
   const service = resources[3] as { spec: { ports: Array<{ targetPort: number }> } }
   assert.equal(deployment.spec.template.spec.containers.length, 1)
   assert.equal(service.spec.ports[0].targetPort, 8080)
+})
+
+test("records the Kubernetes template used to create a server", () => {
+  const resources = buildMcpKubernetesResources({
+    ...input,
+    creationMethod: "template",
+    description: "Confluence tools",
+    templateKey: "confluence-mcp",
+    visibility: "project",
+  })
+  const deployment = resources[2] as { metadata: { annotations: Record<string, string> } }
+  assert.equal(deployment.metadata.annotations["mcp.idthw.dev/creation-method"], "template")
+  assert.equal(deployment.metadata.annotations["mcp.idthw.dev/template-key"], "confluence-mcp")
+  assert.equal(deployment.metadata.annotations["mcp.idthw.dev/visibility"], "project")
+  assert.equal(deployment.metadata.annotations["mcp.idthw.dev/description"], "Confluence tools")
 })

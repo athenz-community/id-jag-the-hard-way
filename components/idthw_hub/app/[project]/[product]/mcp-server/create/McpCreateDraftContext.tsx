@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, type Dispatch, type ReactNode, type SetStateAction, useContext, useState } from "react"
+import type { McpTemplateInput } from "@/features/mcp-templates/types"
 
 type McpCreateEnvironmentVariable = {
   id: number
@@ -9,7 +10,17 @@ type McpCreateEnvironmentVariable = {
   secret: boolean
 }
 
+export type McpCreateTemplateEnvironmentVariable = {
+  id: number
+  key: string
+  description: string
+  required: boolean
+  secret: boolean
+  value: string
+}
+
 type McpCreateDraft = {
+  creationMethod: "direct" | "template"
   image: string
   port: string
   path: string
@@ -20,6 +31,10 @@ type McpCreateDraft = {
   mcpKeyWasCustomized: boolean
   showMcpKeyWarning: boolean
   environmentVariables: McpCreateEnvironmentVariable[]
+  selectedTemplateKey: string
+  selectedTemplate: McpTemplateInput | null
+  templateEnvironmentVariables: McpCreateTemplateEnvironmentVariable[]
+  visibility: "personal" | "project"
   vpc: string
   vpcNetwork: string
   accessManagement: "hub" | "server"
@@ -27,6 +42,7 @@ type McpCreateDraft = {
 }
 
 const INITIAL_DRAFT: McpCreateDraft = {
+  creationMethod: "direct",
   image: "",
   port: "8080",
   path: "/mcp",
@@ -37,6 +53,10 @@ const INITIAL_DRAFT: McpCreateDraft = {
   mcpKeyWasCustomized: false,
   showMcpKeyWarning: false,
   environmentVariables: [{ id: 1, key: "", value: "", secret: false }],
+  selectedTemplateKey: "",
+  selectedTemplate: null,
+  templateEnvironmentVariables: [],
+  visibility: "personal",
   vpc: "default-vpc",
   vpcNetwork: "default-vpc-network",
   accessManagement: "hub",

@@ -3,6 +3,7 @@ import Link from "next/link"
 import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import { ConsoleTemplate } from "@/components/templates/ConsoleTemplate"
 import { requireHubSession } from "@/features/auth/lib/session"
+import { fetchMcpTemplates } from "@/features/mcp-templates/lib/fetchTemplates"
 import { McpCreateSteps } from "./McpCreateSteps"
 import { SourceForm } from "./SourceForm"
 
@@ -15,6 +16,7 @@ export default async function CreateMcpServerRoute({
 }) {
   await requireHubSession()
   const { project, product } = await params
+  const templateResponse = await fetchMcpTemplates(project)
   const catalogHref = consoleHref({ project, product, section: "catalog" })
   const mcpServerHref = consoleHref({ project, product, section: "mcp-server" })
   const createHref = consoleHref({ project, product, section: "mcp-server", suffix: "create" })
@@ -39,7 +41,13 @@ export default async function CreateMcpServerRoute({
 
       <div className="mcp-create-layout">
         <McpCreateSteps activeStep="source" sourceHref={createHref} configurationHref={configurationHref} />
-        <SourceForm cancelHref={mcpServerHref} configurationHref={configurationHref} />
+        <SourceForm
+          project={project}
+          templates={templateResponse.templates}
+          templateListError={templateResponse.error}
+          cancelHref={mcpServerHref}
+          configurationHref={configurationHref}
+        />
       </div>
     </ConsoleTemplate>
   )

@@ -22,8 +22,13 @@ export function ConfigurationForm({
 }) {
   const { draft, setDraft, resetDraft } = useMcpCreateDraft()
   const hubServiceDomain = `mcp-hub.mcps.${project}`
+  const usesTemplate = draft.creationMethod === "template"
   const requiresServiceAccount = draft.accessManagement === "hub"
-  const canContinue = !requiresServiceAccount || Boolean(draft.hubServiceAccountName)
+  const templateRequirementsReady = !usesTemplate || (
+    Boolean(draft.selectedTemplate)
+    && draft.templateEnvironmentVariables.every((variable) => !variable.required || Boolean(variable.value))
+  )
+  const canContinue = templateRequirementsReady && (!requiresServiceAccount || Boolean(draft.hubServiceAccountName))
   const [serviceAccounts, setServiceAccounts] = useState<string[]>([])
   const [serviceAccountError, setServiceAccountError] = useState("")
   const [serviceAccountsLoading, setServiceAccountsLoading] = useState(false)
@@ -93,6 +98,15 @@ export function ConfigurationForm({
         })
   }
 
+  function updateTemplateEnvironmentVariable(id: number, value: string) {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      templateEnvironmentVariables: currentDraft.templateEnvironmentVariables.map((variable) => (
+        variable.id === id ? { ...variable, value } : variable
+      )),
+    }))
+  }
+
   function deleteEnvironmentVariable(id: number) {
     setDraft((currentDraft) => ({
       ...currentDraft,
@@ -109,89 +123,150 @@ export function ConfigurationForm({
         <p className="mcp-create-field-copy">Visibility cannot be changed after the MCP server is created.</p>
         <div className="mcp-create-choice-list">
           <label className="mcp-create-choice">
-            <input name="visibility" type="radio" value="personal" defaultChecked disabled />
+            <input
+              name="visibility"
+              type="radio"
+              value="personal"
+              checked={draft.visibility === "personal"}
+              onChange={() => setDraft((currentDraft) => ({ ...currentDraft, visibility: "personal" }))}
+            />
             <span>
               <strong>Personal</strong>
               <small>Instance for personal use only. Accessible only by the creator.</small>
             </span>
           </label>
-          <label className="mcp-create-choice disabled">
-            <input name="visibility" type="radio" value="project" disabled />
+          <label className={`mcp-create-choice ${usesTemplate ? "" : "disabled"}`}>
+            <input
+              name="visibility"
+              type="radio"
+              value="project"
+              checked={draft.visibility === "project"}
+              disabled={!usesTemplate}
+              onChange={() => setDraft((currentDraft) => ({ ...currentDraft, visibility: "project" }))}
+            />
             <span>
               <strong>Project</strong>
               <small>Instance shared at the project level. Accessible by project members.</small>
             </span>
           </label>
         </div>
-        <p className="mcp-create-notice">When creating an MCP server without a template, its visibility can only be set to Personal.</p>
+        {!usesTemplate ? (
+          <p className="mcp-create-notice">When creating an MCP server without a template, its visibility can only be set to Personal.</p>
+        ) : null}
       </fieldset>
 
       <fieldset className="mcp-create-fieldset">
         <legend>Environment variables</legend>
-        <p className="mcp-create-field-copy">The entered values enable the MCP server to connect to its upstream APIs.</p>
-        <div className="mcp-create-env-table-wrap">
-          <table className="mcp-create-env-table">
-            <thead>
-              <tr>
-                <th>Key <span>*</span></th>
-                <th>Value <span>*</span></th>
-                <th>Secret</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {draft.environmentVariables.map((variable, index) => (
-                <tr key={variable.id}>
-                  <td>
-                    <input
-                      className="filter-select"
-                      aria-label={`Environment variable key ${index + 1}`}
-                      value={variable.key}
-                      onChange={(event) => updateEnvironmentVariable(variable.id, { key: event.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="filter-select"
-                      type={variable.secret ? "password" : "text"}
-                      aria-label={`Environment variable value ${index + 1}`}
-                      value={variable.value}
-                      onChange={(event) => updateEnvironmentVariable(variable.id, { value: event.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      aria-label={`Store environment variable ${index + 1} as secret`}
-                      checked={variable.secret}
-                      onChange={(event) => updateEnvironmentVariable(variable.id, { secret: event.target.checked })}
-                    />
-                  </td>
-                  <td>
-                    <button
-                      className="table-action"
-                      type="button"
-                      aria-label={`Delete environment variable ${index + 1}`}
-                      disabled={draft.environmentVariables.length === 1}
-                      onClick={() => deleteEnvironmentVariable(variable.id)}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <button
-          className="button"
-          type="button"
-          disabled={draft.environmentVariables.length >= 50}
-          onClick={addEnvironmentVariable}
-        >
-          <Plus size={14} />
-          Add environment variable
-        </button>
+        <p className="mcp-create-field-copy">
+          {usesTemplate
+            ? "Provide the runtime values defined by the selected MCP template."
+            : "The entered values enable the MCP server to connect to its upstream APIs."}
+        </p>
+        {usesTemplate ? (
+          draft.templateEnvironmentVariables.length > 0 ? (
+            <div className="mcp-create-env-table-wrap mcp-template-server-env-table-wrap">
+              <table className="mcp-create-env-table mcp-template-server-env-table">
+                <thead>
+                  <tr>
+                    <th>Key</th>
+                    <th>Secret</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {draft.templateEnvironmentVariables.map((variable, index) => (
+                    <tr key={variable.id}>
+                      <td><code>{variable.key}</code></td>
+                      <td><input type="checkbox" checked={variable.secret} readOnly aria-label={`${variable.key} is secret`} /></td>
+                      <td><input type="checkbox" checked={variable.required} readOnly aria-label={`${variable.key} is required`} /></td>
+                      <td>{variable.description || "Not provided"}</td>
+                      <td>
+                        <input
+                          className="filter-select"
+                          type={variable.secret ? "password" : "text"}
+                          required={variable.required}
+                          aria-label={`Template environment value ${index + 1}`}
+                          value={variable.value}
+                          onChange={(event) => updateTemplateEnvironmentVariable(variable.id, event.target.value)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="mcp-create-notice">This template does not require environment variables.</p>
+          )
+        ) : (
+          <>
+            <div className="mcp-create-env-table-wrap">
+              <table className="mcp-create-env-table">
+                <thead>
+                  <tr>
+                    <th>Key <span>*</span></th>
+                    <th>Value <span>*</span></th>
+                    <th>Secret</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {draft.environmentVariables.map((variable, index) => (
+                    <tr key={variable.id}>
+                      <td>
+                        <input
+                          className="filter-select"
+                          aria-label={`Environment variable key ${index + 1}`}
+                          value={variable.key}
+                          onChange={(event) => updateEnvironmentVariable(variable.id, { key: event.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="filter-select"
+                          type={variable.secret ? "password" : "text"}
+                          aria-label={`Environment variable value ${index + 1}`}
+                          value={variable.value}
+                          onChange={(event) => updateEnvironmentVariable(variable.id, { value: event.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          aria-label={`Store environment variable ${index + 1} as secret`}
+                          checked={variable.secret}
+                          onChange={(event) => updateEnvironmentVariable(variable.id, { secret: event.target.checked })}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          className="table-action"
+                          type="button"
+                          aria-label={`Delete environment variable ${index + 1}`}
+                          disabled={draft.environmentVariables.length === 1}
+                          onClick={() => deleteEnvironmentVariable(variable.id)}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button
+              className="button"
+              type="button"
+              disabled={draft.environmentVariables.length >= 50}
+              onClick={addEnvironmentVariable}
+            >
+              <Plus size={14} />
+              Add environment variable
+            </button>
+          </>
+        )}
       </fieldset>
 
       <fieldset className="mcp-create-fieldset">
