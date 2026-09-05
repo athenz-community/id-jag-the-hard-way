@@ -10,6 +10,14 @@ import {
   McpResourceConflictError,
 } from "@/features/registration/api/createMcpResources"
 import { validateMcpRegistration } from "@/features/registration/lib/registrationInput"
+import {
+  getMcpTemplate,
+  McpTemplateNotFoundError,
+} from "@/features/mcp-templates/api/kubernetesTemplates"
+import {
+  getTemplateRegistrationReference,
+  resolveMcpTemplateRegistration,
+} from "@/features/mcp-templates/lib/templateRegistration"
 
 export const dynamic = "force-dynamic"
 
@@ -73,7 +81,46 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const validation = validateMcpRegistration(payload)
+  const templateReference = getTemplateRegistrationReference(payload)
+  if (!templateReference.ok) {
+    return NextResponse.json(
+      { error: templateReference.error },
+      { status: 400, headers: NO_STORE_HEADERS },
+    )
+  }
+
+  let resolvedPayload = payload
+  if (templateReference.reference) {
+    let template
+    try {
+      template = await getMcpTemplate(
+        templateReference.reference.project,
+        templateReference.reference.templateKey,
+      )
+    } catch (error) {
+      if (error instanceof McpTemplateNotFoundError) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 404, headers: NO_STORE_HEADERS },
+        )
+      }
+      return NextResponse.json(
+        { error: "Unable to load the selected MCP template from Kubernetes" },
+        { status: 500, headers: NO_STORE_HEADERS },
+      )
+    }
+
+    const resolution = resolveMcpTemplateRegistration(payload, template)
+    if (!resolution.ok) {
+      return NextResponse.json(
+        { error: resolution.error },
+        { status: 400, headers: NO_STORE_HEADERS },
+      )
+    }
+    resolvedPayload = resolution.payload
+  }
+
+  const validation = validateMcpRegistration(resolvedPayload)
   if (!validation.ok) {
     return NextResponse.json(
       { error: validation.error },

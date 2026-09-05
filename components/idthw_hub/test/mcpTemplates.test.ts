@@ -3,11 +3,17 @@ import test from "node:test"
 import type { KubectlRunner } from "../features/kubernetes/api/kubectl.ts"
 import {
   createMcpTemplate,
+  getMcpTemplate,
   listMcpTemplates,
   McpTemplateConflictError,
+  McpTemplateNotFoundError,
 } from "../features/mcp-templates/api/kubernetesTemplates.ts"
-import { buildMcpTemplateSecret } from "../features/mcp-templates/lib/kubernetesTemplate.ts"
+import {
+  buildMcpTemplateSecret,
+  buildStoredMcpTemplate,
+} from "../features/mcp-templates/lib/kubernetesTemplate.ts"
 import { validateMcpTemplate } from "../features/mcp-templates/lib/templateInput.ts"
+import { resolveMcpTemplateRegistration } from "../features/mcp-templates/lib/templateRegistration.ts"
 import type { McpTemplateInput } from "../features/mcp-templates/types.ts"
 
 const validPayload = {
@@ -113,4 +119,75 @@ test("lists template metadata without reading Secret data", async () => {
     { key: "api-mcp", name: "API MCP", project: "k8s-docs-server", visibility: "Project" },
     { key: "confluence-mcp", name: "Confluence MCP", project: "k8s-docs-server", visibility: "Project" },
   ])
+})
+
+test("loads one project template from its Kubernetes Secret", async () => {
+  const runner: KubectlRunner = async (args) => {
+    assert.equal(args.includes("secret/mcp-template-confluence-mcp"), true)
+    assert.equal(args.some((arg) => arg.includes(".data.template\\.json")), true)
+    return {
+      stdout: [
+        "mcp-template",
+        "k8s-docs-server",
+        "confluence-mcp",
+        Buffer.from(JSON.stringify(buildStoredMcpTemplate(validInput()))).toString("base64"),
+      ].join("\t"),
+      stderr: "",
+    }
+  }
+
+  const template = await getMcpTemplate("k8s-docs-server", "confluence-mcp", runner)
+  assert.equal(template.image, validPayload.image)
+  assert.equal(template.environmentVariables[1].secret, true)
+  assert.equal("defaultValue" in template.environmentVariables[1], false)
+})
+
+test("does not load a template owned by another project", async () => {
+  const runner: KubectlRunner = async () => ({
+    stdout: [
+      "mcp-template",
+      "another-project",
+      "confluence-mcp",
+      Buffer.from(JSON.stringify(validPayload)).toString("base64"),
+    ].join("\t"),
+    stderr: "",
+  })
+  await assert.rejects(
+    getMcpTemplate("k8s-docs-server", "confluence-mcp", runner),
+    McpTemplateNotFoundError,
+  )
+})
+
+test("resolves template runtime fields and secret flags from the Kubernetes template", () => {
+  const result = resolveMcpTemplateRegistration({
+    creationMethod: "template",
+    environmentVariables: [
+      { key: "CONFLUENCE_API_TOKEN", value: "runtime-token", secret: false },
+    ],
+    image: "client-controlled-image",
+    project: "k8s-docs-server",
+    templateKey: "confluence-mcp",
+  }, validInput())
+  assert.equal(result.ok, true)
+  if (!result.ok) return
+  assert.equal(result.payload.image, validPayload.image)
+  assert.deepEqual(result.payload.environmentVariables, [
+    { key: "CONFLUENCE_URL", value: "https://example.atlassian.net/wiki", secret: false },
+    { key: "CONFLUENCE_API_TOKEN", value: "runtime-token", secret: true },
+  ])
+})
+
+test("requires template-defined values and rejects unknown keys", () => {
+  assert.deepEqual(resolveMcpTemplateRegistration({
+    environmentVariables: [],
+  }, validInput()), {
+    ok: false,
+    error: "CONFLUENCE_API_TOKEN is required by the selected MCP template",
+  })
+  assert.deepEqual(resolveMcpTemplateRegistration({
+    environmentVariables: [{ key: "UNKNOWN_KEY", value: "value" }],
+  }, validInput()), {
+    ok: false,
+    error: "Template environment variables do not match the selected template",
+  })
 })

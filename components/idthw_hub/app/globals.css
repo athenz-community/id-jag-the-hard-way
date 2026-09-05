@@ -724,6 +724,27 @@ input:disabled {
   font-weight: 750;
 }
 
+.mcp-create-template-summary {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 12px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.mcp-create-template-summary strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.mcp-create-template-summary code {
+  width: fit-content;
+}
+
 .mcp-create-additional {
   margin-top: 4px;
   border-top: 1px solid var(--line);
@@ -776,6 +797,30 @@ input:disabled {
 
 .mcp-template-reference-field {
   margin-top: 24px;
+}
+
+.mcp-template-server-env-table-wrap {
+  max-width: 100%;
+}
+
+.mcp-template-server-env-table {
+  min-width: 900px;
+}
+
+.mcp-template-server-env-table th:nth-child(2),
+.mcp-template-server-env-table td:nth-child(2),
+.mcp-template-server-env-table th:nth-child(3),
+.mcp-template-server-env-table td:nth-child(3) {
+  width: 90px;
+  text-align: center;
+}
+
+.mcp-template-server-env-table th:nth-child(4),
+.mcp-template-server-env-table td:nth-child(4),
+.mcp-template-server-env-table th:nth-child(5),
+.mcp-template-server-env-table td:nth-child(5) {
+  width: 30%;
+  text-align: left;
 }
 
 .mcp-confirm-section + .mcp-confirm-section {

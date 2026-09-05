@@ -33,3 +33,8 @@ export type McpTemplateListResponse = {
   templates: McpTemplateSummary[]
   error?: string
 }
+
+export type McpTemplateDetailResponse = {
+  template?: McpTemplateInput
+  error?: string
+}
