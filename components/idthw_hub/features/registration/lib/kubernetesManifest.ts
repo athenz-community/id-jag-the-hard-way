@@ -3,13 +3,17 @@ import { stringify } from "yaml"
 const RUNTIME_PROXY_IMAGE = "ghcr.io/mlajkim/mcp-runtime-proxy:latest"
 const RUNTIME_PROXY_PORT = 8082
 
+export type McpEnvironmentVariable = {
+  key: string
+  value: string
+  secret: boolean
+}
+
 export type McpKubernetesManifestInput = {
   accessManagement: "hub" | "server"
   argument: string
   command: string
-  environmentKey: string
-  environmentSecret: boolean
-  environmentValue: string
+  environmentVariables: McpEnvironmentVariable[]
   image: string
   mcpKeyName: string
   path: string
@@ -19,13 +23,20 @@ export type McpKubernetesManifestInput = {
   serviceAccount: string
 }
 
+type McpKubernetesResourceOptions = {
+  includeSecretValues?: boolean
+}
+
 export function buildMcpKubernetesManifest(input: McpKubernetesManifestInput) {
   return buildMcpKubernetesResources(input)
     .map((resource) => stringify(resource, { lineWidth: 0 }).trimEnd())
     .join("\n---\n")
 }
 
-export function buildMcpKubernetesResources(input: McpKubernetesManifestInput) {
+export function buildMcpKubernetesResources(
+  input: McpKubernetesManifestInput,
+  options: McpKubernetesResourceOptions = {},
+) {
   const name = input.mcpKeyName || "mcp-server-name-required"
   const image = input.image || "<container-image-required>"
   const port = validContainerPort(input.port)
@@ -73,23 +84,28 @@ export function buildMcpKubernetesResources(input: McpKubernetesManifestInput) {
     metadata: { name: input.project },
   }]
 
-  if (input.environmentKey && input.environmentValue) {
-    if (input.environmentSecret) {
-      const secretName = `${name}-env`
-      resources.push({
-        apiVersion: "v1",
-        kind: "Secret",
-        metadata: { name: secretName, namespace: input.project },
-        type: "Opaque",
-        stringData: { [input.environmentKey]: "<redacted in preview>" },
-      })
-      container.env = [{
-        name: input.environmentKey,
-        valueFrom: { secretKeyRef: { name: secretName, key: input.environmentKey } },
-      }]
-    } else {
-      container.env = [{ name: input.environmentKey, value: input.environmentValue }]
-    }
+  const environmentVariables = input.environmentVariables.filter(({ key, value }) => key && value)
+  const secretVariables = environmentVariables.filter(({ secret }) => secret)
+  const secretName = `${name}-env`
+  if (secretVariables.length > 0) {
+    resources.push({
+      apiVersion: "v1",
+      kind: "Secret",
+      metadata: { name: secretName, namespace: input.project },
+      type: "Opaque",
+      stringData: Object.fromEntries(secretVariables.map(({ key, value }) => [
+        key,
+        options.includeSecretValues ? value : "<redacted in preview>",
+      ])),
+    })
+  }
+  if (environmentVariables.length > 0) {
+    container.env = environmentVariables.map(({ key, value, secret }) => secret
+      ? {
+          name: key,
+          valueFrom: { secretKeyRef: { name: secretName, key } },
+        }
+      : { name: key, value })
   }
 
   resources.push({

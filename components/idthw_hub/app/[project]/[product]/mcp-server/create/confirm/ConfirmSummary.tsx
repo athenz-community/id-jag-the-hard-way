@@ -2,6 +2,8 @@
 
 import { Pencil } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { athenzServiceName } from "@/features/registration/lib/athenzServices"
 import { buildMcpKubernetesManifest } from "@/features/registration/lib/kubernetesManifest"
 import { useMcpCreateDraft } from "../McpCreateDraftContext"
@@ -13,24 +15,27 @@ function valueOrFallback(value: string) {
 export function ConfirmSummary({
   project,
   cancelHref,
+  successHref,
   sourceHref,
   configurationHref,
 }: {
   project: string
   cancelHref: string
+  successHref: string
   sourceHref: string
   configurationHref: string
 }) {
   const { draft, resetDraft } = useMcpCreateDraft()
-  const hasEnvironmentVariable = Boolean(draft.environmentKey || draft.environmentValue)
+  const router = useRouter()
+  const [createError, setCreateError] = useState("")
+  const [isCreating, setIsCreating] = useState(false)
+  const configuredEnvironmentVariables = draft.environmentVariables.filter(({ key, value }) => key || value)
   const kubernetesManifest = buildMcpKubernetesManifest({
     project,
     accessManagement: draft.accessManagement,
     argument: draft.argument,
     command: draft.command,
-    environmentKey: draft.environmentKey,
-    environmentSecret: draft.environmentSecret,
-    environmentValue: draft.environmentValue,
+    environmentVariables: draft.environmentVariables,
     image: draft.image,
     mcpKeyName: draft.mcpKeyName,
     path: draft.path,
@@ -38,6 +43,42 @@ export function ConfirmSummary({
     serverName: draft.serverName,
     serviceAccount: draft.hubServiceAccountName,
   })
+
+  async function createMcpServer() {
+    setCreateError("")
+    setIsCreating(true)
+
+    try {
+      const response = await fetch("/api/mcp-servers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          accessManagement: draft.accessManagement,
+          argument: draft.argument,
+          command: draft.command,
+          environmentVariables: draft.environmentVariables.map(({ key, value, secret }) => ({ key, value, secret })),
+          image: draft.image,
+          mcpKeyName: draft.mcpKeyName,
+          path: draft.path,
+          port: draft.port,
+          project,
+          serverName: draft.serverName,
+          serviceAccount: draft.hubServiceAccountName,
+        }),
+      })
+      const payload = await response.json() as { error?: unknown }
+      if (!response.ok) {
+        throw new Error(typeof payload.error === "string" ? payload.error : "Unable to create MCP server")
+      }
+
+      resetDraft()
+      router.replace(successHref)
+      router.refresh()
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "Unable to create MCP server")
+      setIsCreating(false)
+    }
+  }
 
   return (
     <div className="mcp-create-form">
@@ -75,17 +116,19 @@ export function ConfirmSummary({
           <div><dt>MCP key name</dt><dd>{valueOrFallback(draft.mcpKeyName)}</dd></div>
           <div><dt>Visibility</dt><dd>Personal</dd></div>
           <div>
-            <dt>Environment variable</dt>
+            <dt>Environment variables</dt>
             <dd>
-              {hasEnvironmentVariable ? (
+              {configuredEnvironmentVariables.length > 0 ? (
                 <table className="mcp-confirm-env-table">
                   <thead><tr><th>Key</th><th>Value</th><th>Secret</th></tr></thead>
                   <tbody>
-                    <tr>
-                      <td>{valueOrFallback(draft.environmentKey)}</td>
-                      <td>{draft.environmentSecret ? "••••••••" : valueOrFallback(draft.environmentValue)}</td>
-                      <td>{draft.environmentSecret ? "Yes" : "No"}</td>
-                    </tr>
+                    {configuredEnvironmentVariables.map((variable) => (
+                      <tr key={variable.id}>
+                        <td>{valueOrFallback(variable.key)}</td>
+                        <td>{variable.secret ? "••••••••" : valueOrFallback(variable.value)}</td>
+                        <td>{variable.secret ? "Yes" : "No"}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               ) : "Not configured"}
@@ -103,15 +146,27 @@ export function ConfirmSummary({
           <h2>Kubernetes manifest</h2>
         </div>
         <p className="mcp-confirm-manifest-copy">
-          Preview of the Namespace, Deployment, and Service the Hub will apply when Create is enabled. Secret values are redacted.
+          Preview of the Kubernetes resources the Hub will create. Secret values are redacted.
         </p>
         <pre className="mcp-confirm-manifest"><code>{kubernetesManifest}</code></pre>
       </section>
 
+      {createError ? (
+        <p className="mcp-create-service-warning" role="alert">{createError}</p>
+      ) : null}
+
       <div className="mcp-create-actions">
         <Link className="button" href={cancelHref} style={{ textDecoration: "none" }} onClick={resetDraft}>Cancel</Link>
         <Link className="button" href={configurationHref} style={{ textDecoration: "none" }}>Prev</Link>
-        <button className="button" type="button" disabled>Create</button>
+        <button
+          className="button mcp-create-primary"
+          type="button"
+          disabled={isCreating}
+          aria-busy={isCreating}
+          onClick={() => void createMcpServer()}
+        >
+          {isCreating ? "Creating..." : "Create"}
+        </button>
       </div>
     </div>
   )

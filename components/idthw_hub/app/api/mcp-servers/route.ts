@@ -5,8 +5,17 @@ import { isMcpHubServiceRequest } from "@/features/catalog/lib/mcpHubServiceAuth
 import type { CatalogResponse } from "@/features/catalog/types/catalog"
 import { readPermissionPresetConfigMap } from "@/features/permissions/lib/fetchPermissionReadiness"
 import { parseToolAccessScopesForServer } from "@/features/permissions/lib/permissionPreset"
+import {
+  createMcpResources,
+  McpResourceConflictError,
+} from "@/features/registration/api/createMcpResources"
+import { validateMcpRegistration } from "@/features/registration/lib/registrationInput"
 
 export const dynamic = "force-dynamic"
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store",
+}
 
 export async function GET(request: NextRequest) {
   const serviceRequest = isMcpHubServiceRequest(request)
@@ -41,6 +50,59 @@ export async function GET(request: NextRequest) {
           "Cache-Control": "no-store",
         },
       },
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const session = await auth()
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401, headers: NO_STORE_HEADERS },
+    )
+  }
+
+  let payload: unknown
+  try {
+    payload = await request.json()
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid registration request" },
+      { status: 400, headers: NO_STORE_HEADERS },
+    )
+  }
+
+  const validation = validateMcpRegistration(payload)
+  if (!validation.ok) {
+    return NextResponse.json(
+      { error: validation.error },
+      { status: 400, headers: NO_STORE_HEADERS },
+    )
+  }
+
+  try {
+    await createMcpResources(validation.input)
+    return NextResponse.json(
+      {
+        server: {
+          name: validation.input.mcpKeyName,
+          project: validation.input.project,
+        },
+      },
+      { status: 201, headers: NO_STORE_HEADERS },
+    )
+  } catch (error) {
+    if (error instanceof McpResourceConflictError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 409, headers: NO_STORE_HEADERS },
+      )
+    }
+
+    return NextResponse.json(
+      { error: "Unable to create MCP server resources" },
+      { status: 500, headers: NO_STORE_HEADERS },
     )
   }
 }

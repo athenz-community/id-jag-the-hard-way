@@ -2,6 +2,13 @@
 
 import { createContext, type Dispatch, type ReactNode, type SetStateAction, useContext, useState } from "react"
 
+type McpCreateEnvironmentVariable = {
+  id: number
+  key: string
+  value: string
+  secret: boolean
+}
+
 type McpCreateDraft = {
   image: string
   port: string
@@ -12,9 +19,7 @@ type McpCreateDraft = {
   mcpKeyName: string
   mcpKeyWasCustomized: boolean
   showMcpKeyWarning: boolean
-  environmentKey: string
-  environmentValue: string
-  environmentSecret: boolean
+  environmentVariables: McpCreateEnvironmentVariable[]
   vpc: string
   vpcNetwork: string
   accessManagement: "hub" | "server"
@@ -31,9 +36,7 @@ const INITIAL_DRAFT: McpCreateDraft = {
   mcpKeyName: "",
   mcpKeyWasCustomized: false,
   showMcpKeyWarning: false,
-  environmentKey: "",
-  environmentValue: "",
-  environmentSecret: false,
+  environmentVariables: [{ id: 1, key: "", value: "", secret: false }],
   vpc: "default-vpc",
   vpcNetwork: "default-vpc-network",
   accessManagement: "hub",
