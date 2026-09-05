@@ -3,6 +3,7 @@
 import { Pencil } from "lucide-react"
 import Link from "next/link"
 import { athenzServiceName } from "@/features/registration/lib/athenzServices"
+import { buildMcpKubernetesManifest } from "@/features/registration/lib/kubernetesManifest"
 import { useMcpCreateDraft } from "../McpCreateDraftContext"
 
 function valueOrFallback(value: string) {
@@ -10,16 +11,33 @@ function valueOrFallback(value: string) {
 }
 
 export function ConfirmSummary({
+  project,
   cancelHref,
   sourceHref,
   configurationHref,
 }: {
+  project: string
   cancelHref: string
   sourceHref: string
   configurationHref: string
 }) {
   const { draft, resetDraft } = useMcpCreateDraft()
   const hasEnvironmentVariable = Boolean(draft.environmentKey || draft.environmentValue)
+  const kubernetesManifest = buildMcpKubernetesManifest({
+    project,
+    accessManagement: draft.accessManagement,
+    argument: draft.argument,
+    command: draft.command,
+    environmentKey: draft.environmentKey,
+    environmentSecret: draft.environmentSecret,
+    environmentValue: draft.environmentValue,
+    image: draft.image,
+    mcpKeyName: draft.mcpKeyName,
+    path: draft.path,
+    port: draft.port,
+    serverName: draft.serverName,
+    serviceAccount: draft.hubServiceAccountName,
+  })
 
   return (
     <div className="mcp-create-form">
@@ -78,6 +96,16 @@ export function ConfirmSummary({
           <div><dt>Access management</dt><dd>{draft.accessManagement === "hub" ? "Hub-managed access" : "Server-managed access"}</dd></div>
           <div><dt>IAM service account</dt><dd>{valueOrFallback(athenzServiceName(draft.hubServiceAccountName))}</dd></div>
         </dl>
+      </section>
+
+      <section className="mcp-confirm-section">
+        <div className="mcp-confirm-heading">
+          <h2>Kubernetes manifest</h2>
+        </div>
+        <p className="mcp-confirm-manifest-copy">
+          Preview of the Namespace, Deployment, and Service the Hub will apply when Create is enabled. Secret values are redacted.
+        </p>
+        <pre className="mcp-confirm-manifest"><code>{kubernetesManifest}</code></pre>
       </section>
 
       <div className="mcp-create-actions">
