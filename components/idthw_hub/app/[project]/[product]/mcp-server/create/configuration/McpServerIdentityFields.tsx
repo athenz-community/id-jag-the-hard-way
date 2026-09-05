@@ -7,14 +7,18 @@ export function McpServerIdentityFields() {
   const { draft, setDraft } = useMcpCreateDraft()
 
   function updateServerName(nextServerName: string) {
-    setDraft((currentDraft) => ({
-      ...currentDraft,
-      serverName: nextServerName,
-      mcpKeyName: currentDraft.mcpKeyWasCustomized
-        ? currentDraft.mcpKeyName
-        : normalizeMcpKeyName(nextServerName),
-      showMcpKeyWarning: currentDraft.mcpKeyWasCustomized,
-    }))
+    setDraft((currentDraft) => {
+      const resetCustomization = nextServerName.length === 0
+      return {
+        ...currentDraft,
+        serverName: nextServerName,
+        mcpKeyName: resetCustomization || !currentDraft.mcpKeyWasCustomized
+          ? normalizeMcpKeyName(nextServerName)
+          : currentDraft.mcpKeyName,
+        mcpKeyWasCustomized: resetCustomization ? false : currentDraft.mcpKeyWasCustomized,
+        showMcpKeyWarning: resetCustomization ? false : currentDraft.mcpKeyWasCustomized,
+      }
+    })
   }
 
   function updateMcpKeyName(nextMcpKeyName: string) {
