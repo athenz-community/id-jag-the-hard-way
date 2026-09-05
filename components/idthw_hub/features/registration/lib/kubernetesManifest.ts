@@ -60,9 +60,8 @@ export function buildMcpKubernetesResources(input: McpKubernetesManifestInput) {
       image: RUNTIME_PROXY_IMAGE,
       imagePullPolicy: "Always",
       env: [
-        { name: "SERVER_PORT", value: String(RUNTIME_PROXY_PORT) },
-        { name: "MCP_TARGET_URL", value: `http://localhost:${port}` },
-        { name: "MCP_RESOURCE", value: name },
+        { name: "PORT", value: String(RUNTIME_PROXY_PORT) },
+        { name: "MCP_TARGET_URL", value: `http://127.0.0.1:${port}` },
       ],
       ports: [{ name: "proxy-http", containerPort: RUNTIME_PROXY_PORT }],
     })
