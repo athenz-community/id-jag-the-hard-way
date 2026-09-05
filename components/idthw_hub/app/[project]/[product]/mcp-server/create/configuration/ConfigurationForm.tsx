@@ -64,6 +64,42 @@ export function ConfigurationForm({
     void refreshServiceAccounts()
   }, [refreshServiceAccounts])
 
+  function updateEnvironmentVariable(
+    id: number,
+    update: Partial<{ key: string; value: string; secret: boolean }>,
+  ) {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      environmentVariables: currentDraft.environmentVariables.map((variable) => (
+        variable.id === id ? { ...variable, ...update } : variable
+      )),
+    }))
+  }
+
+  function addEnvironmentVariable() {
+    setDraft((currentDraft) => currentDraft.environmentVariables.length >= 50
+      ? currentDraft
+      : {
+          ...currentDraft,
+          environmentVariables: [
+            ...currentDraft.environmentVariables,
+            {
+              id: Math.max(0, ...currentDraft.environmentVariables.map(({ id }) => id)) + 1,
+              key: "",
+              value: "",
+              secret: false,
+            },
+          ],
+        })
+  }
+
+  function deleteEnvironmentVariable(id: number) {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      environmentVariables: currentDraft.environmentVariables.filter((variable) => variable.id !== id),
+    }))
+  }
+
   return (
     <form className="mcp-create-form">
       <McpServerIdentityFields />
@@ -91,7 +127,7 @@ export function ConfigurationForm({
       </fieldset>
 
       <fieldset className="mcp-create-fieldset">
-        <legend>Environment variable</legend>
+        <legend>Environment variables</legend>
         <p className="mcp-create-field-copy">The entered values enable the MCP server to connect to its upstream APIs.</p>
         <div className="mcp-create-env-table-wrap">
           <table className="mcp-create-env-table">
@@ -104,41 +140,58 @@ export function ConfigurationForm({
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>
-                  <input
-                    className="filter-select"
-                    aria-label="Environment variable key"
-                    value={draft.environmentKey}
-                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, environmentKey: event.target.value }))}
-                  />
-                </td>
-                <td>
-                  <input
-                    className="filter-select"
-                    aria-label="Environment variable value"
-                    value={draft.environmentValue}
-                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, environmentValue: event.target.value }))}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="checkbox"
-                    aria-label="Store as secret"
-                    checked={draft.environmentSecret}
-                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, environmentSecret: event.target.checked }))}
-                  />
-                </td>
-                <td>
-                  <button className="table-action" type="button" aria-label="Delete environment variable" disabled>
-                    <Trash2 size={15} />
-                  </button>
-                </td>
-              </tr>
+              {draft.environmentVariables.map((variable, index) => (
+                <tr key={variable.id}>
+                  <td>
+                    <input
+                      className="filter-select"
+                      aria-label={`Environment variable key ${index + 1}`}
+                      value={variable.key}
+                      onChange={(event) => updateEnvironmentVariable(variable.id, { key: event.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="filter-select"
+                      type={variable.secret ? "password" : "text"}
+                      aria-label={`Environment variable value ${index + 1}`}
+                      value={variable.value}
+                      onChange={(event) => updateEnvironmentVariable(variable.id, { value: event.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`Store environment variable ${index + 1} as secret`}
+                      checked={variable.secret}
+                      onChange={(event) => updateEnvironmentVariable(variable.id, { secret: event.target.checked })}
+                    />
+                  </td>
+                  <td>
+                    <button
+                      className="table-action"
+                      type="button"
+                      aria-label={`Delete environment variable ${index + 1}`}
+                      disabled={draft.environmentVariables.length === 1}
+                      onClick={() => deleteEnvironmentVariable(variable.id)}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-        <button className="button" type="button" aria-label="Add environment variable" disabled><Plus size={14} /></button>
+        <button
+          className="button"
+          type="button"
+          disabled={draft.environmentVariables.length >= 50}
+          onClick={addEnvironmentVariable}
+        >
+          <Plus size={14} />
+          Add environment variable
+        </button>
       </fieldset>
 
       <fieldset className="mcp-create-fieldset">

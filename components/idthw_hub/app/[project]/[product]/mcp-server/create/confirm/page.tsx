@@ -42,6 +42,7 @@ export default async function ConfirmMcpServerRoute({
         <ConfirmSummary
           project={project}
           cancelHref={mcpServerHref}
+          successHref={mcpServerHref}
           sourceHref={createHref}
           configurationHref={configurationHref}
         />

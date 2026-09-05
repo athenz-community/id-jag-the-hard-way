@@ -6,9 +6,11 @@ const input = {
   accessManagement: "hub" as const,
   argument: "--port=8080",
   command: "/app/server",
-  environmentKey: "API_TOKEN",
-  environmentSecret: true,
-  environmentValue: "must-not-appear",
+  environmentVariables: [
+    { key: "API_TOKEN", secret: true, value: "must-not-appear" },
+    { key: "OTHER_SECRET", secret: true, value: "another-secret" },
+    { key: "UPSTREAM_URL", secret: false, value: "https://example.test" },
+  ],
   image: "ghcr.io/example/mcp:latest",
   mcpKeyName: "docs-mcp",
   path: "/mcp",
@@ -35,7 +37,7 @@ test("builds namespace, secret, deployment, and service resources", () => {
     deployment.metadata.annotations["mcp.idthw.dev/iam-service-account"],
     "mcp-hub.mcps.k8s-docs-server.runtime",
   )
-  assert.equal(deployment.spec.template.spec.containers[0].env.length, 1)
+  assert.equal(deployment.spec.template.spec.containers[0].env.length, 3)
   assert.equal(deployment.spec.template.spec.containers[1].name, "mcp-runtime-proxy")
   assert.equal(
     deployment.spec.template.spec.containers[1].image,
@@ -56,7 +58,16 @@ test("redacts secret environment values from the YAML preview", () => {
   assert.match(manifest, /kind: Service/)
   assert.match(manifest, /<redacted in preview>/)
   assert.doesNotMatch(manifest, /must-not-appear/)
+  assert.doesNotMatch(manifest, /another-secret/)
+  assert.match(manifest, /https:\/\/example\.test/)
   assert.doesNotMatch(manifest, /[&*]a\d/)
+})
+
+test("includes secret values only when building resources for creation", () => {
+  const resources = buildMcpKubernetesResources(input, { includeSecretValues: true })
+  const secret = resources[1] as { stringData: Record<string, string> }
+  assert.equal(secret.stringData.API_TOKEN, "must-not-appear")
+  assert.equal(secret.stringData.OTHER_SECRET, "another-secret")
 })
 
 test("routes server-managed access directly to the MCP container", () => {
