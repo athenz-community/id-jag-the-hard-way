@@ -39,7 +39,12 @@ export default async function ConfirmMcpServerRoute({
 
       <div className="mcp-create-layout">
         <McpCreateSteps activeStep="confirm" sourceHref={createHref} configurationHref={configurationHref} />
-        <ConfirmSummary cancelHref={mcpServerHref} sourceHref={createHref} configurationHref={configurationHref} />
+        <ConfirmSummary
+          project={project}
+          cancelHref={mcpServerHref}
+          sourceHref={createHref}
+          configurationHref={configurationHref}
+        />
       </div>
     </ConsoleTemplate>
   )
