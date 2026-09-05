@@ -738,6 +738,46 @@ input:disabled {
   cursor: pointer;
 }
 
+.mcp-template-env-table-wrap {
+  max-width: 100%;
+}
+
+.mcp-template-env-table {
+  min-width: 1040px;
+}
+
+.mcp-template-env-table th:nth-child(2),
+.mcp-template-env-table td:nth-child(2),
+.mcp-template-env-table th:nth-child(3),
+.mcp-template-env-table td:nth-child(3),
+.mcp-template-env-table th:nth-child(6),
+.mcp-template-env-table td:nth-child(6) {
+  width: 100px;
+  text-align: center;
+}
+
+.mcp-template-env-table th:nth-child(4),
+.mcp-template-env-table td:nth-child(4) {
+  width: 28%;
+  text-align: left;
+}
+
+.mcp-template-env-table th:nth-child(5),
+.mcp-template-env-table td:nth-child(5) {
+  width: 24%;
+  text-align: left;
+}
+
+.mcp-template-description-field textarea {
+  min-height: 110px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.mcp-template-reference-field {
+  margin-top: 24px;
+}
+
 .mcp-confirm-section + .mcp-confirm-section {
   margin-top: 30px;
 }

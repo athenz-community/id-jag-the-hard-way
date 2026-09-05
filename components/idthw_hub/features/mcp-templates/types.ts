@@ -1,0 +1,35 @@
+export type McpTemplateEnvironmentVariable = {
+  key: string
+  description: string
+  required: boolean
+  secret: boolean
+  defaultValue?: string
+}
+
+export type McpTemplateInput = {
+  project: string
+  name: string
+  templateKey: string
+  image: string
+  port: string
+  path: string
+  command: string
+  argument: string
+  transport: "streamable-http"
+  environmentVariables: McpTemplateEnvironmentVariable[]
+  visibility: "project"
+  documentation: string
+  description: string
+}
+
+export type McpTemplateSummary = {
+  key: string
+  name: string
+  project: string
+  visibility: "Project"
+}
+
+export type McpTemplateListResponse = {
+  templates: McpTemplateSummary[]
+  error?: string
+}
