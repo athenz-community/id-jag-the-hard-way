@@ -47,6 +47,7 @@ export type AthenzAccessTokenCacheStatus = {
   expiredEntryCount: number
   expirySkewSeconds: number
   entries: Array<{
+    audiences: string[]
     scope: string
     cachedAt: string
     expiresAt: string
@@ -137,6 +138,7 @@ export class AthenzAccessTokenManager {
       }
 
       return {
+        audiences: [...cachedToken.audiences],
         scope: cachedToken.scopes.join(" "),
         cachedAt: new Date(cachedToken.cachedAtMs).toISOString(),
         expiresAt: new Date(cachedToken.expiresAtMs).toISOString(),
