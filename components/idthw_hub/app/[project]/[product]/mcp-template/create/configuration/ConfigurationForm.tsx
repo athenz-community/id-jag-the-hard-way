@@ -82,7 +82,7 @@ export function ConfigurationForm({
   }
 
   return (
-    <form className="mcp-create-form">
+    <form className="mcp-create-form" autoComplete="off">
       <McpTemplateIdentityFields templateKeyReadOnly={templateKeyReadOnly} />
 
       <McpIconPicker

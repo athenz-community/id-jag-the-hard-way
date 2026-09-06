@@ -145,7 +145,7 @@ export function ConfigurationForm({
   }
 
   return (
-    <form className="mcp-create-form">
+    <form className="mcp-create-form" autoComplete="off">
       <McpServerIdentityFields mcpKeyReadOnly={isEditing} />
 
       {isEditing ? (

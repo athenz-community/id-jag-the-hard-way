@@ -17,7 +17,7 @@ export function ReferenceForm({
   const { draft, setDraft, resetDraft } = useMcpTemplateDraft()
 
   return (
-    <form className="mcp-create-form">
+    <form className="mcp-create-form" autoComplete="off">
       <fieldset className="mcp-create-fieldset">
         <legend>Visibility <span aria-label="required">*</span></legend>
         <div className="mcp-create-choice-list">
