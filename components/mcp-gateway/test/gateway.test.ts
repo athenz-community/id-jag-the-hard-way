@@ -321,6 +321,46 @@ describe("MCP Gateway", () => {
     })
   })
 
+  it("keeps an active MCP event stream open beyond the upstream response timeout", async () => {
+    await withHttpServer(async (_request, response) => {
+      response.setHeader("content-type", "text/event-stream")
+      response.flushHeaders()
+      response.write("event: message\ndata: first\n\n")
+      await new Promise((resolve) => setTimeout(resolve, 40))
+      response.end("event: message\ndata: second\n\n")
+    }, async (coreMcpProxyUrl) => {
+      const sessionToken = sessionStore.create({
+        idToken: "stored-id-token",
+        idTokenExpiresAt: Math.floor(Date.now() / 1000) + 300,
+        subject: "keycloak-subject",
+        username: "idjag-learner",
+        expiresAt: Math.floor(Date.now() / 1000) + 300,
+      })
+
+      await withServer(async (baseUrl) => {
+        const response = await fetch(`${baseUrl}/mcp/k8s-docs-server`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${sessionToken}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
+        })
+
+        assert.equal(response.status, 200)
+        assert.equal(await response.text(), [
+          "event: message\ndata: first\n\n",
+          "event: message\ndata: second\n\n",
+        ].join(""))
+      }, {
+        resolveRoute: async () => ({
+          proxyUrl: `${coreMcpProxyUrl}/mcp/k8s-docs-server`,
+        }),
+        upstreamResponseTimeoutMs: 10,
+      })
+    })
+  })
+
   it("replaces the opaque session bearer with the selected tool's Athenz token", async () => {
     let receivedPath = ""
     let receivedAuthorization = ""

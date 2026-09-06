@@ -1,4 +1,5 @@
 import { Readable } from "node:stream"
+import { pipeline } from "node:stream/promises"
 import { Router, type Request, type Response } from "express"
 import {
   MCP_GATEWAY_ACCESS_SCOPE,
@@ -16,12 +17,14 @@ export type ProtectedRouterDependencies = {
   accessScope: string
   getAccessToken: (session: GatewaySession, scope: string) => Promise<string>
   resolveRoute: (serverId: string) => Promise<ResolvedMcpRoute>
+  upstreamResponseTimeoutMs: number
 }
 
 const defaultDependencies: ProtectedRouterDependencies = {
   accessScope: MCP_GATEWAY_ACCESS_SCOPE,
   getAccessToken: (session, scope) => athenzAccessTokenManager.getAccessToken(session, scope),
   resolveRoute: (serverId) => mcpRegistryClient.resolveRoute(serverId),
+  upstreamResponseTimeoutMs: 60_000,
 }
 
 export function createProtectedRouter(overrides: Partial<ProtectedRouterDependencies> = {}) {
@@ -72,7 +75,14 @@ export function createProtectedRouter(overrides: Partial<ProtectedRouterDependen
           session,
           accessScopeForRequest(request, route, dependencies.accessScope),
         )
-      await proxyToCore({ request, response, accessToken, serverId, proxyUrl: route.proxyUrl })
+      await proxyToCore({
+        request,
+        response,
+        accessToken,
+        serverId,
+        proxyUrl: route.proxyUrl,
+        responseTimeoutMs: dependencies.upstreamResponseTimeoutMs,
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : "MCP Gateway forwarding failed"
       console.error("MCP Gateway request failed", { serverId, subject: session.subject, message })
@@ -160,23 +170,24 @@ async function proxyToCore({
   accessToken,
   serverId,
   proxyUrl,
+  responseTimeoutMs,
 }: {
   request: Request
   response: Response
   accessToken?: string
   serverId: string
   proxyUrl: string
+  responseTimeoutMs: number
 }) {
   const upstreamUrl = buildProxyUrl(proxyUrl, request.originalUrl, serverId)
   const headers = forwardedRequestHeaders(request, accessToken)
   const body = requestBody(request)
-  const upstreamResponse = await fetch(upstreamUrl, {
+  const upstreamResponse = await fetchUntilResponse(upstreamUrl, {
     method: request.method,
     headers,
     body,
     redirect: "manual",
-    signal: AbortSignal.timeout(60_000),
-  })
+  }, responseTimeoutMs)
 
   response.status(upstreamResponse.status)
   upstreamResponse.headers.forEach((value, key) => {
@@ -189,7 +200,17 @@ async function proxyToCore({
     return
   }
 
-  Readable.fromWeb(upstreamResponse.body as never).pipe(response)
+  await pipeline(Readable.fromWeb(upstreamResponse.body as never), response)
+}
+
+async function fetchUntilResponse(url: URL, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 function buildProxyUrl(proxyUrl: string, originalUrl: string, serverId: string) {
