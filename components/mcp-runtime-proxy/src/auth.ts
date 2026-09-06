@@ -9,8 +9,19 @@ type JwtRecord = Record<string, unknown>
 
 export type SigningKeyResolver = (kid: string, forceRefresh?: boolean) => Promise<KeyObject>
 
+export type VerifiedAthenzAccessToken = {
+  audiences: string[]
+  clientId?: string
+  expiresAt: string
+  expiresInSeconds: number
+  keyId: string
+  scopes: string[]
+  subject?: string
+  userId?: string
+}
+
 export type AthenzAccessTokenVerifier = {
-  verify(authorization: string | undefined): Promise<void>
+  verify(authorization: string | undefined): Promise<VerifiedAthenzAccessToken | void>
 }
 
 export class AccessTokenError extends Error {
@@ -84,6 +95,17 @@ export function createAthenzAccessTokenVerifier({
           "insufficient_scope",
           `The Athenz access token must grant ${requiredScope}.`,
         )
+      }
+
+      return {
+        audiences: [...audiences].sort(),
+        clientId: stringClaim(parsed.claims.client_id),
+        expiresAt: new Date(parsed.claims.exp * 1000).toISOString(),
+        expiresInSeconds: parsed.claims.exp - currentTime,
+        keyId: parsed.header.kid,
+        scopes: [...scopes].sort(),
+        subject: stringClaim(parsed.claims.sub),
+        userId: stringClaim(parsed.claims.uid),
       }
     },
   }
@@ -313,4 +335,8 @@ function invalidToken() {
 
 function validAthenzName(value: string) {
   return /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/.test(value)
+}
+
+function stringClaim(value: unknown) {
+  return typeof value === "string" && value ? value : undefined
 }

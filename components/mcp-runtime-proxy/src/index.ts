@@ -3,6 +3,7 @@ import {
   createAthenzAccessTokenVerifier,
   createRemoteJwksKeyResolver,
 } from "./auth.ts"
+import { runtimeProxyLogger } from "./logger.ts"
 import { createRuntimeProxyServer } from "./proxy.ts"
 
 const port = parsePort(process.env.PORT ?? "8082")
@@ -26,16 +27,20 @@ const accessTokenVerifier = createAthenzAccessTokenVerifier({
     jwksUrl,
   }),
 })
-const server = createRuntimeProxyServer(target, accessTokenVerifier)
+const server = createRuntimeProxyServer(target, accessTokenVerifier, runtimeProxyLogger)
 
 server.listen(port, "0.0.0.0", () => {
-  console.log(`mcp-runtime-proxy listening on 0.0.0.0:${port}`)
-  console.log(`forwarding MCP requests to ${target.origin}${target.pathname}`)
-  console.log(`requiring Athenz audience ${expectedAudience} and scope ${requiredScope}`)
+  runtimeProxyLogger.info("server_started", {
+    expectedAudience,
+    listenAddress: `0.0.0.0:${port}`,
+    requiredScope,
+    target: `${target.origin}${target.pathname}`,
+  })
 })
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
+    runtimeProxyLogger.info("server_stopping", { signal })
     server.close(() => process.exit(0))
   })
 }

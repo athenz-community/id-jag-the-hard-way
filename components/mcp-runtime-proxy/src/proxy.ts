@@ -1,10 +1,13 @@
+import { randomUUID } from "node:crypto"
 import http, { type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http"
 import https from "node:https"
 import {
   AccessTokenError,
   JwksUnavailableError,
   type AthenzAccessTokenVerifier,
+  type VerifiedAthenzAccessToken,
 } from "./auth.ts"
+import { runtimeProxyLogger, type RuntimeProxyLogger } from "./logger.ts"
 
 const MAX_PUBLIC_REQUEST_BYTES = 64 * 1024
 const PUBLIC_MCP_METHODS = new Set([
@@ -25,7 +28,11 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade",
 ])
 
-export function createRuntimeProxyServer(target: URL, accessTokenVerifier: AthenzAccessTokenVerifier) {
+export function createRuntimeProxyServer(
+  target: URL,
+  accessTokenVerifier: AthenzAccessTokenVerifier,
+  logger: RuntimeProxyLogger = runtimeProxyLogger,
+) {
   if (!(["http:", "https:"] as string[]).includes(target.protocol)) {
     throw new Error("MCP_TARGET_URL must use http or https")
   }
@@ -34,7 +41,7 @@ export function createRuntimeProxyServer(target: URL, accessTokenVerifier: Athen
   }
 
   const server = http.createServer((request, response) => {
-    void handleRequest(request, response, target, accessTokenVerifier)
+    void handleRequest(request, response, target, accessTokenVerifier, logger)
   })
   server.requestTimeout = 0
   return server
@@ -45,6 +52,7 @@ async function handleRequest(
   response: ServerResponse,
   target: URL,
   accessTokenVerifier: AthenzAccessTokenVerifier,
+  logger: RuntimeProxyLogger,
 ) {
   const requestUrl = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`)
   if (requestUrl.pathname === "/healthz" || requestUrl.pathname === "/readyz") {
@@ -52,31 +60,69 @@ async function handleRequest(
     return
   }
 
+  const requestId = randomUUID()
+  const startedAt = Date.now()
+  const requestFields = {
+    requestId,
+    method: request.method ?? "UNKNOWN",
+    path: requestUrl.pathname,
+  }
+  logger.info("request_received", {
+    ...requestFields,
+    accessTokenPresent: Boolean(request.headers.authorization),
+  })
+
   try {
-    const bufferedBody = await authorizeRequest(request, accessTokenVerifier)
-    await proxyRequest(request, response, buildUpstreamUrl(target, requestUrl), bufferedBody)
+    const authorization = await authorizeRequest(request, accessTokenVerifier)
+    if (authorization.accessTokenVerified) {
+      logger.info("access_token_verified", {
+        ...requestFields,
+        ...authorization.verification,
+      })
+    } else {
+      logger.info("public_request_allowed", {
+        ...requestFields,
+        mcpMethod: authorization.publicMethod,
+      })
+    }
+    const upstreamStatus = await proxyRequest(
+      request,
+      response,
+      buildUpstreamUrl(target, requestUrl),
+      authorization.bufferedBody,
+    )
+    logger.info("request_completed", {
+      ...requestFields,
+      durationMs: Date.now() - startedAt,
+      upstreamStatus,
+    })
   } catch (error) {
     if (error instanceof AccessTokenError) {
-      console.warn("MCP access denied", {
+      logger.warn("access_denied", {
+        ...requestFields,
+        accessTokenPresent: Boolean(request.headers.authorization),
         code: error.code,
-        method: request.method,
-        path: requestUrl.pathname,
+        durationMs: Date.now() - startedAt,
         status: error.status,
       })
       sendAccessTokenError(response, error)
       return
     }
     if (error instanceof JwksUnavailableError) {
-      console.error("MCP access-token validation unavailable", {
-        method: request.method,
-        path: requestUrl.pathname,
+      logger.error("access_token_validation_unavailable", {
+        ...requestFields,
+        durationMs: Date.now() - startedAt,
         message: error.message,
       })
       sendJson(response, 503, { error: "authentication_unavailable" })
       return
     }
     const message = error instanceof Error ? error.message : "Unknown upstream error"
-    console.error("MCP upstream request failed", { method: request.method, path: requestUrl.pathname, message })
+    logger.error("upstream_request_failed", {
+      ...requestFields,
+      durationMs: Date.now() - startedAt,
+      message,
+    })
     if (response.headersSent) {
       response.destroy(error instanceof Error ? error : undefined)
       return
@@ -88,20 +134,28 @@ async function handleRequest(
 async function authorizeRequest(
   request: IncomingMessage,
   accessTokenVerifier: AthenzAccessTokenVerifier,
-) {
+): Promise<AuthorizedRequest> {
   const authorization = request.headers.authorization
   if (authorization) {
-    await accessTokenVerifier.verify(authorization)
-    return undefined
+    const verification = await accessTokenVerifier.verify(authorization)
+    return { accessTokenVerified: true, verification }
   }
 
   if (request.method === "POST") {
     const body = await readRequestBody(request)
-    if (isPublicMcpRequest(body)) return body
+    const publicMethod = publicMcpMethod(body)
+    if (publicMethod) return { accessTokenVerified: false, bufferedBody: body, publicMethod }
   }
 
   await accessTokenVerifier.verify(undefined)
-  return undefined
+  throw new Error("Access-token verification unexpectedly returned without a token")
+}
+
+type AuthorizedRequest = {
+  accessTokenVerified: boolean
+  bufferedBody?: Buffer
+  publicMethod?: string
+  verification?: VerifiedAthenzAccessToken
 }
 
 function proxyRequest(
@@ -110,7 +164,7 @@ function proxyRequest(
   upstreamUrl: URL,
   bufferedBody?: Buffer,
 ) {
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<number>((resolve, reject) => {
     const transport = upstreamUrl.protocol === "https:" ? https : http
     const upstreamRequest = transport.request(upstreamUrl, {
       method: request.method,
@@ -120,7 +174,7 @@ function proxyRequest(
       if (upstreamResponse.statusMessage) response.statusMessage = upstreamResponse.statusMessage
       copyResponseHeaders(upstreamResponse.headers, response)
       upstreamResponse.on("error", reject)
-      upstreamResponse.on("end", resolve)
+      upstreamResponse.on("end", () => resolve(response.statusCode))
       upstreamResponse.pipe(response)
     })
 
@@ -161,17 +215,14 @@ function readRequestBody(request: IncomingMessage) {
   })
 }
 
-function isPublicMcpRequest(body: Buffer) {
+function publicMcpMethod(body: Buffer) {
   try {
     const message = JSON.parse(body.toString("utf8")) as unknown
-    return Boolean(
-      message
-      && typeof message === "object"
-      && !Array.isArray(message)
-      && PUBLIC_MCP_METHODS.has(String((message as { method?: unknown }).method)),
-    )
+    if (!message || typeof message !== "object" || Array.isArray(message)) return undefined
+    const method = (message as { method?: unknown }).method
+    return typeof method === "string" && PUBLIC_MCP_METHODS.has(method) ? method : undefined
   } catch {
-    return false
+    return undefined
   }
 }
 

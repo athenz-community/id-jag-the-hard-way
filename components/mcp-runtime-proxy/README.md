@@ -6,6 +6,8 @@ The proxy verifies the JWT's RS256 signature against ZTS JWKS, requires an unexp
 
 MCP protocol bootstrap, `ping`, and `tools/list` remain public so the Hub can discover tools before a user has access. Other requests fail closed with `401` for a missing or invalid token, `403` for a missing scope, and `503` when ZTS signing keys cannot be loaded. Denials are logged without logging the token.
 
+Runtime logs are one-line JSON records with a request ID. Protected calls emit `request_received`, `access_token_verified`, and `request_completed` events. The verified event includes the signed token's subject, user ID, client ID, audiences, scopes, signing-key ID, and expiry information. Public calls and failures have distinct events. Authorization headers and raw token values are never logged.
+
 ## Request path
 
 ```text
