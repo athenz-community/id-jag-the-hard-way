@@ -4,6 +4,8 @@ import {
   TEMPLATE_MCP_IAM_MEMBER,
   signedInUserPermissionAudiences,
   toolPermissionDraftFromSettings,
+  toolPermissionSettingsFingerprint,
+  toolPermissionSettingsText,
   validateToolPermissionDraft,
 } from "../features/permissions/lib/toolPermissionDraft.ts"
 
@@ -42,6 +44,26 @@ test("validates tool names and extracts unique signed-in-user audiences", () => 
     error: "Tool names must be unique: get_k8s_docs",
   })
   assert.deepEqual(signedInUserPermissionAudiences(settings), ["api"])
+})
+
+test("fingerprints permission metadata omitted from the confirmation display", () => {
+  const updatedSettings = {
+    ...settings,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{
+          ...settings.tools.get_k8s_docs.requirements[0],
+          label: "Updated Athenz permission description",
+        }],
+      },
+    },
+  }
+
+  assert.equal(toolPermissionSettingsText(settings), toolPermissionSettingsText(updatedSettings))
+  assert.notEqual(
+    toolPermissionSettingsFingerprint(settings),
+    toolPermissionSettingsFingerprint(updatedSettings),
+  )
 })
 
 test("omits token-exchange helpers when Hub-managed access is disabled", () => {

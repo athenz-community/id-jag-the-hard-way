@@ -153,6 +153,10 @@ export function toolPermissionSettingsText(settings: ToolPermissionSettings | un
     .join("\n\n")
 }
 
+export function toolPermissionSettingsFingerprint(settings: ToolPermissionSettings | undefined) {
+  return JSON.stringify(settings ?? null)
+}
+
 export function signedInUserPermissionAudiences(settings: ToolPermissionSettings | undefined) {
   if (!settings) return []
   const audiences = Object.values(settings.tools)

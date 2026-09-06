@@ -9,6 +9,7 @@ import type { McpIconOption } from "@/features/mcp-servers/lib/mcpIcons"
 import { buildMcpTemplateManifest } from "@/features/mcp-templates/lib/kubernetesTemplate"
 import {
   TEMPLATE_MCP_IAM_MEMBER,
+  toolPermissionSettingsFingerprint,
   toolPermissionSettingsText,
   validateToolPermissionDraft,
 } from "@/features/permissions/lib/toolPermissionDraft"
@@ -35,6 +36,14 @@ function formattedEnvironmentVariables(draft: McpTemplateDraft) {
     .join("\n\n")
 }
 
+function toolPermissionDraftState(
+  validation: ReturnType<typeof validateToolPermissionDraft>,
+) {
+  return validation.ok
+    ? `valid:${toolPermissionSettingsFingerprint(validation.settings)}`
+    : `invalid:${validation.error}`
+}
+
 function changedTemplateFields(before: McpTemplateDraft, after: McpTemplateDraft) {
   const beforeToolPermissions = validateToolPermissionDraft(
     before.toolPermissions,
@@ -57,15 +66,24 @@ function changedTemplateFields(before: McpTemplateDraft, after: McpTemplateDraft
     ["Environment variables", formattedEnvironmentVariables(before), formattedEnvironmentVariables(after)],
     ["Documentation", before.documentation, after.documentation],
     ["Description", before.description, after.description],
-    [
-      "Tool permissions",
-      beforeToolPermissions.ok ? toolPermissionSettingsText(beforeToolPermissions.settings) : beforeToolPermissions.error,
-      afterToolPermissions.ok ? toolPermissionSettingsText(afterToolPermissions.settings) : afterToolPermissions.error,
-    ],
   ]
-  return fields
+  const changes = fields
     .filter(([, beforeValue, afterValue]) => beforeValue !== afterValue)
     .map(([field, beforeValue, afterValue]) => ({ field, beforeValue, afterValue }))
+
+  if (toolPermissionDraftState(beforeToolPermissions) !== toolPermissionDraftState(afterToolPermissions)) {
+    changes.push({
+      field: "Tool permissions",
+      beforeValue: beforeToolPermissions.ok
+        ? toolPermissionSettingsText(beforeToolPermissions.settings)
+        : beforeToolPermissions.error,
+      afterValue: afterToolPermissions.ok
+        ? toolPermissionSettingsText(afterToolPermissions.settings)
+        : afterToolPermissions.error,
+    })
+  }
+
+  return changes
 }
 
 export function ConfirmSummary({
