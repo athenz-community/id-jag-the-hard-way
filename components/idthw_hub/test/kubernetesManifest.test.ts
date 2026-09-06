@@ -30,12 +30,15 @@ test("builds namespace, secret, deployment, and service resources", () => {
 
   const deployment = resources[2] as {
     metadata: { annotations: Record<string, string> }
-    spec: { template: { spec: { containers: Array<{
-      args?: string[]
-      env: Array<{ name: string; value: string }>
-      image: string
-      name: string
-    }> } } }
+    spec: { template: { spec: {
+      containers: Array<{
+        args?: string[]
+        env: Array<{ name: string; value: string }>
+        image: string
+        name: string
+      }>
+      volumes: Array<{ configMap: { name: string }; name: string }>
+    } } }
   }
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/id"], "docs-mcp")
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/creation-method"], "direct")
@@ -66,7 +69,22 @@ test("builds namespace, secret, deployment, and service resources", () => {
   assert.deepEqual(deployment.spec.template.spec.containers[1].env, [
     { name: "PORT", value: "8082" },
     { name: "MCP_TARGET_URL", value: "http://127.0.0.1:8080" },
+    {
+      name: "ATHENZ_JWKS_URL",
+      value: "https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true",
+    },
+    { name: "ATHENZ_JWKS_CA_PATH", value: "/var/run/athenz/ca.crt" },
+    { name: "ATHENZ_EXPECTED_AUDIENCE", value: "mcp-hub.mcps.k8s-docs-server" },
+    {
+      name: "ATHENZ_REQUIRED_SCOPE",
+      value: "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    },
   ])
+  assert.equal(deployment.spec.template.spec.volumes[0].name, "athenz-ca")
+  assert.equal(
+    deployment.spec.template.spec.volumes[0].configMap.name,
+    "mcp-runtime-proxy-athenz-ca",
+  )
 
   const service = resources[3] as { spec: { ports: Array<{ targetPort: number }> } }
   assert.equal(service.spec.ports[0].targetPort, 8082)
@@ -92,10 +110,25 @@ test("includes secret values only when building resources for creation", () => {
 
 test("routes server-managed access directly to the MCP container", () => {
   const resources = buildMcpKubernetesResources({ ...input, accessManagement: "server" })
-  const deployment = resources[2] as { spec: { template: { spec: { containers: unknown[] } } } }
+  const deployment = resources[2] as {
+    spec: { template: { spec: { containers: unknown[]; volumes?: unknown[] } } }
+  }
   const service = resources[3] as { spec: { ports: Array<{ targetPort: number }> } }
   assert.equal(deployment.spec.template.spec.containers.length, 1)
+  assert.equal(deployment.spec.template.spec.volumes, undefined)
   assert.equal(service.spec.ports[0].targetPort, 8080)
+})
+
+test("uses a configured runtime proxy image for actual local deployment", () => {
+  const resources = buildMcpKubernetesResources(input, {
+    runtimeProxyImage: "mcp-runtime-proxy:dev",
+    runtimeProxyImagePullPolicy: "IfNotPresent",
+  })
+  const deployment = resources[2] as {
+    spec: { template: { spec: { containers: Array<{ image: string; imagePullPolicy?: string }> } } }
+  }
+  assert.equal(deployment.spec.template.spec.containers[1].image, "mcp-runtime-proxy:dev")
+  assert.equal(deployment.spec.template.spec.containers[1].imagePullPolicy, "IfNotPresent")
 })
 
 test("records the Kubernetes template used to create a server", () => {

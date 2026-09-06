@@ -9,6 +9,7 @@ import {
   buildMcpKubernetesResources,
   type McpKubernetesManifestInput,
 } from "../lib/kubernetesManifest.ts"
+import { runtimeProxyResourceOptions } from "./mcpRuntimeProxy.ts"
 
 export type { KubectlRunner } from "../../kubernetes/api/kubectl.ts"
 
@@ -68,7 +69,10 @@ export async function createMcpResources(
     throw new McpResourceConflictError("An MCP server with this key already exists")
   }
 
-  const resources = buildMcpKubernetesResources(input, { includeSecretValues: true }).slice(1)
+  const resources = buildMcpKubernetesResources(input, {
+    includeSecretValues: true,
+    ...runtimeProxyResourceOptions(),
+  }).slice(1)
   const manifest = resources
     .map((resource) => stringify(resource, { lineWidth: 0 }).trimEnd())
     .join("\n---\n")

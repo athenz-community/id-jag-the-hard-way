@@ -11,8 +11,10 @@ import {
   type McpEnvironmentVariable,
   type McpKubernetesManifestInput,
 } from "../lib/kubernetesManifest.ts"
+import { runtimeProxyResourceOptions } from "./mcpRuntimeProxy.ts"
 
 const ANNOTATION_ACCESS_MANAGEMENT = "mcp.idthw.dev/access-management"
+const ANNOTATION_ACCESS_SCOPE = "mcp.idthw.dev/access-scope"
 const ANNOTATION_ALIAS = "mcp.idthw.dev/alias"
 const ANNOTATION_CREATION_METHOD = "mcp.idthw.dev/creation-method"
 const ANNOTATION_DESCRIPTION = "mcp.idthw.dev/description"
@@ -219,14 +221,17 @@ export function buildMcpResourceUpdate(
   input: McpKubernetesManifestInput,
   currentDeployment: KubernetesDeployment,
 ) {
-  const resources = buildMcpKubernetesResources(input)
+  const resources = buildMcpKubernetesResources(input, runtimeProxyResourceOptions())
   const desiredDeployment = resources.find(({ kind }) => kind === "Deployment") as Record<string, unknown> | undefined
   const desiredService = resources.find(({ kind }) => kind === "Service") as Record<string, unknown> | undefined
   if (!desiredDeployment || !desiredService) throw new Error("Unable to build MCP server update")
 
   const desiredMetadata = desiredDeployment.metadata as { labels: Record<string, string>; annotations: Record<string, string> }
   const desiredSpec = desiredDeployment.spec as {
-    template: { metadata: { labels: Record<string, string> }; spec: { containers: KubernetesContainer[] } }
+    template: {
+      metadata: { labels: Record<string, string> }
+      spec: { containers: KubernetesContainer[]; volumes?: unknown[] }
+    }
   }
   const desiredMainContainer = desiredSpec.template.spec.containers.find(({ name }) => name === input.mcpKeyName)
   const currentMainContainer = currentDeployment.spec?.template?.spec?.containers?.find(({ name }) => name === input.mcpKeyName)
@@ -257,6 +262,7 @@ export function buildMcpResourceUpdate(
     })
 
   const optionalAnnotations = [
+    ANNOTATION_ACCESS_SCOPE,
     ANNOTATION_DESCRIPTION,
     ANNOTATION_IAM_SERVICE_ACCOUNT,
     ANNOTATION_TEMPLATE_KEY,
@@ -275,7 +281,10 @@ export function buildMcpResourceUpdate(
             labels: desiredSpec.template.metadata.labels,
             annotations: { "mcp.idthw.dev/updated-at": new Date().toISOString() },
           },
-          spec: { containers: desiredSpec.template.spec.containers },
+          spec: {
+            containers: desiredSpec.template.spec.containers,
+            volumes: desiredSpec.template.spec.volumes ?? null,
+          },
         },
       },
     },

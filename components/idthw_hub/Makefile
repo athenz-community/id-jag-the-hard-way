@@ -19,6 +19,8 @@ MCP_HUB_MCP_GATEWAY_URL ?= http://mcp-gateway.idthw.org:$(shell ../../tools/port
 MCP_HUB_CORE_PROXY_URL ?= http://host.docker.internal:$(shell ../../tools/port.sh core-mcp-proxy)
 MCP_HUB_REGISTRY_TOKEN ?= idthw-local-mcp-registry-token
 MCP_HUB_GATEWAY_STATUS_URL ?= http://host.docker.internal:$(shell ../../tools/port.sh mcp-gateway)/internal/cache-status
+MCP_HUB_RUNTIME_PROXY_IMAGE ?= ghcr.io/mlajkim/mcp-runtime-proxy:latest
+MCP_HUB_RUNTIME_PROXY_IMAGE_PULL_POLICY ?= Always
 GENAI_PROXY_URL ?= http://host.docker.internal:$(shell ../../tools/port.sh genai-proxy)
 IMAGE ?= idthw-hub:local
 CONTAINER_NAME ?= idthw-hub-local
@@ -112,6 +114,8 @@ local: apply-permission-presets
 		--env "MCP_HUB_CORE_PROXY_URL=$(MCP_HUB_CORE_PROXY_URL)" \
 		--env "MCP_HUB_REGISTRY_TOKEN=$(MCP_HUB_REGISTRY_TOKEN)" \
 		--env "MCP_HUB_GATEWAY_STATUS_URL=$(MCP_HUB_GATEWAY_STATUS_URL)" \
+		--env "MCP_HUB_RUNTIME_PROXY_IMAGE=$(MCP_HUB_RUNTIME_PROXY_IMAGE)" \
+		--env "MCP_HUB_RUNTIME_PROXY_IMAGE_PULL_POLICY=$(MCP_HUB_RUNTIME_PROXY_IMAGE_PULL_POLICY)" \
 		--env "GENAI_PROXY_URL=$(GENAI_PROXY_URL)" \
 		--env MCP_HUB_CERT_DIR=$(CONTAINER_CERT_DIR) \
 		--env KUBECONFIG=$(CONTAINER_KUBECONFIG_PATH) \

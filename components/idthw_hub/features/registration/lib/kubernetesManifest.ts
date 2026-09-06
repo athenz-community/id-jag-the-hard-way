@@ -3,6 +3,8 @@ import { stringify } from "yaml"
 const RUNTIME_PROXY_IMAGE = "ghcr.io/mlajkim/mcp-runtime-proxy:latest"
 const RUNTIME_PROXY_PORT = 8082
 
+export const MCP_RUNTIME_PROXY_CA_CONFIG_MAP = "mcp-runtime-proxy-athenz-ca"
+
 export type McpEnvironmentVariable = {
   key: string
   value: string
@@ -28,8 +30,10 @@ export type McpKubernetesManifestInput = {
   visibility: "personal" | "project"
 }
 
-type McpKubernetesResourceOptions = {
+export type McpKubernetesResourceOptions = {
   includeSecretValues?: boolean
+  runtimeProxyImage?: string
+  runtimeProxyImagePullPolicy?: "Always" | "IfNotPresent" | "Never"
 }
 
 export function managedMcpAccessDomain(project: string) {
@@ -88,17 +92,35 @@ export function buildMcpKubernetesResources(
   if (containerArguments.length > 0) container.args = containerArguments
 
   const containers = [container]
+  const podSpec: Record<string, unknown> = { containers }
   if (input.accessManagement === "hub") {
+    const expectedAudience = managedMcpAccessDomain(input.project)
+    const requiredScope = managedMcpAccessScope(input.project)
     containers.push({
       name: "mcp-runtime-proxy",
-      image: RUNTIME_PROXY_IMAGE,
-      imagePullPolicy: "Always",
+      image: options.runtimeProxyImage ?? RUNTIME_PROXY_IMAGE,
+      imagePullPolicy: options.runtimeProxyImagePullPolicy ?? "Always",
       env: [
         { name: "PORT", value: String(RUNTIME_PROXY_PORT) },
         { name: "MCP_TARGET_URL", value: `http://127.0.0.1:${port}` },
+        {
+          name: "ATHENZ_JWKS_URL",
+          value: "https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true",
+        },
+        { name: "ATHENZ_JWKS_CA_PATH", value: "/var/run/athenz/ca.crt" },
+        { name: "ATHENZ_EXPECTED_AUDIENCE", value: expectedAudience },
+        { name: "ATHENZ_REQUIRED_SCOPE", value: requiredScope },
       ],
       ports: [{ name: "proxy-http", containerPort: RUNTIME_PROXY_PORT }],
+      volumeMounts: [{ name: "athenz-ca", mountPath: "/var/run/athenz", readOnly: true }],
     })
+    podSpec.volumes = [{
+      name: "athenz-ca",
+      configMap: {
+        name: MCP_RUNTIME_PROXY_CA_CONFIG_MAP,
+        items: [{ key: "ca.crt", path: "ca.crt" }],
+      },
+    }]
   }
 
   const resources: Record<string, unknown>[] = [{
@@ -145,7 +167,7 @@ export function buildMcpKubernetesResources(
       selector: { matchLabels: { "app.kubernetes.io/name": name } },
       template: {
         metadata: { labels: { ...appLabels } },
-        spec: { containers },
+        spec: podSpec,
       },
     },
   }, {

@@ -77,7 +77,10 @@ test("builds deployment and service patches while preserving existing secret ref
     ],
   }, deployment)
   const containers = (update.deploymentPatch as {
-    spec: { template: { spec: { containers: Array<{ name: string; image: string; env?: unknown[] }> } } }
+    spec: { template: { spec: {
+      containers: Array<{ name: string; image: string; env?: unknown[] }>
+      volumes?: Array<{ name: string }>
+    } } }
   }).spec.template.spec.containers
   const mainContainer = containers.find(({ name }) => name === "docs-mcp")
   assert.equal(mainContainer?.image, "ghcr.io/example/docs-mcp:2")
@@ -86,6 +89,32 @@ test("builds deployment and service patches while preserving existing secret ref
     valueFrom: { secretKeyRef: { name: "docs-mcp-env", key: "API_TOKEN" } },
   })
   assert.deepEqual(update.newSecretValues, {})
+  const patch = update.deploymentPatch as {
+    metadata: { annotations: Record<string, string> }
+    spec: { template: { spec: { volumes?: Array<{ name: string }> } } }
+  }
+  assert.equal(
+    patch.metadata.annotations["mcp.idthw.dev/access-scope"],
+    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+  )
+  assert.equal(patch.spec.template.spec.volumes?.[0].name, "athenz-ca")
+})
+
+test("removes managed proxy trust and scope when switching to server-managed access", () => {
+  const existing = configurationFromDeployment(deployment, "k8s-docs-server", "docs-mcp")
+  const update = buildMcpResourceUpdate({
+    ...existing,
+    accessManagement: "server",
+    serviceAccount: "",
+  }, deployment)
+  const patch = update.deploymentPatch as {
+    metadata: { annotations: Record<string, string | null> }
+    spec: { template: { spec: { containers: Array<{ name: string }>; volumes: null } } }
+  }
+
+  assert.equal(patch.metadata.annotations["mcp.idthw.dev/access-scope"], null)
+  assert.deepEqual(patch.spec.template.spec.containers.map(({ name }) => name), ["docs-mcp"])
+  assert.equal(patch.spec.template.spec.volumes, null)
 })
 
 test("includes only newly supplied secret values in the Secret patch", () => {

@@ -1,8 +1,10 @@
 # MCP Runtime Proxy
 
-`mcp-runtime-proxy` is the pod-local front door for an MCP server. This first slice is intentionally a transparent Streamable HTTP proxy: it forwards MCP requests to the colocated MCP container and adds only health endpoints.
+`mcp-runtime-proxy` is the pod-local Athenz-protected front door for an MCP server. It verifies the Gateway-issued Athenz access token before forwarding protected MCP requests to the colocated MCP container.
 
-It does not perform Athenz validation, tool authorization, or token exchange yet. Those features can be added behind the same sidecar boundary without changing MCP clients or the Kubernetes Service.
+The proxy verifies the JWT's RS256 signature against ZTS JWKS, requires an unexpired token, checks the configured audience, and requires the configured accessor scope. It does not fetch Athenz policies: successful token issuance and the signed token claims are the authorization evidence for this shared server-access boundary.
+
+MCP protocol bootstrap, `ping`, and `tools/list` remain public so the Hub can discover tools before a user has access. Other requests fail closed with `401` for a missing or invalid token, `403` for a missing scope, and `503` when ZTS signing keys cannot be loaded. Denials are logged without logging the token.
 
 ## Request path
 
@@ -15,7 +17,7 @@ MCP client
   -> MCP container on MCP_TARGET_URL
 ```
 
-The MCP credential broker remains on the client. The Runtime Proxy must target the colocated MCP container directly; targeting MCP Gateway would create a routing loop.
+The MCP credential broker remains on the client. MCP Gateway exchanges the signed-in user's identity for the narrowly scoped Athenz access token. The Runtime Proxy validates that token and preserves its `Authorization` header for the colocated MCP container. It must target that container directly; targeting MCP Gateway would create a routing loop.
 
 ## Configuration
 
@@ -23,6 +25,14 @@ The MCP credential broker remains on the client. The Runtime Proxy must target t
 |---|---|---|
 | `PORT` | `8082` | Runtime Proxy listening port |
 | `MCP_TARGET_URL` | `http://127.0.0.1:8080` | Base URL of the MCP container in the same pod |
+| `ATHENZ_JWKS_URL` | `https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true` | ZTS signing-key endpoint |
+| `ATHENZ_JWKS_CA_PATH` | `/var/run/athenz/ca.crt` | CA used to authenticate the HTTPS JWKS endpoint |
+| `ATHENZ_JWKS_CACHE_TTL_SECONDS` | `300` | In-memory JWKS cache lifetime |
+| `ATHENZ_EXPECTED_AUDIENCE` | Required | Athenz domain accepted in the token `aud` claim |
+| `ATHENZ_REQUIRED_SCOPE` | Required | Fully qualified `<domain>:role.<role>` required in `scp` or `scope` |
+| `ATHENZ_JWKS_ALLOW_INSECURE_HTTP` | `false` | Allows an HTTP JWKS endpoint for local tests only |
+
+Hub-managed deployments set the audience to `mcp-hub.mcps.<project>`, require `mcp-hub.mcps.<project>:role.accessor`, and mount the Athenz CA from the project-local `mcp-runtime-proxy-athenz-ca` ConfigMap. MCP Hub idempotently refreshes that ConfigMap from its configured Athenz CA when a Hub-managed server is created or updated.
 
 The incoming path and query string are appended to `MCP_TARGET_URL`. For example, `/mcp` is forwarded to `http://127.0.0.1:8080/mcp` with request and response streaming preserved.
 
