@@ -4,6 +4,7 @@ import test from "node:test"
 import type { KubectlRunner } from "../features/kubernetes/api/kubectl.ts"
 import {
   createMcpTemplate,
+  deleteMcpTemplate,
   getMcpTemplate,
   listMcpTemplates,
   McpTemplateConflictError,
@@ -158,6 +159,34 @@ test("updates an existing project template with a server-validated patch", async
   assert.equal(patchCalls[1].args.includes("--dry-run=server"), false)
   assert.equal(patchCalls.every(({ args }) => args.includes("--patch-file")), true)
   assert.match(patchCalls[1].stdin ?? "", /Updated Confluence MCP/)
+})
+
+test("deletes an existing template only after a server-side dry run", async () => {
+  const calls: string[][] = []
+  const input = validInput()
+  const runner: KubectlRunner = async (args) => {
+    calls.push(args)
+    if (args.includes("get")) {
+      return {
+        stdout: [
+          "mcp-template",
+          input.project,
+          input.templateKey,
+          Buffer.from(JSON.stringify(buildStoredMcpTemplate(input))).toString("base64"),
+        ].join("\t"),
+        stderr: "",
+      }
+    }
+    return { stdout: "", stderr: "" }
+  }
+
+  await deleteMcpTemplate(input.project, input.templateKey, runner)
+
+  const deleteCalls = calls.filter((args) => args.includes("delete"))
+  assert.equal(deleteCalls.length, 2)
+  assert.equal(deleteCalls[0].includes("--dry-run=server"), true)
+  assert.equal(deleteCalls[1].includes("--dry-run=server"), false)
+  assert.equal(deleteCalls[1].includes("secret/mcp-template-confluence-mcp"), true)
 })
 
 test("lists template metadata without reading Secret data", async () => {

@@ -3,7 +3,9 @@ import test from "node:test"
 import {
   buildMcpResourceUpdate,
   configurationFromDeployment,
+  deleteMcpResources,
 } from "../features/registration/api/mcpResources.ts"
+import type { KubectlRunner } from "../features/kubernetes/api/kubectl.ts"
 
 const deployment = {
   metadata: {
@@ -95,4 +97,24 @@ test("includes only newly supplied secret values in the Secret patch", () => {
     ],
   }, deployment)
   assert.deepEqual(update.newSecretValues, { API_TOKEN: "replacement-test-value" })
+})
+
+test("cleanly deletes a server deployment, service, and dedicated environment Secret", async () => {
+  const calls: string[][] = []
+  const runner: KubectlRunner = async (args) => {
+    calls.push(args)
+    return args.includes("get")
+      ? { stdout: JSON.stringify(deployment), stderr: "" }
+      : { stdout: "", stderr: "" }
+  }
+
+  await deleteMcpResources("k8s-docs-server", "docs-mcp", runner)
+
+  const deleteCalls = calls.filter((args) => args.includes("delete"))
+  assert.equal(deleteCalls.length, 2)
+  assert.equal(deleteCalls[0].includes("--dry-run=server"), true)
+  assert.equal(deleteCalls[1].includes("--dry-run=server"), false)
+  assert.equal(deleteCalls[1].includes("deployment/docs-mcp"), true)
+  assert.equal(deleteCalls[1].includes("service/docs-mcp"), true)
+  assert.equal(deleteCalls[1].includes("secret/docs-mcp-env"), true)
 })
