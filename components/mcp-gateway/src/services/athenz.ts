@@ -54,6 +54,21 @@ export type AthenzAccessTokenCacheStatus = {
   }>
 }
 
+export type AthenzIdJagCacheStatus = {
+  entryCount: number
+  usableEntryCount: number
+  refreshRequiredEntryCount: number
+  expiredEntryCount: number
+  expirySkewSeconds: number
+  entries: Array<{
+    audiences: string[]
+    scope: string
+    cachedAt: string
+    expiresAt: string
+    status: "valid" | "refresh-required" | "expired"
+  }>
+}
+
 export type PostTokenForm = (body: URLSearchParams) => Promise<AthenzTokenResponse>
 
 export class ReauthenticationRequiredError extends Error {}
@@ -124,6 +139,43 @@ export class AthenzAccessTokenManager {
         scope: cachedToken.scopes.join(" "),
         cachedAt: new Date(cachedToken.cachedAtMs).toISOString(),
         expiresAt: new Date(cachedToken.expiresAtMs).toISOString(),
+        status,
+      }
+    })
+
+    return {
+      entryCount: entries.length,
+      usableEntryCount,
+      refreshRequiredEntryCount,
+      expiredEntryCount,
+      expirySkewSeconds: TOKEN_EXPIRY_SKEW_MS / 1000,
+      entries,
+    }
+  }
+
+  getIdJagCacheStatus(session: GatewaySession): AthenzIdJagCacheStatus {
+    const now = this.now()
+    let usableEntryCount = 0
+    let refreshRequiredEntryCount = 0
+    let expiredEntryCount = 0
+    const entries = Array.from(this.cachedIdJags.get(session)?.values() ?? [], (cachedIdJag) => {
+      let status: "valid" | "refresh-required" | "expired"
+      if (cachedIdJag.expiresAtMs <= now) {
+        status = "expired"
+        expiredEntryCount += 1
+      } else if (cachedIdJag.expiresAtMs <= now + TOKEN_EXPIRY_SKEW_MS) {
+        status = "refresh-required"
+        refreshRequiredEntryCount += 1
+      } else {
+        status = "valid"
+        usableEntryCount += 1
+      }
+
+      return {
+        audiences: [...cachedIdJag.audiences],
+        scope: cachedIdJag.scopes.join(" "),
+        cachedAt: new Date(cachedIdJag.cachedAtMs).toISOString(),
+        expiresAt: new Date(cachedIdJag.expiresAtMs).toISOString(),
         status,
       }
     })

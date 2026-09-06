@@ -15,12 +15,28 @@ type GatewayAccessTokenCacheStatus = {
   }>
 }
 
+type GatewayIdJagCacheStatus = {
+  entryCount: number
+  usableEntryCount: number
+  refreshRequiredEntryCount: number
+  expiredEntryCount: number
+  expirySkewSeconds: number
+  entries: Array<{
+    audiences: string[]
+    scope: string
+    cachedAt: string
+    expiresAt: string
+    status: CacheEntryStatus
+  }>
+}
+
 type GatewayOAuthSession = {
   username: string
   subject: string
   expiresAt: string
   status: SessionStatus
   athenzAccessTokens: GatewayAccessTokenCacheStatus
+  athenzIdJags: GatewayIdJagCacheStatus
 }
 
 export type McpGatewayCacheStatus = {
@@ -78,6 +94,7 @@ function sanitizeGatewayStatus(value: unknown): McpGatewayCacheStatus {
       expiresAt: string(session.expiresAt, `sessions[${index}].expiresAt`),
       status: sessionStatus(session.status, `sessions[${index}].status`),
       athenzAccessTokens: sanitizeAccessTokenStatus(session.athenzAccessTokens, index),
+      athenzIdJags: sanitizeIdJagStatus(session.athenzIdJags, index),
     }
   })
   const refreshRequiredSessionCount = sessions.filter((session) => session.status === "refresh-required").length
@@ -91,6 +108,31 @@ function sanitizeGatewayStatus(value: unknown): McpGatewayCacheStatus {
     refreshRequiredSessionCount,
     expirySkewSeconds: number(payload.expirySkewSeconds, "expirySkewSeconds"),
     sessions,
+  }
+}
+
+function sanitizeIdJagStatus(value: unknown, sessionIndex: number): GatewayIdJagCacheStatus {
+  const field = `sessions[${sessionIndex}].athenzIdJags`
+  const payload = record(value, field)
+  const entries = array(payload.entries, `${field}.entries`).map((value, entryIndex) => {
+    const entryField = `${field}.entries[${entryIndex}]`
+    const entry = record(value, entryField)
+    return {
+      audiences: stringArray(entry.audiences, `${entryField}.audiences`),
+      scope: string(entry.scope, `${entryField}.scope`),
+      cachedAt: string(entry.cachedAt, `${entryField}.cachedAt`),
+      expiresAt: string(entry.expiresAt, `${entryField}.expiresAt`),
+      status: cacheEntryStatus(entry.status, `${entryField}.status`),
+    }
+  })
+
+  return {
+    entryCount: entries.length,
+    usableEntryCount: entries.filter((entry) => entry.status === "valid").length,
+    refreshRequiredEntryCount: entries.filter((entry) => entry.status === "refresh-required").length,
+    expiredEntryCount: entries.filter((entry) => entry.status === "expired").length,
+    expirySkewSeconds: number(payload.expirySkewSeconds, `${field}.expirySkewSeconds`),
+    entries,
   }
 }
 
@@ -134,6 +176,13 @@ function record(value: unknown, field: string): Record<string, unknown> {
 
 function array(value: unknown, field: string): unknown[] {
   if (!Array.isArray(value)) throw new Error(`${field} must be an array`)
+  return value
+}
+
+function stringArray(value: unknown, field: string): string[] {
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
+    throw new Error(`${field} must be an array of strings`)
+  }
   return value
 }
 
