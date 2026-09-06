@@ -167,6 +167,7 @@ export async function POST(request: NextRequest) {
             await registerMcpServicePublicKey(
               validation.input.project,
               validation.input.serviceAccount,
+              validation.input.mcpKeyName,
               identity.publicKeyYBase64,
               requestZms,
             )
