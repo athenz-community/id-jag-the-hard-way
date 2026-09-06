@@ -38,6 +38,15 @@ test("accepts a legacy singular container argument", () => {
   if (result.ok) assert.deepEqual(result.input.arguments, ["--port=8080"])
 })
 
+test("trims container arguments and ignores blank lines", () => {
+  const result = validateMcpRegistration({
+    ...validPayload,
+    arguments: ["  --transport", "   ", "streamable-http  "],
+  })
+  assert.equal(result.ok, true)
+  if (result.ok) assert.deepEqual(result.input.arguments, ["--transport", "streamable-http"])
+})
+
 test("rejects invalid Kubernetes names and ports", () => {
   assert.deepEqual(validateMcpRegistration({ ...validPayload, project: "Bad Project" }), {
     ok: false,

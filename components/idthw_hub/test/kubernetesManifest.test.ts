@@ -4,7 +4,7 @@ import { buildMcpKubernetesManifest, buildMcpKubernetesResources } from "../feat
 
 const input = {
   accessManagement: "hub" as const,
-  arguments: ["--transport", "streamable-http", "--stateless", "--host", "0.0.0.0", "--port", "9000"],
+  arguments: ["  --transport", "streamable-http  ", "   ", "--stateless", "--host", "0.0.0.0", "--port", "9000"],
   command: "/app/server",
   creationMethod: "direct" as const,
   description: "",

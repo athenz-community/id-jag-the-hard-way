@@ -33,7 +33,7 @@ export function ConfirmSummary({
   const configuredEnvironmentVariables = draft.environmentVariables.filter(({ key, description, defaultValue }) => (
     key || description || defaultValue
   ))
-  const containerArguments = draft.containerArguments.map(({ value }) => value).filter(Boolean)
+  const containerArguments = draft.containerArguments.map(({ value }) => value.trim()).filter(Boolean)
   const templateInput = {
     arguments: containerArguments,
     command: draft.command,

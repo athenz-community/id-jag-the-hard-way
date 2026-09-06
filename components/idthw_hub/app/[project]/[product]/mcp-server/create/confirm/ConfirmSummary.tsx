@@ -50,10 +50,11 @@ export function ConfirmSummary({
       }
   const environmentVariables = usesTemplate ? draft.templateEnvironmentVariables : draft.environmentVariables
   const configuredEnvironmentVariables = environmentVariables.filter(({ key, value }) => key || value)
+  const containerArguments = runtime.arguments.map((argument) => argument.trim()).filter(Boolean)
   const kubernetesManifest = buildMcpKubernetesManifest({
     project,
     accessManagement: draft.accessManagement,
-    arguments: runtime.arguments,
+    arguments: containerArguments,
     command: runtime.command,
     creationMethod: draft.creationMethod,
     description: runtime.description,
@@ -78,7 +79,7 @@ export function ConfirmSummary({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           accessManagement: draft.accessManagement,
-          arguments: runtime.arguments,
+          arguments: containerArguments,
           command: runtime.command,
           creationMethod: draft.creationMethod,
           description: runtime.description,
@@ -137,9 +138,9 @@ export function ConfirmSummary({
                     <div>
                       <dt>Container arguments</dt>
                       <dd>
-                        {runtime.arguments.length > 0 ? (
+                        {containerArguments.length > 0 ? (
                           <ol className="mcp-confirm-argument-list">
-                            {runtime.arguments.map((argument, index) => <li key={`${index}-${argument}`}>{argument}</li>)}
+                            {containerArguments.map((argument, index) => <li key={`${index}-${argument}`}>{argument}</li>)}
                           </ol>
                         ) : "Not provided"}
                       </dd>

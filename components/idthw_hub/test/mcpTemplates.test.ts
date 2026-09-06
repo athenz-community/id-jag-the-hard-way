@@ -64,6 +64,15 @@ test("accepts a legacy singular container argument", () => {
   if (result.ok) assert.deepEqual(result.input.arguments, ["--port=9000"])
 })
 
+test("trims container arguments and ignores blank lines", () => {
+  const result = validateMcpTemplate({
+    ...validPayload,
+    arguments: ["  --transport", "\t", "streamable-http  "],
+  })
+  assert.equal(result.ok, true)
+  if (result.ok) assert.deepEqual(result.input.arguments, ["--transport", "streamable-http"])
+})
+
 test("stores non-secret defaults but omits secret defaults", () => {
   const input = validInput()
   assert.equal(input.environmentVariables[0].defaultValue, "https://example.atlassian.net/wiki")

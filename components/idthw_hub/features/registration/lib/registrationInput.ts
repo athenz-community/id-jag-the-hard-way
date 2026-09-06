@@ -108,10 +108,12 @@ function validateContainerArguments(payload: Record<string, unknown>):
 
   const containerArguments: string[] = []
   for (const argument of payload.arguments) {
-    if (typeof argument !== "string" || argument.length > 4096) {
+    if (typeof argument !== "string") {
       return invalid("Container arguments are invalid")
     }
-    if (argument) containerArguments.push(argument)
+    const normalizedArgument = argument.trim()
+    if (normalizedArgument.length > 4096) return invalid("Container arguments are invalid")
+    if (normalizedArgument) containerArguments.push(normalizedArgument)
   }
   return { ok: true, arguments: containerArguments }
 }

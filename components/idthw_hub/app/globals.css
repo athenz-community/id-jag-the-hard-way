@@ -634,17 +634,11 @@ input:disabled {
   width: 100%;
 }
 
-.mcp-create-argument-list {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.mcp-create-argument-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
+.mcp-create-arguments-textarea {
+  min-height: 168px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  line-height: 1.5;
 }
 
 .mcp-create-notice {

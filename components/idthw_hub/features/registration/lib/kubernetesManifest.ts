@@ -72,7 +72,7 @@ export function buildMcpKubernetesResources(
     ports: [{ name: "http", containerPort: port }],
   }
   if (input.command) container.command = [input.command]
-  const containerArguments = input.arguments.filter(Boolean)
+  const containerArguments = input.arguments.map((argument) => argument.trim()).filter(Boolean)
   if (containerArguments.length > 0) container.args = containerArguments
 
   const containers = [container]
