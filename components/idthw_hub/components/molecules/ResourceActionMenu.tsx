@@ -1,16 +1,18 @@
 "use client"
 
-import { AlertTriangle, MoreHorizontal, Pencil, Trash2, X } from "lucide-react"
+import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useRef, useState } from "react"
 
 export function ResourceActionMenu({
+  createServerHref,
   deleteEndpoint,
   editHref,
   resourceKind,
   resourceName,
 }: {
+  createServerHref?: string
   deleteEndpoint: string
   editHref: string
   resourceKind: "MCP server" | "MCP template"
@@ -53,9 +55,10 @@ export function ResourceActionMenu({
     }
     const bounds = triggerRef.current?.getBoundingClientRect()
     if (bounds) {
+      const menuHeight = createServerHref ? 124 : 92
       setMenuPosition({
-        left: Math.max(8, bounds.right - 150),
-        top: Math.min(window.innerHeight - 92, bounds.bottom + 4),
+        left: Math.max(8, bounds.right - 184),
+        top: Math.max(8, Math.min(window.innerHeight - menuHeight, bounds.bottom + 4)),
       })
     }
     setMenuOpen(true)
@@ -114,6 +117,12 @@ export function ResourceActionMenu({
         </button>
         {menuOpen ? (
           <div className="resource-action-menu-panel" role="menu" style={menuPosition}>
+            {createServerHref ? (
+              <Link href={createServerHref} role="menuitem" onClick={() => setMenuOpen(false)}>
+                <Plus size={14} aria-hidden="true" />
+                Create MCP server
+              </Link>
+            ) : null}
             <Link href={editHref} role="menuitem" onClick={() => setMenuOpen(false)}>
               <Pencil size={14} aria-hidden="true" />
               Modify

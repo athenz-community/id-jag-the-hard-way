@@ -11,11 +11,15 @@ export const dynamic = "force-dynamic"
 
 export default async function CreateMcpServerRoute({
   params,
+  searchParams,
 }: {
   params: Promise<{ project: string; product: string }>
+  searchParams: Promise<{ templateKey?: string | string[] }>
 }) {
   await requireHubSession()
   const { project, product } = await params
+  const query = await searchParams
+  const initialTemplateKey = typeof query.templateKey === "string" ? query.templateKey : ""
   const templateResponse = await fetchMcpTemplates(project)
   const catalogHref = consoleHref({ project, product, section: "catalog" })
   const mcpServerHref = consoleHref({ project, product, section: "mcp-server" })
@@ -45,6 +49,7 @@ export default async function CreateMcpServerRoute({
           project={project}
           templates={templateResponse.templates}
           templateListError={templateResponse.error}
+          initialTemplateKey={initialTemplateKey}
           cancelHref={mcpServerHref}
           configurationHref={configurationHref}
         />
