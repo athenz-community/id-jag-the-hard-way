@@ -24,6 +24,11 @@ const input = {
   serviceAccount: "mcp-hub.mcps.k8s-docs-server.runtime",
 }
 
+const generatedIdentity = {
+  privateKeyPem: "test-generated-private-key",
+  publicKeyYBase64: "test-generated-public-key",
+}
+
 test("creates a missing namespace and the generated MCP resources", async () => {
   const calls: Array<{ args: string[]; stdin?: string }> = []
   const runner: KubectlRunner = async (args, stdin) => {
@@ -31,7 +36,9 @@ test("creates a missing namespace and the generated MCP resources", async () => 
     return { stdout: "", stderr: "" }
   }
 
-  await createMcpResources(input, runner)
+  await createMcpResources(input, runner, {
+    generateServiceIdentity: () => generatedIdentity,
+  })
 
   assert.equal(calls.some(({ args }) => args.join(" ").includes("create namespace k8s-docs-server")), true)
   const applyCalls = calls.filter(({ args }) => args.includes("-f"))
@@ -70,7 +77,9 @@ test("ignores Hub infrastructure deployments that are not catalog servers", asyn
     }
   }
 
-  await createMcpResources(input, runner)
+  await createMcpResources(input, runner, {
+    generateServiceIdentity: () => generatedIdentity,
+  })
   assert.equal(calls.some((args) => args.includes("-f")), true)
 })
 
@@ -106,4 +115,18 @@ test("does not provision managed access when the server key conflicts", async ()
     McpResourceConflictError,
   )
   assert.equal(provisioned, false)
+})
+
+test("rejects reusing a generated-key service account for another MCP server", async () => {
+  const runner: KubectlRunner = async (args) => ({
+    stdout: args.includes("--all-namespaces")
+      ? "other-mcp other-mcp k8s-docs-server <none> mcp-hub.mcps.k8s-docs-server.runtime\n"
+      : "",
+    stderr: "",
+  })
+
+  await assert.rejects(
+    createMcpResources(input, runner),
+    /IAM service account is already assigned/,
+  )
 })

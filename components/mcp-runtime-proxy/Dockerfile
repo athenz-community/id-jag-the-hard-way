@@ -1,9 +1,11 @@
-FROM node:22-bookworm-slim
+FROM ghcr.io/ctyano/athenz-cli:latest AS athenz-cli
+FROM node:22-alpine
 
 WORKDIR /app
 
 COPY package.json ./
 COPY src ./src
+COPY --from=athenz-cli /usr/bin/zts-svccert /usr/local/bin/zts-svccert
 
 ENV NODE_ENV=production \
     PORT=8082 \

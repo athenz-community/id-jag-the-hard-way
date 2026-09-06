@@ -5,6 +5,10 @@ import {
 } from "./auth.ts"
 import { runtimeProxyLogger } from "./logger.ts"
 import { createRuntimeProxyServer } from "./proxy.ts"
+import {
+  serviceIdentityConfigFromEnvironment,
+  startServiceIdentityManager,
+} from "./identity.ts"
 
 const port = parsePort(process.env.PORT ?? "8082")
 const target = new URL(process.env.MCP_TARGET_URL ?? "http://127.0.0.1:8080")
@@ -27,6 +31,10 @@ const accessTokenVerifier = createAthenzAccessTokenVerifier({
     jwksUrl,
   }),
 })
+const serviceIdentityConfig = serviceIdentityConfigFromEnvironment()
+const serviceIdentityManager = serviceIdentityConfig
+  ? await startServiceIdentityManager(serviceIdentityConfig, runtimeProxyLogger)
+  : undefined
 const server = createRuntimeProxyServer(target, accessTokenVerifier, runtimeProxyLogger)
 
 server.listen(port, "0.0.0.0", () => {
@@ -41,6 +49,7 @@ server.listen(port, "0.0.0.0", () => {
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     runtimeProxyLogger.info("server_stopping", { signal })
+    serviceIdentityManager?.stop()
     server.close(() => process.exit(0))
   })
 }

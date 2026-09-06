@@ -174,7 +174,7 @@ function policyContains(body: string, role: string, resource: string, action: st
     && value.action === action)
 }
 
-async function createZmsRequest(): Promise<ZmsRequest> {
+export async function createZmsRequest(): Promise<ZmsRequest> {
   const zmsUrl = new URL((process.env.MCP_HUB_ZMS_URL ?? DEFAULT_ZMS_URL).replace(/\/+$/, ""))
   if (zmsUrl.protocol !== "https:") throw new Error(`Unsupported ZMS protocol ${zmsUrl.protocol}`)
 
@@ -228,7 +228,7 @@ async function createZmsRequest(): Promise<ZmsRequest> {
   })
 }
 
-function serviceNameInDomain(serviceAccount: string, domain: string) {
+export function serviceNameInDomain(serviceAccount: string, domain: string) {
   const prefix = `${domain}.`
   const serviceName = serviceAccount.startsWith(prefix) ? serviceAccount.slice(prefix.length) : ""
   if (!serviceName || !PRINCIPAL_PATTERN.test(serviceName)) {

@@ -205,12 +205,24 @@ test("stores an empty tool override when all custom permissions are removed", as
   assert.deepEqual(stored.tools.get_k8s_docs.requirements, [])
 })
 
-test("cleanly deletes a server deployment, service, and dedicated environment Secret", async () => {
+test("cleanly deletes a server and its dedicated runtime identity resources", async () => {
   const calls: string[][] = []
   const runner: KubectlRunner = async (args) => {
     calls.push(args)
     return args.includes("get")
-      ? { stdout: JSON.stringify(deployment), stderr: "" }
+      ? {
+          stdout: JSON.stringify({
+            ...deployment,
+            metadata: {
+              ...deployment.metadata,
+              annotations: {
+                ...deployment.metadata.annotations,
+                "mcp.idthw.dev/managed-identity-secret": "docs-mcp-athenz-identity",
+              },
+            },
+          }),
+          stderr: "",
+        }
       : { stdout: "", stderr: "" }
   }
 
@@ -223,4 +235,9 @@ test("cleanly deletes a server deployment, service, and dedicated environment Se
   assert.equal(deleteCalls[1].includes("deployment/docs-mcp"), true)
   assert.equal(deleteCalls[1].includes("service/docs-mcp"), true)
   assert.equal(deleteCalls[1].includes("secret/docs-mcp-env"), true)
+  assert.equal(deleteCalls[1].includes("secret/docs-mcp-athenz-bootstrap"), true)
+  assert.equal(deleteCalls[1].includes("secret/docs-mcp-athenz-identity"), true)
+  assert.equal(deleteCalls[1].includes("serviceaccount/docs-mcp-runtime-proxy"), true)
+  assert.equal(deleteCalls[1].includes("role/docs-mcp-runtime-proxy-identity"), true)
+  assert.equal(deleteCalls[1].includes("rolebinding/docs-mcp-runtime-proxy-identity"), true)
 })

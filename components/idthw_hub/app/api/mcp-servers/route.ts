@@ -14,8 +14,15 @@ import {
   createMcpResources,
   McpResourceConflictError,
 } from "@/features/registration/api/createMcpResources"
-import { ensureMcpManagedAccess } from "@/features/registration/api/mcpManagedAccess"
+import {
+  createZmsRequest,
+  ensureMcpManagedAccess,
+} from "@/features/registration/api/mcpManagedAccess"
 import { ensureMcpRuntimeProxyTrust } from "@/features/registration/api/mcpRuntimeProxy"
+import {
+  ensureMcpServiceCertificateProvider,
+  registerMcpServicePublicKey,
+} from "@/features/registration/api/mcpServiceIdentity"
 import { validateMcpRegistration } from "@/features/registration/lib/registrationInput"
 import {
   getMcpTemplate,
@@ -148,11 +155,25 @@ export async function POST(request: NextRequest) {
   try {
     await createMcpResources(validation.input, undefined, {
       beforeCreate: validation.input.accessManagement === "hub"
-        ? async () => {
+        ? async (identity) => {
+            if (!identity) throw new Error("Generated MCP service identity is missing")
+            const requestZms = await createZmsRequest()
             await ensureMcpManagedAccess(
               validation.input.project,
               username,
               validation.input.serviceAccount,
+              requestZms,
+            )
+            await registerMcpServicePublicKey(
+              validation.input.project,
+              validation.input.serviceAccount,
+              identity.publicKeyYBase64,
+              requestZms,
+            )
+            await ensureMcpServiceCertificateProvider(
+              validation.input.project,
+              validation.input.serviceAccount,
+              requestZms,
             )
             await ensureMcpRuntimeProxyTrust(validation.input.project)
           }

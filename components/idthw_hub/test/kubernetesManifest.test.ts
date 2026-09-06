@@ -27,18 +27,29 @@ const input = {
 
 test("builds namespace, secret, deployment, and service resources", () => {
   const resources = buildMcpKubernetesResources(input)
-  assert.deepEqual(resources.map((resource) => resource.kind), ["Namespace", "Secret", "Deployment", "Service"])
+  assert.deepEqual(resources.map((resource) => resource.kind), [
+    "Namespace",
+    "Secret",
+    "Secret",
+    "Secret",
+    "ServiceAccount",
+    "Role",
+    "RoleBinding",
+    "Deployment",
+    "Service",
+  ])
 
-  const deployment = resources[2] as {
+  const deployment = resources.find(({ kind }) => kind === "Deployment") as {
     metadata: { annotations: Record<string, string> }
     spec: { template: { spec: {
       containers: Array<{
         args?: string[]
-        env: Array<{ name: string; value: string }>
+        env: Array<{ name: string; value?: string }>
         image: string
         name: string
+        volumeMounts?: Array<{ mountPath: string; name: string; readOnly: boolean }>
       }>
-      volumes: Array<{ configMap: { name: string }; name: string }>
+      volumes: Array<{ configMap?: { name: string }; name: string }>
     } } }
   }
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/id"], "docs-mcp")
@@ -52,6 +63,10 @@ test("builds namespace, secret, deployment, and service resources", () => {
   assert.equal(
     deployment.metadata.annotations["mcp.idthw.dev/iam-service-account"],
     "mcp-hub.mcps.k8s-docs-server.runtime",
+  )
+  assert.equal(
+    deployment.metadata.annotations["mcp.idthw.dev/managed-identity-secret"],
+    "docs-mcp-athenz-identity",
   )
   assert.equal(deployment.spec.template.spec.containers[0].env.length, 3)
   assert.deepEqual(deployment.spec.template.spec.containers[0].args, [
@@ -68,27 +83,44 @@ test("builds namespace, secret, deployment, and service resources", () => {
     deployment.spec.template.spec.containers[1].image,
     "ghcr.io/mlajkim/mcp-runtime-proxy:latest",
   )
-  assert.deepEqual(deployment.spec.template.spec.containers[1].env, [
-    { name: "PORT", value: "8082" },
-    { name: "MCP_TARGET_URL", value: "http://127.0.0.1:8080" },
-    {
-      name: "ATHENZ_JWKS_URL",
-      value: "https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true",
-    },
-    { name: "ATHENZ_JWKS_CA_PATH", value: "/var/run/athenz/ca.crt" },
-    { name: "ATHENZ_EXPECTED_AUDIENCE", value: "mcp-hub.mcps.k8s-docs-server" },
-    {
-      name: "ATHENZ_REQUIRED_SCOPE",
-      value: "mcp-hub.mcps.k8s-docs-server:role.accessor",
-    },
-  ])
+  const proxyEnvironment = deployment.spec.template.spec.containers[1].env
+  assert.deepEqual(
+    proxyEnvironment.find(({ name }) => name === "ATHENZ_SERVICE_KEY_ID"),
+    { name: "ATHENZ_SERVICE_KEY_ID", value: "idthw-hub-generated" },
+  )
+  assert.deepEqual(
+    proxyEnvironment.find(({ name }) => name === "ATHENZ_IDENTITY_REFRESH_SECONDS"),
+    { name: "ATHENZ_IDENTITY_REFRESH_SECONDS", value: "86400" },
+  )
+  assert.deepEqual(
+    proxyEnvironment.find(({ name }) => name === "KUBERNETES_IDENTITY_SECRET_NAME"),
+    { name: "KUBERNETES_IDENTITY_SECRET_NAME", value: "docs-mcp-athenz-identity" },
+  )
   assert.equal(deployment.spec.template.spec.volumes[0].name, "athenz-ca")
   assert.equal(
-    deployment.spec.template.spec.volumes[0].configMap.name,
+    deployment.spec.template.spec.volumes[0].configMap?.name,
     "mcp-runtime-proxy-athenz-ca",
   )
 
-  const service = resources[3] as { spec: { ports: Array<{ targetPort: number }> } }
+  assert.deepEqual(deployment.spec.template.spec.containers[0].volumeMounts, [{
+    name: "athenz-service-identity",
+    mountPath: "/var/run/athenz",
+    readOnly: true,
+  }])
+  assert.deepEqual(
+    deployment.spec.template.spec.volumes.map(({ name }) => name),
+    [
+      "athenz-ca",
+      "athenz-bootstrap-key",
+      "athenz-service-identity",
+      "runtime-proxy-kube-api",
+      "runtime-proxy-tmp",
+    ],
+  )
+
+  const service = resources.find(({ kind }) => kind === "Service") as {
+    spec: { ports: Array<{ targetPort: number }> }
+  }
   assert.equal(service.spec.ports[0].targetPort, 8082)
 })
 
@@ -104,18 +136,31 @@ test("redacts secret environment values from the YAML preview", () => {
 })
 
 test("includes secret values only when building resources for creation", () => {
-  const resources = buildMcpKubernetesResources(input, { includeSecretValues: true })
-  const secret = resources[1] as { stringData: Record<string, string> }
+  const resources = buildMcpKubernetesResources(input, {
+    generatedServicePrivateKey: "test-generated-private-key",
+    includeSecretValues: true,
+  })
+  const secret = resources.find((resource) => (
+    resource.kind === "Secret"
+    && (resource.metadata as { name?: string }).name === "docs-mcp-env"
+  )) as { stringData: Record<string, string> }
   assert.equal(secret.stringData.API_TOKEN, "must-not-appear")
   assert.equal(secret.stringData.OTHER_SECRET, "another-secret")
+  const bootstrap = resources.find((resource) => (
+    resource.kind === "Secret"
+    && (resource.metadata as { name?: string }).name === "docs-mcp-athenz-bootstrap"
+  )) as { stringData: Record<string, string> }
+  assert.equal(bootstrap.stringData["service.key.pem"], "test-generated-private-key")
 })
 
 test("routes server-managed access directly to the MCP container", () => {
   const resources = buildMcpKubernetesResources({ ...input, accessManagement: "server" })
-  const deployment = resources[2] as {
+  const deployment = resources.find(({ kind }) => kind === "Deployment") as {
     spec: { template: { spec: { containers: unknown[]; volumes?: unknown[] } } }
   }
-  const service = resources[3] as { spec: { ports: Array<{ targetPort: number }> } }
+  const service = resources.find(({ kind }) => kind === "Service") as {
+    spec: { ports: Array<{ targetPort: number }> }
+  }
   assert.equal(deployment.spec.template.spec.containers.length, 1)
   assert.equal(deployment.spec.template.spec.volumes, undefined)
   assert.equal(service.spec.ports[0].targetPort, 8080)
@@ -123,7 +168,9 @@ test("routes server-managed access directly to the MCP container", () => {
 
 test("omits the icon annotation when name initials are selected", () => {
   const resources = buildMcpKubernetesResources({ ...input, iconId: "" })
-  const deployment = resources[2] as { metadata: { annotations: Record<string, string> } }
+  const deployment = resources.find(({ kind }) => kind === "Deployment") as {
+    metadata: { annotations: Record<string, string> }
+  }
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/icon"], undefined)
 })
 
@@ -132,7 +179,7 @@ test("uses a configured runtime proxy image for actual local deployment", () => 
     runtimeProxyImage: "mcp-runtime-proxy:dev",
     runtimeProxyImagePullPolicy: "IfNotPresent",
   })
-  const deployment = resources[2] as {
+  const deployment = resources.find(({ kind }) => kind === "Deployment") as {
     spec: { template: { spec: { containers: Array<{ image: string; imagePullPolicy?: string }> } } }
   }
   assert.equal(deployment.spec.template.spec.containers[1].image, "mcp-runtime-proxy:dev")
@@ -147,7 +194,9 @@ test("records the Kubernetes template used to create a server", () => {
     templateKey: "confluence-mcp",
     visibility: "project",
   })
-  const deployment = resources[2] as { metadata: { annotations: Record<string, string> } }
+  const deployment = resources.find(({ kind }) => kind === "Deployment") as {
+    metadata: { annotations: Record<string, string> }
+  }
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/creation-method"], "template")
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/template-key"], "confluence-mcp")
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/visibility"], "project")
