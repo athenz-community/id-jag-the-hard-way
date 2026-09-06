@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { McpIconPreview } from "@/features/mcp-servers/components/McpIconPicker"
 import type { McpIconOption } from "@/features/mcp-servers/lib/mcpIcons"
+import {
+  toolPermissionSettingsText,
+  validateToolPermissionDraft,
+} from "@/features/permissions/lib/toolPermissionDraft"
 import { athenzServiceName } from "@/features/registration/lib/athenzServices"
 import { buildMcpKubernetesManifest } from "@/features/registration/lib/kubernetesManifest"
 import { type McpCreateDraft, useMcpCreateDraft } from "../McpCreateDraftContext"
@@ -33,6 +37,16 @@ function formattedEnvironmentVariables(draft: McpCreateDraft) {
 }
 
 function changedServerFields(before: McpCreateDraft, after: McpCreateDraft) {
+  const beforeToolPermissions = validateToolPermissionDraft(
+    before.toolPermissions,
+    before.accessManagement === "hub",
+    before.hubServiceAccountName || undefined,
+  )
+  const afterToolPermissions = validateToolPermissionDraft(
+    after.toolPermissions,
+    after.accessManagement === "hub",
+    after.hubServiceAccountName || undefined,
+  )
   const fields = [
     ["Container image URL", before.image, after.image],
     ["Target port", before.port, after.port],
@@ -45,6 +59,15 @@ function changedServerFields(before: McpCreateDraft, after: McpCreateDraft) {
     ["Environment variables", formattedEnvironmentVariables(before), formattedEnvironmentVariables(after)],
     ["Access management", before.accessManagement, after.accessManagement],
     ["IAM service account", before.hubServiceAccountName, after.hubServiceAccountName],
+    [
+      "Tool permissions",
+      before.accessManagement === "server"
+        ? "Not configured"
+        : beforeToolPermissions.ok ? toolPermissionSettingsText(beforeToolPermissions.settings) : beforeToolPermissions.error,
+      after.accessManagement === "server"
+        ? "Not configured"
+        : afterToolPermissions.ok ? toolPermissionSettingsText(afterToolPermissions.settings) : afterToolPermissions.error,
+    ],
   ]
   return fields
     .filter(([, beforeValue, afterValue]) => beforeValue !== afterValue)
@@ -101,6 +124,14 @@ export function ConfirmSummary({
     || ("hasExistingSecret" in variable && variable.hasExistingSecret)
   ))
   const containerArguments = runtime.arguments.map((argument) => argument.trim()).filter(Boolean)
+  const toolPermissionValidation = validateToolPermissionDraft(
+    draft.toolPermissions,
+    draft.accessManagement === "hub",
+    draft.hubServiceAccountName || undefined,
+  )
+  const toolPermissions = draft.accessManagement === "hub" && toolPermissionValidation.ok
+    ? toolPermissionValidation.settings
+    : undefined
   const changes = changedServerFields(initialDraft, draft)
   const manifestEnvironmentVariables = environmentVariables.map((variable) => ({
     ...variable,
@@ -124,11 +155,16 @@ export function ConfirmSummary({
     serverName: draft.serverName,
     serviceAccount: draft.hubServiceAccountName,
     templateKey: usesTemplate ? draft.selectedTemplateKey : "",
+    toolPermissions,
     visibility: draft.visibility,
   })
 
   async function saveMcpServer() {
     setCreateError("")
+    if (draft.accessManagement === "hub" && !toolPermissionValidation.ok) {
+      setCreateError(toolPermissionValidation.error)
+      return
+    }
     setIsCreating(true)
 
     try {
@@ -154,6 +190,7 @@ export function ConfirmSummary({
           serverName: draft.serverName,
           serviceAccount: draft.hubServiceAccountName,
           templateKey: usesTemplate ? draft.selectedTemplateKey : "",
+          toolPermissions: !isEditing && usesTemplate ? (toolPermissions ?? null) : toolPermissions,
           visibility: draft.visibility,
         }),
       })
@@ -296,6 +333,10 @@ export function ConfirmSummary({
           <div><dt>VPC network</dt><dd>{valueOrFallback(draft.vpcNetwork)}</dd></div>
           <div><dt>Access management</dt><dd>{draft.accessManagement === "hub" ? "Hub-managed access" : "Server-managed access"}</dd></div>
           <div><dt>IAM service account</dt><dd>{valueOrFallback(athenzServiceName(draft.hubServiceAccountName))}</dd></div>
+          <div>
+            <dt>Tool permissions</dt>
+            <dd><div className="mcp-template-change-value">{toolPermissionSettingsText(toolPermissions)}</div></dd>
+          </div>
         </dl>
       </section>
 
@@ -319,7 +360,9 @@ export function ConfirmSummary({
         <button
           className="button mcp-create-primary"
           type="button"
-          disabled={isCreating || (isEditing && changes.length === 0)}
+          disabled={isCreating
+            || (draft.accessManagement === "hub" && !toolPermissionValidation.ok)
+            || (isEditing && changes.length === 0)}
           aria-busy={isCreating}
           onClick={() => void saveMcpServer()}
         >

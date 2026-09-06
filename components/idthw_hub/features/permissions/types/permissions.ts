@@ -28,6 +28,36 @@ export type ToolPermissionSettings = {
   }>
 }
 
+export type EditablePermissionRequirement = {
+  audience: string
+  exchangeHelpersCustomized: boolean
+  helperRequirements: EditableExchangeHelperRequirement[]
+  label: string
+  member: string
+  memberType: "service" | "signed-in-user"
+  role: string
+}
+
+export type EditableExchangeHelperRequirement = {
+  label: string
+  member: string
+  memberType: "custom" | "gateway" | "mcp-service"
+  policies: EditableExchangePolicyRule[]
+  role: string
+}
+
+export type EditableExchangePolicyRule = {
+  action: string
+  effect: "ALLOW" | "DENY"
+  resource: string
+}
+
+export type ToolPermissionDraft = {
+  id: number
+  requirements: EditablePermissionRequirement[]
+  toolName: string
+}
+
 export type PermissionRequirement = {
   configuredMember: string
   exchangePolicies?: ConfiguredExchangePolicyRule[]

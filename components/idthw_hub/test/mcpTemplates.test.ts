@@ -19,6 +19,7 @@ import {
 import { validateMcpTemplate } from "../features/mcp-templates/lib/templateInput.ts"
 import { resolveMcpTemplateRegistration } from "../features/mcp-templates/lib/templateRegistration.ts"
 import type { McpTemplateInput } from "../features/mcp-templates/types.ts"
+import { TEMPLATE_MCP_IAM_MEMBER } from "../features/permissions/lib/toolPermissionDraft.ts"
 
 const validPayload = {
   arguments: ["--transport", "streamable-http", "--stateless", "--host", "0.0.0.0", "--port", "9000"],
@@ -50,6 +51,20 @@ const validPayload = {
   templateKey: "confluence-mcp",
   transport: "streamable-http",
   visibility: "project",
+}
+
+const toolPermissions = {
+  version: 1,
+  tools: {
+    get_k8s_docs: {
+      requirements: [{
+        includeExchangeHelpers: true,
+        label: "Signed-in user can read documentation",
+        member: "<signed_in_user>",
+        role: "api:role.docs-getter",
+      }],
+    },
+  },
 }
 
 function validInput() {
@@ -99,6 +114,22 @@ test("stores non-secret defaults but omits secret defaults", () => {
   assert.doesNotMatch(resource.stringData["template.json"], /must-never-be-stored/)
   assert.match(resource.stringData["template.json"], /example\.atlassian\.net/)
   assert.deepEqual(JSON.parse(resource.stringData["template.json"]).arguments, validPayload.arguments)
+})
+
+test("validates and stores optional tool permission defaults", () => {
+  const result = validateMcpTemplate({ ...validPayload, toolPermissions })
+  assert.equal(result.ok, true)
+  if (!result.ok) return
+
+  const stored = buildStoredMcpTemplate(result.input)
+  assert.deepEqual(stored.toolPermissions, toolPermissions)
+  const resource = buildMcpTemplateSecret(result.input) as {
+    stringData: { "template.json": string }
+  }
+  assert.deepEqual(
+    JSON.parse(resource.stringData["template.json"]).toolPermissions,
+    toolPermissions,
+  )
 })
 
 test("rejects a default value for a secret template variable", () => {
@@ -279,6 +310,84 @@ test("resolves template runtime fields and secret flags from the Kubernetes temp
     { key: "CONFLUENCE_URL", value: "https://example.atlassian.net/wiki", secret: false },
     { key: "CONFLUENCE_API_TOKEN", value: "runtime-token", secret: true },
   ])
+})
+
+test("inherits template tool permissions and allows an instance to remove them", () => {
+  const templateResult = validateMcpTemplate({ ...validPayload, toolPermissions })
+  assert.equal(templateResult.ok, true)
+  if (!templateResult.ok) return
+
+  const inherited = resolveMcpTemplateRegistration({
+    creationMethod: "template",
+    environmentVariables: [
+      { key: "CONFLUENCE_API_TOKEN", value: "runtime-token", secret: true },
+    ],
+    project: "k8s-docs-server",
+    templateKey: "confluence-mcp",
+  }, templateResult.input)
+  assert.equal(inherited.ok, true)
+  if (inherited.ok) assert.deepEqual(inherited.payload.toolPermissions, toolPermissions)
+
+  const removed = resolveMcpTemplateRegistration({
+    creationMethod: "template",
+    environmentVariables: [
+      { key: "CONFLUENCE_API_TOKEN", value: "runtime-token", secret: true },
+    ],
+    project: "k8s-docs-server",
+    templateKey: "confluence-mcp",
+    toolPermissions: null,
+  }, templateResult.input)
+  assert.equal(removed.ok, true)
+  if (removed.ok) assert.equal(removed.payload.toolPermissions, undefined)
+})
+
+test("resolves an editable template MCP IAM helper to the selected service account", () => {
+  const configuredToolPermissions = {
+    version: 1,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{
+          exchangeHelperRequirements: [{
+            label: "MCP service can exchange into the downstream role",
+            member: TEMPLATE_MCP_IAM_MEMBER,
+            policies: [{
+              action: "zts.token_target_exchange",
+              effect: "ALLOW",
+              resource: "api:mcp-hub.mcps.k8s-docs-server:role.docs-getter",
+            }],
+            role: "api:role.docs-getter-exchanger",
+          }],
+          includeExchangeHelpers: true,
+          label: "Signed-in user can read documentation",
+          member: "<signed_in_user>",
+          role: "api:role.docs-getter",
+        }],
+      },
+    },
+  }
+  const templateResult = validateMcpTemplate({
+    ...validPayload,
+    toolPermissions: configuredToolPermissions,
+  })
+  assert.equal(templateResult.ok, true)
+  if (!templateResult.ok) return
+
+  const result = resolveMcpTemplateRegistration({
+    creationMethod: "template",
+    environmentVariables: [
+      { key: "CONFLUENCE_API_TOKEN", value: "runtime-token", secret: true },
+    ],
+    project: "k8s-docs-server",
+    serviceAccount: "mcp-hub.mcps.k8s-docs-server.api-docs",
+    templateKey: "confluence-mcp",
+  }, templateResult.input)
+  assert.equal(result.ok, true)
+  if (!result.ok) return
+  const resolved = result.payload.toolPermissions as typeof configuredToolPermissions
+  assert.equal(
+    resolved.tools.get_k8s_docs.requirements[0].exchangeHelperRequirements[0].member,
+    "mcp-hub.mcps.k8s-docs-server.api-docs",
+  )
 })
 
 test("requires template-defined values and rejects unknown keys", () => {

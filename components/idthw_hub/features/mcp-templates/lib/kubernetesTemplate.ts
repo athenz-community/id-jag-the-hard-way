@@ -9,6 +9,7 @@ export function buildStoredMcpTemplate(input: McpTemplateInput) {
   return {
     version: 1,
     ...input,
+    ...(input.toolPermissions ? { toolPermissions: input.toolPermissions } : {}),
     environmentVariables: input.environmentVariables.map((variable) => ({
       key: variable.key,
       description: variable.description,

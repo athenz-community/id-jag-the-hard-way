@@ -17,41 +17,25 @@ import {
   exchangeHelperRequirements,
   exchangePolicyRules,
 } from "@/features/permissions/lib/permissionPreset"
+import {
+  configuredRequirementsFromDraft,
+  emptyEditablePermissionRequirement,
+  SIGNED_IN_USER_MEMBER,
+} from "@/features/permissions/lib/toolPermissionDraft"
 import type {
+  EditableExchangeHelperRequirement,
+  EditableExchangePolicyRule,
+  EditablePermissionRequirement,
   PermissionPolicyRequirementCheck,
   PermissionRequirementCheck,
 } from "@/features/permissions/types/permissions"
-
-const SIGNED_IN_USER_MEMBER = "<signed_in_user>"
 
 type PageScrollLock = {
   bodyStyle: string | null
   scrollY: number
 }
 
-type EditableRequirement = {
-  audience: string
-  exchangeHelpersCustomized: boolean
-  helperRequirements: EditableExchangeHelperRequirement[]
-  label: string
-  member: string
-  memberType: "service" | "signed-in-user"
-  role: string
-}
-
-type EditableExchangeHelperRequirement = {
-  label: string
-  member: string
-  memberType: "custom" | "gateway" | "mcp-service"
-  policies: EditableExchangePolicyRule[]
-  role: string
-}
-
-type EditableExchangePolicyRule = {
-  action: string
-  effect: "ALLOW" | "DENY"
-  resource: string
-}
+type EditableRequirement = EditablePermissionRequirement
 
 export function PermissionRequestDialog({
   accessAudience,
@@ -156,38 +140,17 @@ export function PermissionRequestDialog({
       toolPolicies,
       servicePrincipal,
     )
-    setDraftRequirements(configured.length > 0 ? configured : [emptyRequirement()])
+    setDraftRequirements(configured.length > 0 ? configured : [emptyEditablePermissionRequirement()])
     setIsEditing(true)
   }
 
   const saveToolPermissions = async () => {
     setSaveError(null)
-    const requirements = draftRequirements.map((requirement) => {
-      const managesExchangeHelpers = requirement.memberType === "signed-in-user" && Boolean(servicePrincipal)
-      const role = configuredRole(requirement.audience, requirement.role)
-      return {
-        ...(managesExchangeHelpers ? { includeExchangeHelpers: true } : {}),
-        ...(managesExchangeHelpers && requirement.exchangeHelpersCustomized
-          ? {
-              exchangeHelperRequirements: requirement.helperRequirements.map((helper) => ({
-                label: helper.label.trim(),
-                member: helper.member.trim(),
-                policies: helper.policies.map((policy) => ({
-                  action: policy.action.trim(),
-                  effect: policy.effect,
-                  resource: policy.resource.trim(),
-                })),
-                role: helper.role.trim(),
-              })),
-            }
-          : {}),
-        label: requirement.label.trim() || "Signed-in user can call the downstream API",
-        member: requirement.memberType === "signed-in-user"
-          ? SIGNED_IN_USER_MEMBER
-          : requirement.member.trim(),
-        role,
-      }
-    })
+    const requirements = configuredRequirementsFromDraft(
+      draftRequirements,
+      Boolean(servicePrincipal),
+      servicePrincipal,
+    )
     if (draftRequirements.some(({ audience, member, memberType, role }) => (
       !audience.trim() || !role.trim() || (memberType === "service" && !member.trim())
     ))) {
@@ -528,13 +491,15 @@ function statusLabel(status: PermissionRequirementCheck["status"]) {
   return status === "ready" ? "Available" : status === "missing" ? "Not available" : "Could not verify"
 }
 
-function PermissionEditor({
+export function PermissionEditor({
   accessAudience,
+  helperPreviewServicePrincipal,
   requirements,
   servicePrincipal,
   setRequirements,
 }: {
   accessAudience?: string
+  helperPreviewServicePrincipal?: string
   requirements: EditableRequirement[]
   servicePrincipal?: string
   setRequirements: Dispatch<SetStateAction<EditableRequirement[]>>
@@ -621,6 +586,7 @@ function PermissionEditor({
           {requirement.memberType === "signed-in-user" ? (
             <ExchangeHelperEditor
               accessAudience={accessAudience}
+              helperPreviewServicePrincipal={helperPreviewServicePrincipal}
               requirement={requirement}
               requirementIndex={requirementIndex}
               servicePrincipal={servicePrincipal}
@@ -632,7 +598,7 @@ function PermissionEditor({
       <button
         className="button permission-editor-add"
         type="button"
-        onClick={() => setRequirements((current) => [...current, emptyRequirement()])}
+        onClick={() => setRequirements((current) => [...current, emptyEditablePermissionRequirement()])}
       >
         <Plus size={14} aria-hidden="true" />
         Add permission
@@ -643,20 +609,26 @@ function PermissionEditor({
 
 function ExchangeHelperEditor({
   accessAudience,
+  helperPreviewServicePrincipal,
   requirement,
   requirementIndex,
   servicePrincipal,
   setRequirements,
 }: {
   accessAudience?: string
+  helperPreviewServicePrincipal?: string
   requirement: EditableRequirement
   requirementIndex: number
   servicePrincipal?: string
   setRequirements: Dispatch<SetStateAction<EditableRequirement[]>>
 }) {
+  const effectiveServicePrincipal = servicePrincipal ?? helperPreviewServicePrincipal
+  const templateMcpBinding = Boolean(
+    !servicePrincipal && helperPreviewServicePrincipal && !requirement.exchangeHelpersCustomized,
+  )
   const derivedHelperRequirements = previewExchangeHelperRequirements(
     requirement,
-    servicePrincipal,
+    effectiveServicePrincipal,
     accessAudience,
   )
   const displayedHelperRequirements = requirement.exchangeHelpersCustomized
@@ -716,9 +688,11 @@ function ExchangeHelperEditor({
     <div className="permission-helper-settings">
       <div className="permission-helper-heading">
         <strong>Token-exchange helper permissions</strong>
-        <small>Each indented helper keeps its role membership and optional exchange policy together.</small>
+        <small>{templateMcpBinding
+          ? "Generated from the direct role. The MCP IAM account is resolved during server creation."
+          : "Each indented helper keeps its role membership and optional exchange policy together."}</small>
       </div>
-      {!servicePrincipal ? (
+      {!effectiveServicePrincipal ? (
         <p className="permission-helper-note">Helpers require a Hub-managed MCP IAM account.</p>
       ) : (
         <div className="permission-helper-preview">
@@ -741,7 +715,7 @@ function ExchangeHelperEditor({
                     onChange={(event) => {
                       const memberType = event.target.value as EditableExchangeHelperRequirement["memberType"]
                       updateHelper(helperIndex, {
-                        member: helperMember(memberType, servicePrincipal),
+                        member: helperMember(memberType, effectiveServicePrincipal),
                         memberType,
                       })
                     }}
@@ -756,7 +730,11 @@ function ExchangeHelperEditor({
                   <input
                     required
                     disabled={helper.memberType !== "custom"}
-                    value={helper.member}
+                    value={!servicePrincipal
+                      && helper.memberType === "mcp-service"
+                      && helper.member === helperPreviewServicePrincipal
+                      ? "Selected during MCP server creation"
+                      : helper.member}
                     placeholder="domain.service"
                     onChange={(event) => updateHelper(helperIndex, { member: event.target.value })}
                   />
@@ -938,18 +916,6 @@ function editableRequirements(
       role: parsedRole.role,
     }
   })
-}
-
-function emptyRequirement(): EditableRequirement {
-  return {
-    audience: "",
-    exchangeHelpersCustomized: false,
-    helperRequirements: [],
-    label: "",
-    member: SIGNED_IN_USER_MEMBER,
-    memberType: "signed-in-user",
-    role: "",
-  }
 }
 
 function helperMemberType(

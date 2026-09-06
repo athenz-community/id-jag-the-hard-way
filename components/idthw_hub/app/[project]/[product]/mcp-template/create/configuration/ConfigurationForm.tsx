@@ -4,16 +4,23 @@ import { Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { McpIconPicker } from "@/features/mcp-servers/components/McpIconPicker"
 import type { McpIconOption } from "@/features/mcp-servers/lib/mcpIcons"
+import { ToolPermissionAuthoring } from "@/features/permissions/components/ToolPermissionAuthoring"
+import {
+  TEMPLATE_MCP_IAM_MEMBER,
+  validateToolPermissionDraft,
+} from "@/features/permissions/lib/toolPermissionDraft"
 import { useMcpTemplateDraft } from "../McpTemplateDraftContext"
 import { McpTemplateIdentityFields } from "./McpTemplateIdentityFields"
 
 export function ConfigurationForm({
+  project,
   cancelHref,
   sourceHref,
   referenceHref,
   iconOptions,
   templateKeyReadOnly = false,
 }: {
+  project: string
   cancelHref: string
   sourceHref: string
   referenceHref: string
@@ -21,6 +28,12 @@ export function ConfigurationForm({
   templateKeyReadOnly?: boolean
 }) {
   const { draft, setDraft, resetDraft } = useMcpTemplateDraft()
+  const hubServiceDomain = `mcp-hub.mcps.${project}`
+  const toolPermissionValidation = validateToolPermissionDraft(
+    draft.toolPermissions,
+    true,
+    TEMPLATE_MCP_IAM_MEMBER,
+  )
 
   function updateEnvironmentVariable(
     id: number,
@@ -169,10 +182,23 @@ export function ConfigurationForm({
         </button>
       </fieldset>
 
+      <ToolPermissionAuthoring
+        accessAudience={hubServiceDomain}
+        description="Define required Athenz roles as template defaults when you already know the MCP tool names. This stores requirements; it does not grant downstream role membership. Providers can review them during server creation and modify them later after live tool discovery."
+        helperPreviewServicePrincipal={TEMPLATE_MCP_IAM_MEMBER}
+        tools={draft.toolPermissions}
+        validationError={toolPermissionValidation.ok ? undefined : toolPermissionValidation.error}
+        onChange={(toolPermissions) => setDraft((currentDraft) => ({ ...currentDraft, toolPermissions }))}
+      />
+
       <div className="mcp-create-actions">
         <Link className="button" href={cancelHref} style={{ textDecoration: "none" }} onClick={resetDraft}>Cancel</Link>
         <Link className="button" href={sourceHref} style={{ textDecoration: "none" }}>Prev</Link>
-        <Link className="button mcp-create-primary" href={referenceHref}>Next</Link>
+        {toolPermissionValidation.ok ? (
+          <Link className="button mcp-create-primary" href={referenceHref}>Next</Link>
+        ) : (
+          <button className="button" type="button" disabled>Next</button>
+        )}
       </div>
     </form>
   )

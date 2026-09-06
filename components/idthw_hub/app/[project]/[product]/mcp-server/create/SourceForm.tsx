@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { McpTemplateDetailResponse, McpTemplateSummary } from "@/features/mcp-templates/types"
+import { toolPermissionDraftFromSettings } from "@/features/permissions/lib/toolPermissionDraft"
 import { ContainerArgumentsField } from "@/features/registration/components/ContainerArgumentsField"
 import { ContainerImageField } from "./ContainerImageField"
 import { useMcpCreateDraft } from "./McpCreateDraftContext"
@@ -49,6 +50,10 @@ export function SourceForm({
           ...currentDraft,
           iconId: template.iconId,
           selectedTemplate: template,
+          toolPermissions: toolPermissionDraftFromSettings(
+            template.toolPermissions,
+            currentDraft.hubServiceAccountName,
+          ),
           templateEnvironmentVariables: template.environmentVariables.map((variable, index) => ({
             id: index + 1,
             key: variable.key,
@@ -62,7 +67,14 @@ export function SourceForm({
     } catch (error) {
       setTemplateError(error instanceof Error ? error.message : "Unable to load MCP template")
       setDraft((currentDraft) => currentDraft.selectedTemplateKey === templateKey
-        ? { ...currentDraft, iconId: "", selectedTemplateKey: "", selectedTemplate: null, templateEnvironmentVariables: [] }
+        ? {
+            ...currentDraft,
+            iconId: "",
+            selectedTemplateKey: "",
+            selectedTemplate: null,
+            templateEnvironmentVariables: [],
+            toolPermissions: [],
+          }
         : currentDraft)
     } finally {
       setTemplateLoading(false)
@@ -80,6 +92,7 @@ export function SourceForm({
       selectedTemplateKey: initialTemplateKey,
       selectedTemplate: null,
       templateEnvironmentVariables: [],
+      toolPermissions: [],
     }))
     void loadTemplate(initialTemplateKey)
   }, [initialTemplateKey, loadTemplate, setDraft])
@@ -89,6 +102,7 @@ export function SourceForm({
     setDraft((currentDraft) => ({
       ...currentDraft,
       creationMethod,
+      toolPermissions: creationMethod === "direct" ? [] : currentDraft.toolPermissions,
       visibility: creationMethod === "direct" ? "personal" : currentDraft.visibility,
     }))
   }
@@ -100,6 +114,7 @@ export function SourceForm({
       selectedTemplateKey: templateKey,
       selectedTemplate: null,
       templateEnvironmentVariables: [],
+      toolPermissions: [],
     }))
     if (templateKey) void loadTemplate(templateKey)
   }

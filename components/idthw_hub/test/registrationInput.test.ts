@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { validateMcpRegistration, validateMcpUpdate } from "../features/registration/lib/registrationInput.ts"
+import { TEMPLATE_MCP_IAM_MEMBER } from "../features/permissions/lib/toolPermissionDraft.ts"
 
 const validPayload = {
   accessManagement: "hub",
@@ -18,6 +19,20 @@ const validPayload = {
   project: "k8s-docs-server",
   serverName: "Docs MCP",
   serviceAccount: "mcp-hub.mcps.k8s-docs-server.runtime",
+}
+
+const toolPermissions = {
+  version: 1,
+  tools: {
+    get_k8s_docs: {
+      requirements: [{
+        includeExchangeHelpers: true,
+        label: "Signed-in user can read documentation",
+        member: "<signed_in_user>",
+        role: "api:role.docs-getter",
+      }],
+    },
+  },
 }
 
 test("accepts a valid MCP registration", () => {
@@ -122,6 +137,44 @@ test("allows server-managed access without a service account", () => {
     serviceAccount: "",
   })
   assert.equal(result.ok, true)
+})
+
+test("accepts validated tool permissions for Hub-managed access", () => {
+  const result = validateMcpRegistration({ ...validPayload, toolPermissions })
+  assert.equal(result.ok, true)
+  if (result.ok) assert.deepEqual(result.input.toolPermissions, toolPermissions)
+})
+
+test("rejects invalid tool permissions and Hub permissions on server-managed access", () => {
+  const invalid = validateMcpRegistration({
+    ...validPayload,
+    toolPermissions: { version: 1, tools: { "": { requirements: [] } } },
+  })
+  assert.equal(invalid.ok, false)
+  if (!invalid.ok) assert.match(invalid.error, /^Tool permissions are invalid:/)
+
+  assert.deepEqual(validateMcpRegistration({
+    ...validPayload,
+    accessManagement: "server",
+    serviceAccount: "",
+    toolPermissions,
+  }), {
+    ok: false,
+    error: "Tool permissions require Hub-managed access",
+  })
+})
+
+test("rejects an unresolved template MCP IAM helper binding", () => {
+  const unresolved = structuredClone(toolPermissions)
+  unresolved.tools.get_k8s_docs.requirements[0].exchangeHelperRequirements = [{
+    label: "MCP service helper",
+    member: TEMPLATE_MCP_IAM_MEMBER,
+    role: "api:role.docs-getter-exchanger",
+  }]
+  assert.deepEqual(validateMcpRegistration({ ...validPayload, toolPermissions: unresolved }), {
+    ok: false,
+    error: "Template MCP IAM account must be resolved during server creation",
+  })
 })
 
 test("allows project visibility when creating from an MCP template", () => {

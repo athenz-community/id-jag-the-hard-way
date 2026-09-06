@@ -3,6 +3,7 @@ import type {
   McpTemplateInput,
 } from "../types.ts"
 import { isValidMcpIconId } from "../../mcp-servers/lib/mcpIcons.ts"
+import { parseToolPermissionSettings } from "../../permissions/lib/permissionPreset.ts"
 
 const DNS_LABEL_PATTERN = /^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/
 const ENVIRONMENT_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -54,6 +55,14 @@ export function validateMcpTemplate(payload: unknown): ValidationResult {
 
   const environmentVariables = validateEnvironmentVariables(payload.environmentVariables)
   if (!environmentVariables.ok) return environmentVariables
+  let toolPermissions
+  if (payload.toolPermissions !== undefined) {
+    try {
+      toolPermissions = parseToolPermissionSettings(payload.toolPermissions)
+    } catch (error) {
+      return invalid(`Tool permissions are invalid: ${error instanceof Error ? error.message : "invalid settings"}`)
+    }
+  }
 
   return {
     ok: true,
@@ -71,6 +80,7 @@ export function validateMcpTemplate(payload: unknown): ValidationResult {
       project,
       templateKey,
       transport: "streamable-http",
+      ...(toolPermissions ? { toolPermissions } : {}),
       visibility: "project",
     },
   }

@@ -1,5 +1,6 @@
 import { stringify } from "yaml"
 import { mcpServiceKeyId } from "./mcpServiceKeyId.ts"
+import type { ToolPermissionSettings } from "../../permissions/types/permissions.ts"
 
 const RUNTIME_PROXY_IMAGE = "ghcr.io/mlajkim/mcp-runtime-proxy:latest"
 const RUNTIME_PROXY_PORT = 8082
@@ -33,6 +34,7 @@ export type McpKubernetesManifestInput = {
   serverName: string
   serviceAccount: string
   templateKey: string
+  toolPermissions?: ToolPermissionSettings
   visibility: "personal" | "project"
 }
 
@@ -98,6 +100,9 @@ export function buildMcpKubernetesResources(
   if (input.accessManagement === "hub") {
     annotations["mcp.idthw.dev/access-audience"] = managedMcpAccessDomain(input.project)
     annotations["mcp.idthw.dev/access-scope"] = managedMcpAccessScope(input.project)
+  }
+  if (input.toolPermissions) {
+    annotations["mcp.idthw.dev/tool-permissions"] = JSON.stringify(input.toolPermissions)
   }
   if (managedServiceIdentity) {
     annotations[MCP_MANAGED_IDENTITY_ANNOTATION] = identitySecretName

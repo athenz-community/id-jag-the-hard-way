@@ -35,6 +35,7 @@ export async function EditMcpTemplatePage({
   } else if (activeStep === "configuration") {
     form = (
       <ConfigurationForm
+        project={project}
         cancelHref={templateHref}
         sourceHref={sourceHref}
         referenceHref={referenceHref}

@@ -1,3 +1,5 @@
+import type { ToolPermissionSettings } from "../permissions/types/permissions"
+
 export type McpTemplateEnvironmentVariable = {
   key: string
   description: string
@@ -21,6 +23,7 @@ export type McpTemplateInput = {
   visibility: "project"
   documentation: string
   description: string
+  toolPermissions?: ToolPermissionSettings
 }
 
 export type McpTemplateSummary = {
