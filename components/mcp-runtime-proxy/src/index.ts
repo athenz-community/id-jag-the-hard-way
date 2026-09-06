@@ -9,6 +9,10 @@ import {
   serviceIdentityConfigFromEnvironment,
   startServiceIdentityManager,
 } from "./identity.ts"
+import {
+  createAthenzTokenFilePublisher,
+  tokenExchangeConfigFromEnvironment,
+} from "./tokenExchange.ts"
 
 const port = parsePort(process.env.PORT ?? "8082")
 const target = new URL(process.env.MCP_TARGET_URL ?? "http://127.0.0.1:8080")
@@ -35,7 +39,11 @@ const serviceIdentityConfig = serviceIdentityConfigFromEnvironment()
 const serviceIdentityManager = serviceIdentityConfig
   ? await startServiceIdentityManager(serviceIdentityConfig, runtimeProxyLogger)
   : undefined
-const server = createRuntimeProxyServer(target, accessTokenVerifier, runtimeProxyLogger)
+const tokenExchangeConfig = tokenExchangeConfigFromEnvironment()
+const tokenPublisher = tokenExchangeConfig
+  ? createAthenzTokenFilePublisher(tokenExchangeConfig)
+  : undefined
+const server = createRuntimeProxyServer(target, accessTokenVerifier, runtimeProxyLogger, tokenPublisher)
 
 server.listen(port, "0.0.0.0", () => {
   runtimeProxyLogger.info("server_started", {

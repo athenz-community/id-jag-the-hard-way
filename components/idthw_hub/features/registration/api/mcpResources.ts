@@ -306,6 +306,7 @@ export function buildMcpResourceUpdate(
       spec: {
         automountServiceAccountToken?: boolean
         containers: KubernetesContainer[]
+        securityContext?: unknown
         serviceAccountName?: string
         volumes?: unknown[]
       }
@@ -364,6 +365,7 @@ export function buildMcpResourceUpdate(
           spec: {
             automountServiceAccountToken: desiredSpec.template.spec.automountServiceAccountToken ?? null,
             containers: desiredSpec.template.spec.containers,
+            securityContext: desiredSpec.template.spec.securityContext ?? null,
             serviceAccountName: desiredSpec.template.spec.serviceAccountName ?? null,
             volumes: desiredSpec.template.spec.volumes ?? null,
           },

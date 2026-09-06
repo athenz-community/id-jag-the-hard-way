@@ -50,6 +50,7 @@ test("builds namespace, secret, deployment, and service resources", () => {
         securityContext?: { runAsGroup?: number; runAsUser?: number }
         volumeMounts?: Array<{ mountPath: string; name: string; readOnly: boolean }>
       }>
+      securityContext?: { fsGroup?: number; fsGroupChangePolicy?: string }
       volumes: Array<{
         configMap?: { name: string }
         name: string
@@ -101,13 +102,28 @@ test("builds namespace, secret, deployment, and service resources", () => {
     proxyEnvironment.find(({ name }) => name === "KUBERNETES_IDENTITY_SECRET_NAME"),
     { name: "KUBERNETES_IDENTITY_SECRET_NAME", value: "docs-mcp-athenz-identity" },
   )
+  assert.deepEqual(
+    proxyEnvironment.find(({ name }) => name === "ATHENZ_TOKEN_FILE_EXCHANGE_ENABLED"),
+    { name: "ATHENZ_TOKEN_FILE_EXCHANGE_ENABLED", value: "true" },
+  )
+  assert.deepEqual(
+    proxyEnvironment.find(({ name }) => name === "ATHENZ_TOKEN_FILE_DIR"),
+    { name: "ATHENZ_TOKEN_FILE_DIR", value: "/var/run/idthw-access-tokens" },
+  )
   assert.equal(deployment.spec.template.spec.containers[1].securityContext?.runAsUser, 1000)
   assert.equal(deployment.spec.template.spec.containers[1].securityContext?.runAsGroup, 1000)
-  assert.deepEqual(deployment.spec.template.spec.containers[0].volumeMounts, [{
-    name: "athenz-service-identity",
-    mountPath: "/var/run/athenz",
-    readOnly: true,
-  }])
+  assert.deepEqual(deployment.spec.template.spec.containers[0].volumeMounts, [
+    {
+      name: "athenz-service-identity",
+      mountPath: "/var/run/athenz",
+      readOnly: true,
+    },
+    {
+      name: "downstream-access-tokens",
+      mountPath: "/var/run/idthw-access-tokens",
+      readOnly: true,
+    },
+  ])
   assert.deepEqual(deployment.spec.template.spec.containers[1].volumeMounts?.[0], {
     name: "athenz-service-identity",
     mountPath: "/var/run/athenz",
@@ -124,8 +140,13 @@ test("builds namespace, secret, deployment, and service resources", () => {
       "athenz-service-identity",
       "runtime-proxy-kube-api",
       "runtime-proxy-tmp",
+      "downstream-access-tokens",
     ],
   )
+  assert.deepEqual(deployment.spec.template.spec.securityContext, {
+    fsGroup: 1000,
+    fsGroupChangePolicy: "OnRootMismatch",
+  })
   const identityVolume = deployment.spec.template.spec.volumes.find(({ name }) => (
     name === "athenz-service-identity"
   ))

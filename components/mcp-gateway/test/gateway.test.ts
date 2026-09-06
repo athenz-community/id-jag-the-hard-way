@@ -364,12 +364,14 @@ describe("MCP Gateway", () => {
   it("replaces the opaque session bearer with the selected tool's Athenz token", async () => {
     let receivedPath = ""
     let receivedAuthorization = ""
+    let receivedDownstreamScope = ""
     let receivedSessionId = ""
     let receivedBody = ""
 
     await withHttpServer(async (request, response) => {
       receivedPath = request.url ?? ""
       receivedAuthorization = request.headers.authorization ?? ""
+      receivedDownstreamScope = String(request.headers["x-idthw-mcp-downstream-scope"] ?? "")
       receivedSessionId = String(request.headers["mcp-session-id"] ?? "")
       for await (const chunk of request) receivedBody += chunk.toString()
       response.statusCode = 200
@@ -394,6 +396,7 @@ describe("MCP Gateway", () => {
             authorization: `Bearer ${sessionToken}`,
             "content-type": "application/json",
             "mcp-session-id": "client-session",
+            "x-idthw-mcp-downstream-scope": "attacker:role.spoofed",
           },
           body: JSON.stringify({
             jsonrpc: "2.0",
@@ -410,7 +413,7 @@ describe("MCP Gateway", () => {
         accessScope: "api:role.mcp-accessor api:role.docs-getter",
         resolveRoute: async () => ({
           proxyUrl: `${coreMcpProxyUrl}/mcp/k8s-docs-server`,
-          accessScope: "api:role.mcp-accessor api:role.docs-getter",
+          accessScope: "api:role.mcp-accessor",
           toolScopes: {
             get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",
             post_k8s_doc: "api:role.docs-poster api:role.mcp-accessor",
@@ -425,6 +428,7 @@ describe("MCP Gateway", () => {
 
       assert.equal(receivedPath, "/mcp/k8s-docs-server?trace=1")
       assert.equal(receivedAuthorization, "Bearer user-scoped-athenz-at")
+      assert.equal(receivedDownstreamScope, "api:role.docs-getter")
       assert.equal(receivedSessionId, "client-session")
       assert.deepEqual(JSON.parse(receivedBody), {
         jsonrpc: "2.0",
