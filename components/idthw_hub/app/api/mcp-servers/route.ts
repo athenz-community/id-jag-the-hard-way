@@ -17,7 +17,9 @@ import {
 import {
   createZmsRequest,
   ensureMcpManagedAccess,
+  ensureMcpSourceExchangeAccess,
 } from "@/features/registration/api/mcpManagedAccess"
+import { signedInUserPermissionAudiences } from "@/features/permissions/lib/toolPermissionDraft"
 import { ensureMcpRuntimeProxyTrust } from "@/features/registration/api/mcpRuntimeProxy"
 import {
   ensureMcpServiceCertificateProvider,
@@ -164,6 +166,17 @@ export async function POST(request: NextRequest) {
               validation.input.serviceAccount,
               requestZms,
             )
+            const sourceExchangeAudiences = signedInUserPermissionAudiences(
+              validation.input.toolPermissions,
+            )
+            if (sourceExchangeAudiences.length > 0) {
+              await ensureMcpSourceExchangeAccess(
+                validation.input.project,
+                validation.input.serviceAccount,
+                sourceExchangeAudiences,
+                requestZms,
+              )
+            }
             await registerMcpServicePublicKey(
               validation.input.project,
               validation.input.serviceAccount,

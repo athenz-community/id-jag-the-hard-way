@@ -1,4 +1,5 @@
 import type { McpTemplateInput } from "../types.ts"
+import { TEMPLATE_MCP_IAM_MEMBER } from "../../permissions/lib/toolPermissionDraft.ts"
 
 const DNS_LABEL_PATTERN = /^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/
 
@@ -75,8 +76,25 @@ export function resolveMcpTemplateRegistration(
       path: template.path,
       port: template.port,
       templateKey: template.templateKey,
+      toolPermissions: resolveTemplateMcpIamMember(payload.toolPermissions === undefined
+        ? template.toolPermissions
+        : payload.toolPermissions === null ? undefined : payload.toolPermissions, payload.serviceAccount),
     },
   }
+}
+
+function resolveTemplateMcpIamMember(value: unknown, serviceAccount: unknown): unknown {
+  if (typeof serviceAccount !== "string" || !serviceAccount.trim()) return value
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveTemplateMcpIamMember(item, serviceAccount))
+  }
+  if (!isRecord(value)) return value
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+    key,
+    key === "member" && item === TEMPLATE_MCP_IAM_MEMBER
+      ? serviceAccount
+      : resolveTemplateMcpIamMember(item, serviceAccount),
+  ]))
 }
 
 function trimmedString(value: unknown) {

@@ -2323,6 +2323,41 @@ body:has(.permission-request-dialog[open]) {
   min-width: 1120px;
 }
 
+.mcp-tool-permission-authoring {
+  border-top: 1px solid var(--line);
+  padding-top: 22px;
+}
+
+.mcp-tool-permission-empty {
+  width: min(100%, 760px);
+  margin-bottom: 10px;
+}
+
+.mcp-tool-permission-list {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.mcp-tool-permission-group {
+  min-width: 1120px;
+  border: 1px solid #d8dfe8;
+  border-radius: 7px;
+  padding: 12px;
+  background: #fbfcfe;
+}
+
+.mcp-tool-permission-head {
+  width: min(100%, 560px);
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) 32px;
+  align-items: end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .permission-editor-group + .permission-editor-group {
   margin-top: 10px;
 }

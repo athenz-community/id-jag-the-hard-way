@@ -246,3 +246,27 @@ test("records the Kubernetes template used to create a server", () => {
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/visibility"], "project")
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/description"], "Confluence tools")
 })
+
+test("stores initial tool permissions on the MCP Deployment", () => {
+  const toolPermissions = {
+    version: 1 as const,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{
+          includeExchangeHelpers: true,
+          label: "Signed-in user can read documentation",
+          member: "<signed_in_user>",
+          role: "api:role.docs-getter",
+        }],
+      },
+    },
+  }
+  const resources = buildMcpKubernetesResources({ ...input, toolPermissions })
+  const deployment = resources.find(({ kind }) => kind === "Deployment") as {
+    metadata: { annotations: Record<string, string> }
+  }
+  assert.deepEqual(
+    JSON.parse(deployment.metadata.annotations["mcp.idthw.dev/tool-permissions"]),
+    toolPermissions,
+  )
+})

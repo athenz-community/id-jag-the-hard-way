@@ -5,6 +5,8 @@ import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { McpIconPicker } from "@/features/mcp-servers/components/McpIconPicker"
 import type { McpIconOption } from "@/features/mcp-servers/lib/mcpIcons"
+import { ToolPermissionAuthoring } from "@/features/permissions/components/ToolPermissionAuthoring"
+import { validateToolPermissionDraft } from "@/features/permissions/lib/toolPermissionDraft"
 import { athenzServiceName } from "@/features/registration/lib/athenzServices"
 import { useMcpCreateDraft } from "../McpCreateDraftContext"
 import { McpServerIdentityFields } from "./McpServerIdentityFields"
@@ -32,6 +34,11 @@ export function ConfigurationForm({
   const usesTemplate = draft.creationMethod === "template"
   const usesTemplateValues = usesTemplate && !isEditing
   const requiresServiceAccount = draft.accessManagement === "hub"
+  const toolPermissionValidation = validateToolPermissionDraft(
+    draft.toolPermissions,
+    requiresServiceAccount,
+    draft.hubServiceAccountName || undefined,
+  )
   const templateRequirementsReady = !usesTemplateValues || (
     Boolean(draft.selectedTemplate)
     && draft.templateEnvironmentVariables.every((variable) => !variable.required || Boolean(variable.value))
@@ -43,6 +50,7 @@ export function ConfigurationForm({
   const canContinue = templateRequirementsReady
     && environmentVariablesReady
     && (!requiresServiceAccount || Boolean(draft.hubServiceAccountName))
+    && (!requiresServiceAccount || toolPermissionValidation.ok)
   const [serviceAccounts, setServiceAccounts] = useState<string[]>([])
   const [serviceAccountError, setServiceAccountError] = useState("")
   const [serviceAccountsLoading, setServiceAccountsLoading] = useState(false)
@@ -424,6 +432,19 @@ export function ConfigurationForm({
           <button className="button" type="button" disabled>Configure automatic token retrieval</button>
         </div>
       </fieldset>
+
+      {requiresServiceAccount ? (
+        <ToolPermissionAuthoring
+          accessAudience={hubServiceDomain}
+          description={usesTemplate
+            ? "Review the template defaults or define required Athenz roles now when you already know the MCP tool names. The Hub stores the requirements but does not grant downstream role membership. You can modify them later after the Hub discovers the live tools."
+            : "Define required Athenz roles now when you already know the MCP tool names. The Hub stores the requirements but does not grant downstream role membership. You can add or modify them later after the Hub discovers the live tools."}
+          servicePrincipal={draft.hubServiceAccountName || undefined}
+          tools={draft.toolPermissions}
+          validationError={toolPermissionValidation.ok ? undefined : toolPermissionValidation.error}
+          onChange={(toolPermissions) => setDraft((currentDraft) => ({ ...currentDraft, toolPermissions }))}
+        />
+      ) : null}
 
       <div className="mcp-create-actions">
         <Link className="button" href={cancelHref} style={{ textDecoration: "none" }} onClick={resetDraft}>Cancel</Link>

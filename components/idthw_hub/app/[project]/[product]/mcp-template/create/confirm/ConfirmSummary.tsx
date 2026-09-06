@@ -7,6 +7,11 @@ import { useState } from "react"
 import { McpIconPreview } from "@/features/mcp-servers/components/McpIconPicker"
 import type { McpIconOption } from "@/features/mcp-servers/lib/mcpIcons"
 import { buildMcpTemplateManifest } from "@/features/mcp-templates/lib/kubernetesTemplate"
+import {
+  TEMPLATE_MCP_IAM_MEMBER,
+  toolPermissionSettingsText,
+  validateToolPermissionDraft,
+} from "@/features/permissions/lib/toolPermissionDraft"
 import { type McpTemplateDraft, useMcpTemplateDraft } from "../McpTemplateDraftContext"
 
 function valueOrFallback(value: string) {
@@ -31,6 +36,16 @@ function formattedEnvironmentVariables(draft: McpTemplateDraft) {
 }
 
 function changedTemplateFields(before: McpTemplateDraft, after: McpTemplateDraft) {
+  const beforeToolPermissions = validateToolPermissionDraft(
+    before.toolPermissions,
+    true,
+    TEMPLATE_MCP_IAM_MEMBER,
+  )
+  const afterToolPermissions = validateToolPermissionDraft(
+    after.toolPermissions,
+    true,
+    TEMPLATE_MCP_IAM_MEMBER,
+  )
   const fields = [
     ["Container image URL", before.image, after.image],
     ["Target port", before.port, after.port],
@@ -42,6 +57,11 @@ function changedTemplateFields(before: McpTemplateDraft, after: McpTemplateDraft
     ["Environment variables", formattedEnvironmentVariables(before), formattedEnvironmentVariables(after)],
     ["Documentation", before.documentation, after.documentation],
     ["Description", before.description, after.description],
+    [
+      "Tool permissions",
+      beforeToolPermissions.ok ? toolPermissionSettingsText(beforeToolPermissions.settings) : beforeToolPermissions.error,
+      afterToolPermissions.ok ? toolPermissionSettingsText(afterToolPermissions.settings) : afterToolPermissions.error,
+    ],
   ]
   return fields
     .filter(([, beforeValue, afterValue]) => beforeValue !== afterValue)
@@ -77,6 +97,14 @@ export function ConfirmSummary({
     key || description || defaultValue
   ))
   const containerArguments = normalizedArguments(draft)
+  const toolPermissionValidation = validateToolPermissionDraft(
+    draft.toolPermissions,
+    true,
+    TEMPLATE_MCP_IAM_MEMBER,
+  )
+  const toolPermissions = toolPermissionValidation.ok
+    ? toolPermissionValidation.settings
+    : undefined
   const changes = changedTemplateFields(initialDraft, draft)
   const templateInput = {
     arguments: containerArguments,
@@ -98,12 +126,17 @@ export function ConfirmSummary({
     project,
     templateKey: draft.templateKey,
     transport: "streamable-http" as const,
+    toolPermissions,
     visibility: draft.visibility,
   }
   const kubernetesManifest = buildMcpTemplateManifest(templateInput)
 
   async function saveMcpTemplate() {
     setCreateError("")
+    if (!toolPermissionValidation.ok) {
+      setCreateError(toolPermissionValidation.error)
+      return
+    }
     setIsCreating(true)
 
     try {
@@ -244,6 +277,10 @@ export function ConfirmSummary({
               ) : "Not configured"}
             </dd>
           </div>
+          <div>
+            <dt>Tool permissions</dt>
+            <dd><div className="mcp-template-change-value">{toolPermissionSettingsText(toolPermissions)}</div></dd>
+          </div>
         </dl>
       </section>
 
@@ -277,7 +314,7 @@ export function ConfirmSummary({
         <button
           className="button mcp-create-primary"
           type="button"
-          disabled={isCreating || (mode === "edit" && changes.length === 0)}
+          disabled={isCreating || !toolPermissionValidation.ok || (mode === "edit" && changes.length === 0)}
           aria-busy={isCreating}
           onClick={() => void saveMcpTemplate()}
         >

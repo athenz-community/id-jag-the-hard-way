@@ -2,6 +2,8 @@
 
 import { createContext, type Dispatch, type ReactNode, type SetStateAction, useContext, useState } from "react"
 import type { McpTemplateInput } from "@/features/mcp-templates/types"
+import { toolPermissionDraftFromSettings } from "@/features/permissions/lib/toolPermissionDraft"
+import type { ToolPermissionDraft } from "@/features/permissions/types/permissions"
 
 export type McpTemplateEnvironmentVariableDraft = {
   id: number
@@ -27,6 +29,7 @@ export type McpTemplateDraft = {
   visibility: "project"
   documentation: string
   description: string
+  toolPermissions: ToolPermissionDraft[]
 }
 
 const INITIAL_DRAFT: McpTemplateDraft = {
@@ -46,6 +49,7 @@ const INITIAL_DRAFT: McpTemplateDraft = {
   visibility: "project",
   documentation: "",
   description: "",
+  toolPermissions: [],
 }
 
 function draftFromTemplate(template: McpTemplateInput): McpTemplateDraft {
@@ -75,6 +79,7 @@ function draftFromTemplate(template: McpTemplateInput): McpTemplateDraft {
     visibility: template.visibility,
     documentation: template.documentation,
     description: template.description,
+    toolPermissions: toolPermissionDraftFromSettings(template.toolPermissions),
   }
 }
 

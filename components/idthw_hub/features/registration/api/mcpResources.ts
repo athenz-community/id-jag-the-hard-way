@@ -146,6 +146,7 @@ export function configurationFromDeployment(
     serverName: annotations[ANNOTATION_ALIAS] ?? mcpKeyName,
     serviceAccount: annotations[ANNOTATION_IAM_SERVICE_ACCOUNT] ?? "",
     templateKey: creationMethod === "template" ? annotations[ANNOTATION_TEMPLATE_KEY] ?? "" : "",
+    toolPermissions: storedToolPermissionSettings(annotations[ANNOTATION_TOOL_PERMISSIONS]),
     visibility,
   }
 }
@@ -383,6 +384,7 @@ export function buildMcpResourceUpdate(
     ANNOTATION_ICON,
     ANNOTATION_IAM_SERVICE_ACCOUNT,
     ANNOTATION_TEMPLATE_KEY,
+    ANNOTATION_TOOL_PERMISSIONS,
     MCP_MANAGED_IDENTITY_ANNOTATION,
   ]
   const annotations: Record<string, string | null> = { ...desiredMetadata.annotations }

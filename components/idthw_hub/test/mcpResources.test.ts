@@ -71,6 +71,37 @@ test("loads editable deployment fields without loading secret values", () => {
   })
 })
 
+test("loads stored tool permissions for the server editor", () => {
+  const toolPermissions = {
+    version: 1,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{
+          label: "Signed-in user can read documentation",
+          member: "<signed_in_user>",
+          role: "api:role.docs-getter",
+        }],
+      },
+    },
+  }
+  const configuredDeployment = {
+    ...deployment,
+    metadata: {
+      ...deployment.metadata,
+      annotations: {
+        ...deployment.metadata.annotations,
+        "mcp.idthw.dev/tool-permissions": JSON.stringify(toolPermissions),
+      },
+    },
+  }
+  const configuration = configurationFromDeployment(
+    configuredDeployment,
+    "k8s-docs-server",
+    "docs-mcp",
+  )
+  assert.deepEqual(configuration.toolPermissions, toolPermissions)
+})
+
 test("builds deployment and service patches while preserving existing secret references", () => {
   const existing = configurationFromDeployment(deployment, "k8s-docs-server", "docs-mcp")
   const update = buildMcpResourceUpdate({

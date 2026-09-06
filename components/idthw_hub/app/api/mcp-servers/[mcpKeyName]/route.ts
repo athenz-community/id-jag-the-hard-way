@@ -6,9 +6,14 @@ import {
   McpResourceNotFoundError,
   updateMcpResources,
 } from "@/features/registration/api/mcpResources"
-import { ensureMcpManagedAccess } from "@/features/registration/api/mcpManagedAccess"
+import {
+  createZmsRequest,
+  ensureMcpManagedAccess,
+  ensureMcpSourceExchangeAccess,
+} from "@/features/registration/api/mcpManagedAccess"
 import { ensureMcpRuntimeProxyTrust } from "@/features/registration/api/mcpRuntimeProxy"
 import { validateMcpUpdate } from "@/features/registration/lib/registrationInput"
+import { signedInUserPermissionAudiences } from "@/features/permissions/lib/toolPermissionDraft"
 
 export const dynamic = "force-dynamic"
 
@@ -155,11 +160,22 @@ export async function PUT(
     }
 
     if (validation.input.accessManagement === "hub") {
+      const requestZms = await createZmsRequest()
       await ensureMcpManagedAccess(
         validation.input.project,
         username,
         validation.input.serviceAccount,
+        requestZms,
       )
+      const sourceExchangeAudiences = signedInUserPermissionAudiences(validation.input.toolPermissions)
+      if (sourceExchangeAudiences.length > 0) {
+        await ensureMcpSourceExchangeAccess(
+          validation.input.project,
+          validation.input.serviceAccount,
+          sourceExchangeAudiences,
+          requestZms,
+        )
+      }
       await ensureMcpRuntimeProxyTrust(validation.input.project)
     }
     await updateMcpResources(validation.input)
