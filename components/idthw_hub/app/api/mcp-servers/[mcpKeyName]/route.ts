@@ -6,6 +6,8 @@ import {
   McpResourceNotFoundError,
   updateMcpResources,
 } from "@/features/registration/api/mcpResources"
+import { ensureMcpManagedAccess } from "@/features/registration/api/mcpManagedAccess"
+import { ensureMcpRuntimeProxyTrust } from "@/features/registration/api/mcpRuntimeProxy"
 import { validateMcpUpdate } from "@/features/registration/lib/registrationInput"
 
 export const dynamic = "force-dynamic"
@@ -24,7 +26,6 @@ export async function GET(
       { status: 401, headers: NO_STORE_HEADERS },
     )
   }
-
   const reference = await serverReference(request, params)
   if (!reference) {
     return NextResponse.json(
@@ -61,7 +62,6 @@ export async function DELETE(
       { status: 401, headers: NO_STORE_HEADERS },
     )
   }
-
   const reference = await serverReference(request, params)
   if (!reference) {
     return NextResponse.json(
@@ -118,12 +118,13 @@ export async function PUT(
   { params }: { params: Promise<{ mcpKeyName: string }> },
 ) {
   const session = await auth()
-  if (!session?.user) {
+  if (!session?.user?.username) {
     return NextResponse.json(
       { error: "Authentication required" },
       { status: 401, headers: NO_STORE_HEADERS },
     )
   }
+  const username = session.user.username
 
   const reference = await serverReference(request, params)
   if (!reference) {
@@ -153,6 +154,14 @@ export async function PUT(
       )
     }
 
+    if (validation.input.accessManagement === "hub") {
+      await ensureMcpManagedAccess(
+        validation.input.project,
+        username,
+        validation.input.serviceAccount,
+      )
+      await ensureMcpRuntimeProxyTrust(validation.input.project)
+    }
     await updateMcpResources(validation.input)
     return NextResponse.json(
       { server: { name: reference.mcpKeyName, project: reference.project } },

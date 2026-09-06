@@ -1,7 +1,10 @@
 import assert from "node:assert/strict"
 import http, { type Server } from "node:http"
 import test from "node:test"
+import { AccessTokenError, JwksUnavailableError } from "../src/auth.ts"
 import { createRuntimeProxyServer } from "../src/proxy.ts"
+
+const allowAccess = { verify: async (_authorization: string | undefined) => {} }
 
 test("passes MCP requests and responses through unchanged", async (t) => {
   const received: { body?: string; header?: string; url?: string } = {}
@@ -21,7 +24,7 @@ test("passes MCP requests and responses through unchanged", async (t) => {
   const upstreamPort = await listen(upstream)
   t.after(() => close(upstream))
 
-  const proxy = createRuntimeProxyServer(new URL(`http://127.0.0.1:${upstreamPort}`))
+  const proxy = createRuntimeProxyServer(new URL(`http://127.0.0.1:${upstreamPort}`), allowAccess)
   const proxyPort = await listen(proxy)
   t.after(() => close(proxy))
 
@@ -47,17 +50,19 @@ test("streams event responses without changing their content type", async (t) =>
   const upstreamPort = await listen(upstream)
   t.after(() => close(upstream))
 
-  const proxy = createRuntimeProxyServer(new URL(`http://127.0.0.1:${upstreamPort}`))
+  const proxy = createRuntimeProxyServer(new URL(`http://127.0.0.1:${upstreamPort}`), allowAccess)
   const proxyPort = await listen(proxy)
   t.after(() => close(proxy))
 
-  const response = await fetch(`http://127.0.0.1:${proxyPort}/mcp`, { headers: { accept: "text/event-stream" } })
+  const response = await fetch(`http://127.0.0.1:${proxyPort}/mcp`, {
+    headers: { accept: "text/event-stream", authorization: "Bearer valid-test-token" },
+  })
   assert.equal(response.headers.get("content-type"), "text/event-stream")
   assert.equal(await response.text(), "event: message\ndata: first\n\nevent: message\ndata: second\n\n")
 })
 
 test("serves health checks without contacting the MCP target", async (t) => {
-  const proxy = createRuntimeProxyServer(new URL("http://127.0.0.1:1"))
+  const proxy = createRuntimeProxyServer(new URL("http://127.0.0.1:1"), allowAccess)
   const proxyPort = await listen(proxy)
   t.after(() => close(proxy))
 
@@ -66,6 +71,120 @@ test("serves health checks without contacting the MCP target", async (t) => {
     assert.equal(response.status, 200)
     assert.deepEqual(await response.json(), { ok: true })
   }
+})
+
+test("allows protocol bootstrap and tool discovery without an access token", async (t) => {
+  let upstreamCalls = 0
+  let verifierCalls = 0
+  const upstream = http.createServer((_request, response) => {
+    upstreamCalls += 1
+    response.end("ok")
+  })
+  const upstreamPort = await listen(upstream)
+  t.after(() => close(upstream))
+  const proxy = createRuntimeProxyServer(new URL(`http://127.0.0.1:${upstreamPort}`), {
+    verify: async () => {
+      verifierCalls += 1
+      throw new AccessTokenError(401, "missing_access_token", "An access token is required.")
+    },
+  })
+  const proxyPort = await listen(proxy)
+  t.after(() => close(proxy))
+
+  for (const method of ["initialize", "notifications/initialized", "ping", "tools/list"]) {
+    const response = await fetch(`http://127.0.0.1:${proxyPort}/mcp`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method }),
+    })
+    assert.equal(response.status, 200)
+  }
+
+  assert.equal(upstreamCalls, 4)
+  assert.equal(verifierCalls, 0)
+})
+
+test("requires a valid access token for protected MCP calls", async (t) => {
+  let upstreamCalls = 0
+  let upstreamAuthorization: string | undefined
+  const upstream = http.createServer((request, response) => {
+    upstreamCalls += 1
+    upstreamAuthorization = request.headers.authorization
+    response.end("ok")
+  })
+  const upstreamPort = await listen(upstream)
+  t.after(() => close(upstream))
+  const seenAuthorizations: Array<string | undefined> = []
+  const proxy = createRuntimeProxyServer(
+    new URL(`http://127.0.0.1:${upstreamPort}`),
+    {
+      verify: async (authorization) => {
+        seenAuthorizations.push(authorization)
+        if (!authorization) {
+          throw new AccessTokenError(401, "missing_access_token", "An access token is required.")
+        }
+      },
+    },
+  )
+  const proxyPort = await listen(proxy)
+  t.after(() => close(proxy))
+  const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read" } })
+
+  const denied = await fetch(`http://127.0.0.1:${proxyPort}/mcp`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+  })
+  assert.equal(denied.status, 401)
+  assert.match(denied.headers.get("www-authenticate") ?? "", /^Bearer /)
+  assert.equal(upstreamCalls, 0)
+
+  const allowed = await fetch(`http://127.0.0.1:${proxyPort}/mcp`, {
+    method: "POST",
+    headers: { authorization: "Bearer signed-athenz-token", "content-type": "application/json" },
+    body,
+  })
+  assert.equal(allowed.status, 200)
+  assert.equal(await allowed.text(), "ok")
+  assert.deepEqual(seenAuthorizations, [undefined, "Bearer signed-athenz-token"])
+  assert.equal(upstreamCalls, 1)
+  assert.equal(upstreamAuthorization, "Bearer signed-athenz-token")
+})
+
+test("returns forbidden when the token lacks the required scope", async (t) => {
+  const proxy = createRuntimeProxyServer(new URL("http://127.0.0.1:1"), {
+    verify: async () => {
+      throw new AccessTokenError(403, "insufficient_scope", "The required scope is missing.")
+    },
+  })
+  const proxyPort = await listen(proxy)
+  t.after(() => close(proxy))
+
+  const response = await fetch(`http://127.0.0.1:${proxyPort}/mcp`, {
+    method: "POST",
+    headers: { authorization: "Bearer signed-athenz-token", "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read" } }),
+  })
+  assert.equal(response.status, 403)
+  assert.match(response.headers.get("www-authenticate") ?? "", /insufficient_scope/)
+})
+
+test("fails closed when ZTS signing keys are unavailable", async (t) => {
+  const proxy = createRuntimeProxyServer(new URL("http://127.0.0.1:1"), {
+    verify: async () => {
+      throw new JwksUnavailableError("ZTS is unavailable")
+    },
+  })
+  const proxyPort = await listen(proxy)
+  t.after(() => close(proxy))
+
+  const response = await fetch(`http://127.0.0.1:${proxyPort}/mcp`, {
+    method: "POST",
+    headers: { authorization: "Bearer signed-athenz-token", "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read" } }),
+  })
+  assert.equal(response.status, 503)
+  assert.deepEqual(await response.json(), { error: "authentication_unavailable" })
 })
 
 function listen(server: Server) {

@@ -1,5 +1,18 @@
 import http, { type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http"
 import https from "node:https"
+import {
+  AccessTokenError,
+  JwksUnavailableError,
+  type AthenzAccessTokenVerifier,
+} from "./auth.ts"
+
+const MAX_PUBLIC_REQUEST_BYTES = 64 * 1024
+const PUBLIC_MCP_METHODS = new Set([
+  "initialize",
+  "notifications/initialized",
+  "ping",
+  "tools/list",
+])
 
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
@@ -12,7 +25,7 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade",
 ])
 
-export function createRuntimeProxyServer(target: URL) {
+export function createRuntimeProxyServer(target: URL, accessTokenVerifier: AthenzAccessTokenVerifier) {
   if (!(["http:", "https:"] as string[]).includes(target.protocol)) {
     throw new Error("MCP_TARGET_URL must use http or https")
   }
@@ -21,13 +34,18 @@ export function createRuntimeProxyServer(target: URL) {
   }
 
   const server = http.createServer((request, response) => {
-    void handleRequest(request, response, target)
+    void handleRequest(request, response, target, accessTokenVerifier)
   })
   server.requestTimeout = 0
   return server
 }
 
-async function handleRequest(request: IncomingMessage, response: ServerResponse, target: URL) {
+async function handleRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  target: URL,
+  accessTokenVerifier: AthenzAccessTokenVerifier,
+) {
   const requestUrl = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`)
   if (requestUrl.pathname === "/healthz" || requestUrl.pathname === "/readyz") {
     sendJson(response, 200, { ok: true })
@@ -35,8 +53,28 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse,
   }
 
   try {
-    await proxyRequest(request, response, buildUpstreamUrl(target, requestUrl))
+    const bufferedBody = await authorizeRequest(request, accessTokenVerifier)
+    await proxyRequest(request, response, buildUpstreamUrl(target, requestUrl), bufferedBody)
   } catch (error) {
+    if (error instanceof AccessTokenError) {
+      console.warn("MCP access denied", {
+        code: error.code,
+        method: request.method,
+        path: requestUrl.pathname,
+        status: error.status,
+      })
+      sendAccessTokenError(response, error)
+      return
+    }
+    if (error instanceof JwksUnavailableError) {
+      console.error("MCP access-token validation unavailable", {
+        method: request.method,
+        path: requestUrl.pathname,
+        message: error.message,
+      })
+      sendJson(response, 503, { error: "authentication_unavailable" })
+      return
+    }
     const message = error instanceof Error ? error.message : "Unknown upstream error"
     console.error("MCP upstream request failed", { method: request.method, path: requestUrl.pathname, message })
     if (response.headersSent) {
@@ -47,7 +85,31 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse,
   }
 }
 
-function proxyRequest(request: IncomingMessage, response: ServerResponse, upstreamUrl: URL) {
+async function authorizeRequest(
+  request: IncomingMessage,
+  accessTokenVerifier: AthenzAccessTokenVerifier,
+) {
+  const authorization = request.headers.authorization
+  if (authorization) {
+    await accessTokenVerifier.verify(authorization)
+    return undefined
+  }
+
+  if (request.method === "POST") {
+    const body = await readRequestBody(request)
+    if (isPublicMcpRequest(body)) return body
+  }
+
+  await accessTokenVerifier.verify(undefined)
+  return undefined
+}
+
+function proxyRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  upstreamUrl: URL,
+  bufferedBody?: Buffer,
+) {
   return new Promise<void>((resolve, reject) => {
     const transport = upstreamUrl.protocol === "https:" ? https : http
     const upstreamRequest = transport.request(upstreamUrl, {
@@ -67,8 +129,50 @@ function proxyRequest(request: IncomingMessage, response: ServerResponse, upstre
     response.on("close", () => {
       if (!response.writableEnded) upstreamRequest.destroy()
     })
-    request.pipe(upstreamRequest)
+    if (bufferedBody) upstreamRequest.end(bufferedBody)
+    else request.pipe(upstreamRequest)
   })
+}
+
+function readRequestBody(request: IncomingMessage) {
+  return new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = []
+    let bytes = 0
+    let tooLarge = false
+    request.on("data", (chunk: Buffer | string) => {
+      if (tooLarge) return
+      const value = Buffer.from(chunk)
+      bytes += value.length
+      if (bytes > MAX_PUBLIC_REQUEST_BYTES) {
+        tooLarge = true
+        reject(new AccessTokenError(
+          401,
+          "missing_access_token",
+          "Pass an Athenz access token as Authorization: Bearer <token>.",
+        ))
+        return
+      }
+      chunks.push(value)
+    })
+    request.on("end", () => {
+      if (!tooLarge) resolve(Buffer.concat(chunks))
+    })
+    request.on("error", reject)
+  })
+}
+
+function isPublicMcpRequest(body: Buffer) {
+  try {
+    const message = JSON.parse(body.toString("utf8")) as unknown
+    return Boolean(
+      message
+      && typeof message === "object"
+      && !Array.isArray(message)
+      && PUBLIC_MCP_METHODS.has(String((message as { method?: unknown }).method)),
+    )
+  } catch {
+    return false
+  }
 }
 
 function buildUpstreamUrl(target: URL, requestUrl: URL) {
@@ -104,5 +208,16 @@ function copyResponseHeaders(headers: IncomingHttpHeaders, response: ServerRespo
 function sendJson(response: ServerResponse, statusCode: number, body: unknown) {
   response.statusCode = statusCode
   response.setHeader("content-type", "application/json; charset=utf-8")
+  response.setHeader("cache-control", "no-store")
   response.end(JSON.stringify(body))
+}
+
+function sendAccessTokenError(response: ServerResponse, error: AccessTokenError) {
+  const challenge = error.status === 403
+    ? `Bearer realm="mcp-runtime-proxy", error="insufficient_scope"`
+    : error.code === "invalid_access_token"
+      ? `Bearer realm="mcp-runtime-proxy", error="invalid_token"`
+      : `Bearer realm="mcp-runtime-proxy"`
+  response.setHeader("www-authenticate", challenge)
+  sendJson(response, error.status, { error: error.code, message: error.message })
 }

@@ -341,7 +341,7 @@ export function ConfigurationForm({
             />
             <span>
               <strong>Hub-managed access (Recommended)</strong>
-              <small>Users sign in once. The Hub records each tool&apos;s required permissions and shows the signed-in user&apos;s current access.</small>
+              <small>Users sign in once. The Hub provisions shared Athenz access, shows current permissions, and validates protected calls at the MCP Runtime Proxy.</small>
             </span>
           </label>
           <label className="mcp-create-choice">

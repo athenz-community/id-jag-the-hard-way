@@ -10,6 +10,7 @@ import {
   McpResourceConflictError,
 } from "@/features/registration/api/createMcpResources"
 import { ensureMcpManagedAccess } from "@/features/registration/api/mcpManagedAccess"
+import { ensureMcpRuntimeProxyTrust } from "@/features/registration/api/mcpRuntimeProxy"
 import { validateMcpRegistration } from "@/features/registration/lib/registrationInput"
 import {
   getMcpTemplate,
@@ -133,11 +134,14 @@ export async function POST(request: NextRequest) {
   try {
     await createMcpResources(validation.input, undefined, {
       beforeCreate: validation.input.accessManagement === "hub"
-        ? () => ensureMcpManagedAccess(
-            validation.input.project,
-            username,
-            validation.input.serviceAccount,
-          ).then(() => undefined)
+        ? async () => {
+            await ensureMcpManagedAccess(
+              validation.input.project,
+              username,
+              validation.input.serviceAccount,
+            )
+            await ensureMcpRuntimeProxyTrust(validation.input.project)
+          }
         : undefined,
     })
     return NextResponse.json(
