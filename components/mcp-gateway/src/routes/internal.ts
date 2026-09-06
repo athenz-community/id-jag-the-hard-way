@@ -4,6 +4,7 @@ import { MCP_HUB_REGISTRY_TOKEN } from "../config/env.js"
 import {
   athenzAccessTokenManager,
   type AthenzAccessTokenCacheStatus,
+  type AthenzIdJagCacheStatus,
 } from "../services/athenz.js"
 import { sessionStore, type GatewaySession } from "../utils/sessionStore.js"
 
@@ -13,12 +14,14 @@ export type InternalRouterDependencies = {
   registryToken: string | undefined
   listActiveSessions: () => GatewaySession[]
   getAccessTokenCacheStatus: (session: GatewaySession) => AthenzAccessTokenCacheStatus
+  getIdJagCacheStatus: (session: GatewaySession) => AthenzIdJagCacheStatus
 }
 
 const defaultDependencies: InternalRouterDependencies = {
   registryToken: MCP_HUB_REGISTRY_TOKEN,
   listActiveSessions: () => sessionStore.listActive(),
   getAccessTokenCacheStatus: (session) => athenzAccessTokenManager.getCacheStatus(session),
+  getIdJagCacheStatus: (session) => athenzAccessTokenManager.getIdJagCacheStatus(session),
 }
 
 export function createInternalRouter(overrides: Partial<InternalRouterDependencies> = {}) {
@@ -43,6 +46,7 @@ export function createInternalRouter(overrides: Partial<InternalRouterDependenci
         expiresAt: new Date(session.expiresAt * 1000).toISOString(),
         status,
         athenzAccessTokens: dependencies.getAccessTokenCacheStatus(session),
+        athenzIdJags: dependencies.getIdJagCacheStatus(session),
       }
     })
     const refreshRequiredSessionCount = sessions.filter((session) => session.status === "refresh-required").length

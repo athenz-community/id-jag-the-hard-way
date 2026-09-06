@@ -122,6 +122,7 @@ describe("MCP Gateway", () => {
           subject: string
           expiresAt: string
           athenzAccessTokens: { entries: Array<{ scope: string }> }
+          athenzIdJags: { entries: Array<{ audiences: string[]; scope: string }> }
         }>
       }
       assert.equal(body.sessionCount, 1)
@@ -129,9 +130,12 @@ describe("MCP Gateway", () => {
       assert.equal(body.sessions[0].subject, "keycloak-subject")
       assert.equal(body.sessions[0].expiresAt, new Date(expiresAt * 1000).toISOString())
       assert.equal(body.sessions[0].athenzAccessTokens.entries[0].scope, "api:role.docs-getter")
+      assert.deepEqual(body.sessions[0].athenzIdJags.entries[0].audiences, [ATHENZ_ZTS_AUDIENCE])
+      assert.equal(body.sessions[0].athenzIdJags.entries[0].scope, "api:role.docs-getter")
       assert.equal(rawBody.includes("stored-id-token-must-not-leak"), false)
       assert.equal(rawBody.includes(sessionToken), false)
       assert.equal(rawBody.includes("issued-athenz-at-must-not-leak"), false)
+      assert.equal(rawBody.includes("issued-id-jag-must-not-leak"), false)
     }, {}, {
       registryToken: "registry-secret",
       getAccessTokenCacheStatus: () => ({
@@ -141,6 +145,20 @@ describe("MCP Gateway", () => {
         expiredEntryCount: 0,
         expirySkewSeconds: 60,
         entries: [{
+          scope: "api:role.docs-getter",
+          cachedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 300_000).toISOString(),
+          status: "valid",
+        }],
+      }),
+      getIdJagCacheStatus: () => ({
+        entryCount: 1,
+        usableEntryCount: 1,
+        refreshRequiredEntryCount: 0,
+        expiredEntryCount: 0,
+        expirySkewSeconds: 60,
+        entries: [{
+          audiences: [ATHENZ_ZTS_AUDIENCE],
           scope: "api:role.docs-getter",
           cachedAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 300_000).toISOString(),
@@ -541,6 +559,12 @@ describe("MCP Gateway", () => {
     assert.equal(cacheStatus.entryCount, 1)
     assert.equal(cacheStatus.entries[0].scope, "docs-getter mcp-accessor")
     assert.equal(JSON.stringify(cacheStatus).includes(idJag), false)
+    const idJagCacheStatus = manager.getIdJagCacheStatus(session)
+    assert.equal(idJagCacheStatus.entryCount, 1)
+    assert.deepEqual(idJagCacheStatus.entries[0].audiences, [ATHENZ_ZTS_AUDIENCE])
+    assert.equal(idJagCacheStatus.entries[0].scope, requestedScope)
+    assert.equal(idJagCacheStatus.entries[0].status, "valid")
+    assert.equal(JSON.stringify(idJagCacheStatus).includes(idJag), false)
   })
 
   it("stores a partially granted ID-JAG under its actual audience and scope", async () => {
