@@ -9,6 +9,8 @@ const DEFAULT_SIGNED_IN_USER_DOMAIN = "human"
 const DEFAULT_ZMS_URL = "https://localhost:4443/zms/v1"
 const EXCHANGER_ROLE = "accessor-jag-exchanger"
 const EXCHANGE_POLICY = "accessor-jag-exchanger_zts_jag_exchange_role_accessor"
+const SOURCE_EXCHANGER_ROLE = "accessor-source-exchanger"
+const SOURCE_EXCHANGE_POLICY = "accessor-source-exchanger_zts_token_source_exchange"
 const MAX_RESPONSE_BYTES = 256 * 1024
 const PRINCIPAL_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/
 
@@ -24,6 +26,14 @@ export type McpManagedAccessReport = {
   exchangerMemberAdded: boolean
   exchangerRoleCreated: boolean
   roleCreated: boolean
+  sourceExchangerMemberAdded: boolean
+  sourceExchangerRoleCreated: boolean
+}
+
+export type McpSourceExchangeReport = {
+  policyUpdated: boolean
+  sourceExchangerMemberAdded: boolean
+  sourceExchangerRoleCreated: boolean
 }
 
 export async function ensureMcpManagedAccess(
@@ -53,6 +63,13 @@ export async function ensureMcpManagedAccess(
   const exchangerRoleCreated = await ensureRole(requestZms, domain, EXCHANGER_ROLE)
   const exchangerMemberAdded = await ensureRoleMember(requestZms, domain, EXCHANGER_ROLE, gatewayPrincipal)
   const exchangePolicyCreated = await ensureExchangePolicy(requestZms, domain)
+  const sourceExchangerRoleCreated = await ensureRole(requestZms, domain, SOURCE_EXCHANGER_ROLE)
+  const sourceExchangerMemberAdded = await ensureRoleMember(
+    requestZms,
+    domain,
+    SOURCE_EXCHANGER_ROLE,
+    serviceAccount,
+  )
 
   return {
     accessorMemberAdded,
@@ -60,7 +77,42 @@ export async function ensureMcpManagedAccess(
     exchangerMemberAdded,
     exchangerRoleCreated,
     roleCreated,
+    sourceExchangerMemberAdded,
+    sourceExchangerRoleCreated,
   }
+}
+
+export async function ensureMcpSourceExchangeAccess(
+  project: string,
+  serviceAccount: string,
+  targetDomains: string[],
+  configuredRequest?: ZmsRequest,
+): Promise<McpSourceExchangeReport> {
+  if (!/^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/.test(project)) {
+    throw new Error("Managed MCP project is invalid")
+  }
+  const audiences = [...new Set(targetDomains.map((domain) => domain.trim()).filter(Boolean))].sort()
+  if (audiences.length === 0) throw new Error("Managed MCP source exchange requires an audience domain")
+  for (const audience of audiences) {
+    if (!PRINCIPAL_PATTERN.test(audience)) {
+      throw new Error(`Managed MCP source-exchange audience ${JSON.stringify(audience)} is invalid`)
+    }
+  }
+
+  const domain = managedMcpAccessDomain(project)
+  const serviceName = serviceNameInDomain(serviceAccount, domain)
+  const requestZms = configuredRequest ?? await createZmsRequest()
+  await requireDomain(requestZms, domain)
+  await requireService(requestZms, domain, serviceName, serviceAccount)
+  const sourceExchangerRoleCreated = await ensureRole(requestZms, domain, SOURCE_EXCHANGER_ROLE)
+  const sourceExchangerMemberAdded = await ensureRoleMember(
+    requestZms,
+    domain,
+    SOURCE_EXCHANGER_ROLE,
+    serviceAccount,
+  )
+  const policyUpdated = await ensureSourceExchangePolicy(requestZms, domain, audiences)
+  return { policyUpdated, sourceExchangerMemberAdded, sourceExchangerRoleCreated }
 }
 
 async function requireDomain(requestZms: ZmsRequest, domain: string) {
@@ -154,6 +206,72 @@ async function ensureExchangePolicy(requestZms: ZmsRequest, domain: string) {
     throw new Error("Unable to verify managed MCP exchange policy")
   }
   return isSuccess(created.status)
+}
+
+async function ensureSourceExchangePolicy(
+  requestZms: ZmsRequest,
+  domain: string,
+  targetDomains: string[],
+) {
+  const policyPath = `/domain/${encodeURIComponent(domain)}/policy/${encodeURIComponent(SOURCE_EXCHANGE_POLICY)}`
+  const role = `${domain}:role.${SOURCE_EXCHANGER_ROLE}`
+  const desired = targetDomains.map((targetDomain) => ({
+    action: "zts.token_source_exchange",
+    resource: `${domain}:${targetDomain}`,
+    role,
+  }))
+  const existing = await requestZms("GET", policyPath)
+  let assertions: Array<{ action: string; resource: string; role: string }> = []
+  if (existing.status === 200) {
+    assertions = policyAssertions(existing.body, "managed MCP source-exchange policy")
+    if (desired.every((assertion) => assertions.some((current) => sameAssertion(current, assertion)))) {
+      return false
+    }
+  } else if (existing.status !== 404) {
+    throw unexpectedStatus("checking managed MCP source-exchange policy", existing.status)
+  }
+
+  for (const assertion of desired) {
+    if (!assertions.some((current) => sameAssertion(current, assertion))) assertions.push(assertion)
+  }
+  const updated = await requestZms("PUT", policyPath, {
+    name: `${domain}:policy.${SOURCE_EXCHANGE_POLICY}`,
+    assertions,
+  })
+  if (!isSuccess(updated.status) && updated.status !== 409) {
+    throw unexpectedStatus("updating managed MCP source-exchange policy", updated.status)
+  }
+
+  const verified = await requestZms("GET", policyPath)
+  if (verified.status !== 200) {
+    throw unexpectedStatus("verifying managed MCP source-exchange policy", verified.status)
+  }
+  const verifiedAssertions = policyAssertions(verified.body, "managed MCP source-exchange policy")
+  if (!desired.every((assertion) => verifiedAssertions.some((current) => sameAssertion(current, assertion)))) {
+    throw new Error("Unable to verify managed MCP source-exchange policy")
+  }
+  return isSuccess(updated.status)
+}
+
+function policyAssertions(body: string, resource: string) {
+  const payload = parseRecord(body, resource)
+  if (!Array.isArray(payload.assertions)) throw new Error(`ZMS returned an invalid ${resource}`)
+  return payload.assertions.map((value) => {
+    if (!isRecord(value)
+      || typeof value.action !== "string"
+      || typeof value.resource !== "string"
+      || typeof value.role !== "string") {
+      throw new Error(`ZMS returned an invalid ${resource}`)
+    }
+    return { action: value.action, resource: value.resource, role: value.role }
+  })
+}
+
+function sameAssertion(
+  left: { action: string; resource: string; role: string },
+  right: { action: string; resource: string; role: string },
+) {
+  return left.action === right.action && left.resource === right.resource && left.role === right.role
 }
 
 function roleContains(body: string, member: string) {

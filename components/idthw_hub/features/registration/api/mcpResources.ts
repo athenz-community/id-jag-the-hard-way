@@ -13,14 +13,23 @@ import {
   type McpKubernetesManifestInput,
 } from "../lib/kubernetesManifest.ts"
 import { normalizeMcpIconId } from "../../mcp-servers/lib/mcpIcons.ts"
-import { parseToolPermissionSettings } from "../../permissions/lib/permissionPreset.ts"
+import {
+  exchangeHelperRequirements,
+  parseAthenzRole,
+  parseToolPermissionSettings,
+} from "../../permissions/lib/permissionPreset.ts"
 import type {
   ConfiguredPermissionRequirement,
   ToolPermissionSettings,
 } from "../../permissions/types/permissions.ts"
 import { runtimeProxyResourceOptions } from "./mcpRuntimeProxy.ts"
+import {
+  ensureMcpSourceExchangeAccess,
+  type ZmsRequest,
+} from "./mcpManagedAccess.ts"
 
 const ANNOTATION_ACCESS_MANAGEMENT = "mcp.idthw.dev/access-management"
+const ANNOTATION_ACCESS_AUDIENCE = "mcp.idthw.dev/access-audience"
 const ANNOTATION_ACCESS_SCOPE = "mcp.idthw.dev/access-scope"
 const ANNOTATION_ALIAS = "mcp.idthw.dev/alias"
 const ANNOTATION_CREATION_METHOD = "mcp.idthw.dev/creation-method"
@@ -213,15 +222,41 @@ export async function updateMcpToolPermissions(
   toolName: string,
   requirements: ConfiguredPermissionRequirement[],
   runKubectl: KubectlRunner = runKubectlCommand,
+  configuredZmsRequest?: ZmsRequest,
 ) {
   const deployment = await readMcpDeployment(project, mcpKeyName, runKubectl)
-  configurationFromDeployment(deployment, project, mcpKeyName)
+  const configuration = configurationFromDeployment(deployment, project, mcpKeyName)
+  const helperRequirements = requirements.filter(({ includeExchangeHelpers }) => includeExchangeHelpers)
+  const serviceAccount = configuration.serviceAccount
+  if (helperRequirements.length > 0 && (!serviceAccount || configuration.accessManagement !== "hub")) {
+    throw new Error("Exchange helpers require a Hub-managed IAM service account")
+  }
+  for (const requirement of helperRequirements) {
+    if (!serviceAccount) throw new Error("Exchange helpers require a Hub-managed IAM service account")
+    if (requirement.exchangeHelperRequirements) continue
+    exchangeHelperRequirements(
+      [requirement],
+      serviceAccount,
+      process.env.MCP_HUB_GATEWAY_PRINCIPAL ?? "mcp-hub.mcp-gateway",
+    )
+  }
+  const directAudienceRequirements = requirements.filter(({ member }) => member === "<signed_in_user>")
+  if (directAudienceRequirements.length > 0 && serviceAccount && configuration.accessManagement === "hub") {
+    await ensureMcpSourceExchangeAccess(
+      project,
+      serviceAccount,
+      directAudienceRequirements.map(({ role }) => parseAthenzRole(role).domain),
+      configuredZmsRequest,
+    )
+  }
   const current = storedToolPermissionSettings(deployment.metadata?.annotations?.[ANNOTATION_TOOL_PERMISSIONS])
   const settings = parseToolPermissionSettings({
     version: 1,
     tools: {
       ...current?.tools,
-      [toolName]: { requirements },
+      [toolName]: {
+        requirements,
+      },
     },
   })
   const serialized = JSON.stringify(settings)
@@ -342,6 +377,7 @@ export function buildMcpResourceUpdate(
     })
 
   const optionalAnnotations = [
+    ANNOTATION_ACCESS_AUDIENCE,
     ANNOTATION_ACCESS_SCOPE,
     ANNOTATION_DESCRIPTION,
     ANNOTATION_ICON,

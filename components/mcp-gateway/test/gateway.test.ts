@@ -387,7 +387,7 @@ describe("MCP Gateway", () => {
         username: "idjag-learner",
         expiresAt,
       })
-      let tokenRequest: { idToken: string; scope: string } | undefined
+      let tokenRequest: { audience?: string; idToken: string; scope: string } | undefined
 
       await withServer(async (baseUrl) => {
         const response = await fetch(`${baseUrl}/mcp/k8s-docs-server?trace=1`, {
@@ -413,6 +413,7 @@ describe("MCP Gateway", () => {
         accessScope: "api:role.mcp-accessor api:role.docs-getter",
         resolveRoute: async () => ({
           proxyUrl: `${coreMcpProxyUrl}/mcp/k8s-docs-server`,
+          accessAudience: "api",
           accessScope: "api:role.mcp-accessor",
           toolScopes: {
             get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",
@@ -420,8 +421,8 @@ describe("MCP Gateway", () => {
             delete_k8s_doc: "api:role.docs-deleter api:role.mcp-accessor",
           },
         }),
-        getAccessToken: async (session, scope) => {
-          tokenRequest = { idToken: session.idToken, scope }
+        getAccessToken: async (session, scope, audience) => {
+          tokenRequest = { audience, idToken: session.idToken, scope }
           return "user-scoped-athenz-at"
         },
       })
@@ -437,6 +438,7 @@ describe("MCP Gateway", () => {
         params: { name: "get_k8s_docs", arguments: {} },
       })
       assert.deepEqual(tokenRequest, {
+        audience: "api",
         idToken: "stored-id-token",
         scope: "api:role.docs-getter api:role.mcp-accessor",
       })
@@ -455,7 +457,7 @@ describe("MCP Gateway", () => {
         username: "idjag-learner",
         expiresAt: Math.floor(Date.now() / 1000) + 300,
       })
-      const requestedScopes: string[] = []
+      const requestedScopes: Array<{ audience?: string; scope: string }> = []
 
       await withServer(async (baseUrl) => {
         for (const toolName of ["get_k8s_docs", "post_k8s_doc", "delete_k8s_doc"]) {
@@ -477,6 +479,7 @@ describe("MCP Gateway", () => {
       }, {
         resolveRoute: async () => ({
           proxyUrl: `${coreMcpProxyUrl}/mcp/k8s-docs-server`,
+          accessAudience: "mcp-hub.mcps.k8s-docs-server",
           accessScope: "api:role.docs-getter api:role.mcp-accessor",
           toolScopes: {
             get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",
@@ -484,16 +487,16 @@ describe("MCP Gateway", () => {
             delete_k8s_doc: "api:role.docs-deleter api:role.mcp-accessor",
           },
         }),
-        getAccessToken: async (_session, scope) => {
-          requestedScopes.push(scope)
+        getAccessToken: async (_session, scope, audience) => {
+          requestedScopes.push({ audience, scope })
           return "user-scoped-athenz-at"
         },
       })
 
       assert.deepEqual(requestedScopes, [
-        "api:role.docs-getter api:role.mcp-accessor",
-        "api:role.docs-poster api:role.mcp-accessor",
-        "api:role.docs-deleter api:role.mcp-accessor",
+        { audience: "mcp-hub.mcps.k8s-docs-server", scope: "api:role.docs-getter api:role.mcp-accessor" },
+        { audience: "mcp-hub.mcps.k8s-docs-server", scope: "api:role.docs-poster api:role.mcp-accessor" },
+        { audience: "mcp-hub.mcps.k8s-docs-server", scope: "api:role.docs-deleter api:role.mcp-accessor" },
       ])
     })
   })
@@ -609,6 +612,45 @@ describe("MCP Gateway", () => {
     assert.equal(idJagCacheStatus.entries[0].scope, requestedScope)
     assert.equal(idJagCacheStatus.entries[0].status, "valid")
     assert.equal(JSON.stringify(idJagCacheStatus).includes(idJag), false)
+  })
+
+  it("selects an explicit core audience for a multi-domain access token", async () => {
+    const now = 2_000_000_000_000
+    const coreAudience = "mcp-hub.mcps.k8s-docs-server"
+    const requestedScope = `${coreAudience}:role.accessor api:role.docs-getter`
+    const idJag = fakeJwt({
+      aud: ATHENZ_ZTS_AUDIENCE,
+      scp: requestedScope.split(" "),
+      exp: Math.floor((now + 900_000) / 1000),
+    })
+    const forms: URLSearchParams[] = []
+    const manager = new AthenzAccessTokenManager(async (form) => {
+      forms.push(form)
+      if (form.get("requested_token_type") === "urn:ietf:params:oauth:token-type:id-jag") {
+        return { access_token: idJag, expires_in: 900, scope: requestedScope }
+      }
+      return {
+        access_token: fakeJwt({
+          aud: coreAudience,
+          scp: ["accessor", "api:role.docs-getter"],
+          exp: Math.floor((now + 300_000) / 1000),
+        }),
+        expires_in: 300,
+        scope: "accessor api:role.docs-getter",
+      }
+    }, () => now)
+    const session = {
+      idToken: "stored-id-token",
+      idTokenExpiresAt: Math.floor((now + 300_000) / 1000),
+      subject: "keycloak-subject",
+      username: "idjag-learner",
+      expiresAt: Math.floor((now + 3_600_000) / 1000),
+    }
+
+    await manager.getAccessToken(session, requestedScope, coreAudience)
+
+    assert.equal(forms[1].get("audience"), coreAudience)
+    assert.equal(forms[1].get("scope"), "api:role.docs-getter mcp-hub.mcps.k8s-docs-server:role.accessor")
   })
 
   it("stores a partially granted ID-JAG under its actual audience and scope", async () => {
@@ -748,6 +790,7 @@ describe("MCP Gateway", () => {
         servers: [{
           routeId: "k8s-docs-server",
           proxyUrl: "http://core-mcp-proxy.mcp-hub:8080/mcp/k8s-docs-server",
+          accessAudience: "api",
           accessScope: "api:role.mcp-accessor api:role.docs-getter",
           toolScopes: {
             get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",
@@ -762,6 +805,7 @@ describe("MCP Gateway", () => {
 
       assert.deepEqual(first, {
         proxyUrl: "http://core-mcp-proxy.mcp-hub:8080/mcp/k8s-docs-server",
+        accessAudience: "api",
         accessScope: "api:role.mcp-accessor api:role.docs-getter",
         toolScopes: {
           get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",

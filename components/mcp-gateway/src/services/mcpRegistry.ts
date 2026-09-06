@@ -7,12 +7,14 @@ import {
 type RegistryServer = {
   routeId?: unknown
   proxyUrl?: unknown
+  accessAudience?: unknown
   accessScope?: unknown
   toolScopes?: unknown
 }
 
 export type ResolvedMcpRoute = {
   proxyUrl: string
+  accessAudience?: string
   accessScope?: string
   toolScopes?: Record<string, string>
 }
@@ -64,6 +66,7 @@ export class McpRegistryClient {
       if (proxyUrl.protocol !== "http:" && proxyUrl.protocol !== "https:") continue
       routes.set(server.routeId, {
         proxyUrl: proxyUrl.toString(),
+        accessAudience: parseAccessAudience(server.accessAudience, server.accessScope, server.routeId),
         accessScope: typeof server.accessScope === "string" && server.accessScope.trim() ? server.accessScope.trim() : undefined,
         toolScopes: parseToolScopes(server.toolScopes, server.routeId),
       })
@@ -72,6 +75,23 @@ export class McpRegistryClient {
     this.cache = { expiresAt: now + this.cacheTtlMs, routes }
     return routes
   }
+}
+
+function parseAccessAudience(value: unknown, accessScope: unknown, serverId: string) {
+  const configured = typeof value === "string" && value.trim() ? value.trim() : undefined
+  const audience = configured ?? firstScopeDomain(accessScope)
+  if (audience !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(audience)) {
+    throw new Error(`MCP Hub registry returned invalid accessAudience for ${serverId}`)
+  }
+  return audience
+}
+
+function firstScopeDomain(value: unknown) {
+  if (typeof value !== "string") return undefined
+  const firstScope = value.trim().split(/\s+/).find(Boolean)
+  const marker = ":role."
+  const markerIndex = firstScope?.indexOf(marker) ?? -1
+  return markerIndex > 0 ? firstScope?.slice(0, markerIndex) : undefined
 }
 
 function parseToolScopes(value: unknown, serverId: string) {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import {
   ensureMcpManagedAccess,
+  ensureMcpSourceExchangeAccess,
   type ZmsRequest,
 } from "../features/registration/api/mcpManagedAccess.ts"
 
@@ -20,11 +21,17 @@ test("idempotently provisions access in an existing project domain", async () =>
     exchangerMemberAdded: true,
     exchangerRoleCreated: true,
     roleCreated: true,
+    sourceExchangerMemberAdded: true,
+    sourceExchangerRoleCreated: true,
   })
 
   const domain = "mcp-hub.mcps.k8s-docs-server"
   assert.deepEqual([...state.roles.get("accessor") ?? []], ["human.idjag-learner"])
   assert.deepEqual([...state.roles.get("accessor-jag-exchanger") ?? []], ["mcp-hub.mcp-gateway"])
+  assert.deepEqual(
+    [...state.roles.get("accessor-source-exchanger") ?? []],
+    ["mcp-hub.mcps.k8s-docs-server.runtime"],
+  )
   assert.deepEqual(state.policy, {
     name: `${domain}:policy.accessor-jag-exchanger_zts_jag_exchange_role_accessor`,
     assertions: [{
@@ -47,6 +54,51 @@ test("idempotently provisions access in an existing project domain", async () =>
     exchangerMemberAdded: false,
     exchangerRoleCreated: false,
     roleCreated: false,
+    sourceExchangerMemberAdded: false,
+    sourceExchangerRoleCreated: false,
+  })
+  assert.equal(state.mutations.length, mutationCount)
+})
+
+test("adds each configured audience to the shared source-exchange policy", async () => {
+  const state = new FakeZms()
+
+  const first = await ensureMcpSourceExchangeAccess(
+    "k8s-docs-server",
+    "mcp-hub.mcps.k8s-docs-server.runtime",
+    ["content", "api", "api"],
+    state.request,
+  )
+  assert.deepEqual(first, {
+    policyUpdated: true,
+    sourceExchangerMemberAdded: true,
+    sourceExchangerRoleCreated: true,
+  })
+  const domain = "mcp-hub.mcps.k8s-docs-server"
+  assert.deepEqual(state.sourcePolicy, {
+    name: `${domain}:policy.accessor-source-exchanger_zts_token_source_exchange`,
+    assertions: [{
+      action: "zts.token_source_exchange",
+      resource: `${domain}:api`,
+      role: `${domain}:role.accessor-source-exchanger`,
+    }, {
+      action: "zts.token_source_exchange",
+      resource: `${domain}:content`,
+      role: `${domain}:role.accessor-source-exchanger`,
+    }],
+  })
+
+  const mutationCount = state.mutations.length
+  const second = await ensureMcpSourceExchangeAccess(
+    "k8s-docs-server",
+    "mcp-hub.mcps.k8s-docs-server.runtime",
+    ["content", "api"],
+    state.request,
+  )
+  assert.deepEqual(second, {
+    policyUpdated: false,
+    sourceExchangerMemberAdded: false,
+    sourceExchangerRoleCreated: false,
   })
   assert.equal(state.mutations.length, mutationCount)
 })
@@ -73,6 +125,7 @@ test("does not create a missing project domain", async () => {
 class FakeZms {
   mutations: Array<{ body?: unknown; method: string; path: string }> = []
   policy: Record<string, unknown> | undefined
+  sourcePolicy: Record<string, unknown> | undefined
   roles = new Map<string, Set<string>>()
 
   request: ZmsRequest = async (method, requestPath, body) => {
@@ -113,6 +166,15 @@ class FakeZms {
         return response(200, {})
       }
       return this.policy ? response(200, this.policy) : response(404, {})
+    }
+
+    const sourcePolicyPath = "/domain/mcp-hub.mcps.k8s-docs-server/policy/accessor-source-exchanger_zts_token_source_exchange"
+    if (requestPath === sourcePolicyPath) {
+      if (method === "PUT") {
+        this.sourcePolicy = body as Record<string, unknown>
+        return response(200, {})
+      }
+      return this.sourcePolicy ? response(200, this.sourcePolicy) : response(404, {})
     }
 
     throw new Error(`Unexpected ZMS request: ${method} ${requestPath}`)

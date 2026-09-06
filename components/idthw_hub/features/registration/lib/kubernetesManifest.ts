@@ -96,6 +96,7 @@ export function buildMcpKubernetesResources(
     annotations["mcp.idthw.dev/iam-service-account"] = input.serviceAccount
   }
   if (input.accessManagement === "hub") {
+    annotations["mcp.idthw.dev/access-audience"] = managedMcpAccessDomain(input.project)
     annotations["mcp.idthw.dev/access-scope"] = managedMcpAccessScope(input.project)
   }
   if (managedServiceIdentity) {

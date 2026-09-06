@@ -1,6 +1,6 @@
 "use client"
 
-import { ExternalLink, Plus, RefreshCw, ShieldQuestion, Trash2, X } from "lucide-react"
+import { ChevronDown, ExternalLink, Plus, RefreshCw, ShieldQuestion, Trash2, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import {
   type Dispatch,
@@ -13,7 +13,14 @@ import {
   useState,
   useTransition,
 } from "react"
-import type { PermissionRequirementCheck } from "@/features/permissions/types/permissions"
+import {
+  exchangeHelperRequirements,
+  exchangePolicyRules,
+} from "@/features/permissions/lib/permissionPreset"
+import type {
+  PermissionPolicyRequirementCheck,
+  PermissionRequirementCheck,
+} from "@/features/permissions/types/permissions"
 
 const SIGNED_IN_USER_MEMBER = "<signed_in_user>"
 
@@ -23,25 +30,48 @@ type PageScrollLock = {
 }
 
 type EditableRequirement = {
+  audience: string
+  exchangeHelpersCustomized: boolean
+  helperRequirements: EditableExchangeHelperRequirement[]
   label: string
   member: string
   memberType: "service" | "signed-in-user"
   role: string
 }
 
+type EditableExchangeHelperRequirement = {
+  label: string
+  member: string
+  memberType: "custom" | "gateway" | "mcp-service"
+  policy: EditableExchangePolicyRule
+  role: string
+}
+
+type EditableExchangePolicyRule = {
+  action: string
+  effect: "ALLOW" | "DENY"
+  resource: string
+}
+
 export function PermissionRequestDialog({
+  accessAudience,
   configurationMissing = false,
   mcpKeyName,
+  policies,
   project,
   requirements,
+  servicePrincipal,
   subject,
   toolName,
   triggerLabel = "Request permission",
 }: {
+  accessAudience?: string
   configurationMissing?: boolean
   mcpKeyName: string
+  policies: PermissionPolicyRequirementCheck[]
   project: string
   requirements: PermissionRequirementCheck[]
+  servicePrincipal?: string
   subject: string
   toolName: string
   triggerLabel?: string
@@ -54,12 +84,24 @@ export function PermissionRequestDialog({
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const toolRequirements = requirements.filter(({ source }) => source === "tool")
+  const toolRequirements = requirements.filter(({ source }) => source !== "managed")
+  const configuredToolRequirements = requirements.filter(({ source }) => source === "tool")
+  const configuredHelperRequirements = requirements.filter(({ source }) => source === "helper")
   const managedRequirements = requirements.filter(({ source }) => source === "managed")
+  const toolPolicies = policies.filter(({ source }) => source === "helper")
+  const managedPolicies = policies.filter(({ source }) => source === "managed")
   const [draftRequirements, setDraftRequirements] = useState<EditableRequirement[]>(
-    () => editableRequirements(toolRequirements),
+    () => editableRequirements(
+      configuredToolRequirements,
+      configuredHelperRequirements,
+      toolPolicies,
+      servicePrincipal,
+    ),
   )
-  const permissionsReady = requirements.length > 0 && requirements.every(({ status }) => status === "ready")
+  const permissionsReady = requirements.length > 0
+    && [...requirements, ...policies].every(({ status }) => status === "ready")
+  const managedDefaultsMissing = [...managedRequirements, ...managedPolicies]
+    .some(({ status }) => status === "missing")
 
   const unlockPageScroll = useCallback(() => {
     const lock = pageScrollLockRef.current
@@ -77,7 +119,12 @@ export function PermissionRequestDialog({
 
     setIsEditing(false)
     setSaveError(null)
-    setDraftRequirements(editableRequirements(toolRequirements))
+    setDraftRequirements(editableRequirements(
+      configuredToolRequirements,
+      configuredHelperRequirements,
+      toolPolicies,
+      servicePrincipal,
+    ))
     const scrollY = window.scrollY
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
     const bodyPaddingRight = Number.parseFloat(window.getComputedStyle(document.body).paddingRight) || 0
@@ -91,28 +138,68 @@ export function PermissionRequestDialog({
     document.body.style.overflow = "hidden"
     if (scrollbarWidth > 0) document.body.style.paddingRight = `${bodyPaddingRight + scrollbarWidth}px`
     dialog.showModal()
-  }, [toolRequirements])
+  }, [
+    configuredHelperRequirements,
+    configuredToolRequirements,
+    servicePrincipal,
+    setDraftRequirements,
+    toolPolicies,
+  ])
 
   useEffect(() => unlockPageScroll, [unlockPageScroll])
 
   const beginEditing = () => {
     setSaveError(null)
-    const configured = editableRequirements(toolRequirements)
+    const configured = editableRequirements(
+      configuredToolRequirements,
+      configuredHelperRequirements,
+      toolPolicies,
+      servicePrincipal,
+    )
     setDraftRequirements(configured.length > 0 ? configured : [emptyRequirement()])
     setIsEditing(true)
   }
 
   const saveToolPermissions = async () => {
     setSaveError(null)
-    const requirements = draftRequirements.map((requirement) => ({
-      label: requirement.label.trim(),
-      member: requirement.memberType === "signed-in-user"
-        ? SIGNED_IN_USER_MEMBER
-        : requirement.member.trim(),
-      role: requirement.role.trim(),
-    }))
-    if (requirements.some(({ label, member, role }) => !label || !member || !role)) {
-      setSaveError("Complete the access description, member, and role for every permission.")
+    const requirements = draftRequirements.map((requirement) => {
+      const managesExchangeHelpers = requirement.memberType === "signed-in-user" && Boolean(servicePrincipal)
+      const role = configuredRole(requirement.audience, requirement.role)
+      return {
+        ...(managesExchangeHelpers ? { includeExchangeHelpers: true } : {}),
+        ...(managesExchangeHelpers && requirement.exchangeHelpersCustomized
+          ? {
+              exchangeHelperRequirements: requirement.helperRequirements.map((helper) => ({
+                label: helper.label.trim(),
+                member: helper.member.trim(),
+                policy: {
+                  action: helper.policy.action.trim(),
+                  effect: helper.policy.effect,
+                  resource: helper.policy.resource.trim(),
+                },
+                role: helper.role.trim(),
+              })),
+            }
+          : {}),
+        label: requirement.label.trim() || "Signed-in user can call the downstream API",
+        member: requirement.memberType === "signed-in-user"
+          ? SIGNED_IN_USER_MEMBER
+          : requirement.member.trim(),
+        role,
+      }
+    })
+    if (draftRequirements.some(({ audience, member, memberType, role }) => (
+      !audience.trim() || !role.trim() || (memberType === "service" && !member.trim())
+    ))) {
+      setSaveError("Complete the audience, required role, and any static service-account member.")
+      return
+    }
+    const invalidHelper = requirements.some((requirement) => requirement.exchangeHelperRequirements
+      ?.some(({ label, member, policy, role }) => (
+        !label || !member || !role || !policy?.action || !policy.resource
+      )))
+    if (invalidHelper) {
+      setSaveError("Complete the access description, member, role, policy action, and policy resource for every helper permission.")
       return
     }
 
@@ -123,7 +210,10 @@ export function PermissionRequestDialog({
         {
           method: "PUT",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ toolName, requirements }),
+          body: JSON.stringify({
+            toolName,
+            requirements,
+          }),
         },
       )
       const payload = await response.json() as { error?: unknown }
@@ -174,18 +264,23 @@ export function PermissionRequestDialog({
           </div>
 
           <p className="permission-dialog-copy">
-            Tool permissions define custom downstream access for this operation. MCP access is maintained automatically by the Hub. Saving updates the required-role settings but does not change Athenz membership.
+            Tool permissions define downstream access for this operation. Saving a signed-in-user audience also updates the Hub-managed source-exchange policy, but does not add downstream role members.
           </p>
 
           <PermissionSection
-            description="Custom Athenz role memberships required to execute this tool. These settings are editable."
+            description="Start with the required audience and role. The generated exchange permissions are required for delegated access and remain editable per direct access."
             eyebrow="Custom access"
             title="Tool permissions"
           >
             {isEditing ? (
-              <PermissionEditor requirements={draftRequirements} setRequirements={setDraftRequirements} />
-            ) : toolRequirements.length > 0 ? (
-              <PermissionTable requirements={toolRequirements} />
+              <PermissionEditor
+                accessAudience={accessAudience}
+                requirements={draftRequirements}
+                servicePrincipal={servicePrincipal}
+                setRequirements={setDraftRequirements}
+              />
+            ) : toolRequirements.length > 0 || toolPolicies.length > 0 ? (
+              <PermissionTable policies={toolPolicies} requirements={toolRequirements} />
             ) : (
               <div className="permission-dialog-empty neutral">
                 <strong>No tool permissions configured</strong>
@@ -196,12 +291,14 @@ export function PermissionRequestDialog({
           </PermissionSection>
 
           <PermissionSection
+            collapsible
+            defaultExpanded={managedDefaultsMissing}
             description="Default server-access roles generated from this MCP server's Hub-managed access configuration."
             eyebrow="Managed defaults"
             title="MCP access"
           >
             {managedRequirements.length > 0 ? (
-              <PermissionTable requirements={managedRequirements} />
+              <PermissionTable policies={managedPolicies} requirements={managedRequirements} />
             ) : (
               <div className="permission-dialog-empty neutral">
                 <strong>No Hub-managed MCP access</strong>
@@ -252,15 +349,41 @@ export function PermissionRequestDialog({
 
 function PermissionSection({
   children,
+  collapsible = false,
+  defaultExpanded = false,
   description,
   eyebrow,
   title,
 }: {
   children: ReactNode
+  collapsible?: boolean
+  defaultExpanded?: boolean
   description: string
   eyebrow: string
   title: string
 }) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+
+  if (collapsible) {
+    return (
+      <details
+        className="permission-dialog-section permission-dialog-section-collapsible"
+        open={isExpanded}
+        onToggle={(event) => setIsExpanded(event.currentTarget.open)}
+      >
+        <summary className="permission-dialog-section-head permission-dialog-section-summary">
+          <div>
+            <span>{eyebrow}</span>
+            <h4>{title}</h4>
+          </div>
+          <p>{description}</p>
+          <ChevronDown className="permission-dialog-section-chevron" size={16} aria-hidden="true" />
+        </summary>
+        <div className="permission-dialog-requirements">{children}</div>
+      </details>
+    )
+  }
+
   return (
     <section className="permission-dialog-section">
       <div className="permission-dialog-section-head">
@@ -275,7 +398,18 @@ function PermissionSection({
   )
 }
 
-function PermissionTable({ requirements }: { requirements: PermissionRequirementCheck[] }) {
+function PermissionTable({
+  policies,
+  requirements,
+}: {
+  policies: PermissionPolicyRequirementCheck[]
+  requirements: PermissionRequirementCheck[]
+}) {
+  const policiesByRole = new Map<string, PermissionPolicyRequirementCheck[]>()
+  for (const policy of policies) {
+    policiesByRole.set(policy.role, [...(policiesByRole.get(policy.role) ?? []), policy])
+  }
+
   return (
     <table className="permission-dialog-table">
       <thead>
@@ -284,42 +418,125 @@ function PermissionTable({ requirements }: { requirements: PermissionRequirement
           <th scope="col">Status</th>
           <th scope="col">Member</th>
           <th scope="col">Role</th>
+          <th scope="col">Action</th>
+          <th scope="col">Resource</th>
         </tr>
       </thead>
       <tbody>
-        {requirements.map((requirement) => (
-          <tr key={`${requirement.source}:${requirement.member}:${requirement.role}`}>
-            <td>{requirement.label}</td>
-            <td>
-              <span className="permission-dialog-status" data-status={requirement.status}>
-                {requirement.status === "ready" ? "Available" : requirement.status === "missing" ? "Missing" : "Could not verify"}
-              </span>
-            </td>
-            <td><code>{requirement.member}</code></td>
-            <td>
-              <a
-                className="permission-dialog-role-link"
-                href={requirement.roleUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`Open ${requirement.role} in Athenz`}
-              >
-                <code>{requirement.role}</code>
-                <ExternalLink size={12} aria-hidden="true" />
-              </a>
-            </td>
-          </tr>
-        ))}
+        {requirements.map((requirement) => {
+          const matchingPolicies = policiesByRole.get(requirement.role) ?? []
+          const rowStatus = combinedPermissionStatus(requirement.status, matchingPolicies)
+          const membershipMissing = requirement.status === "missing"
+
+          return (
+            <tr
+              className={requirement.source === "helper" ? "permission-dialog-helper-row" : undefined}
+              data-status={rowStatus}
+              key={`${requirement.source}:${requirement.toolRequirementIndex ?? "managed"}:${requirement.member}:${requirement.role}`}
+            >
+              <td>
+                {requirement.source === "helper" ? (
+                  <span className="permission-helper-badge">Helper</span>
+                ) : requirement.source === "tool" ? (
+                  <span className="permission-direct-badge">Direct access</span>
+                ) : null}
+                {requirement.label}
+              </td>
+              <td>
+                <span className="permission-dialog-status" data-status={rowStatus}>
+                  {combinedStatusLabel(requirement.status, matchingPolicies)}
+                </span>
+              </td>
+              <td className={membershipMissing ? "permission-dialog-missing-value" : undefined}>
+                <code>{requirement.member}</code>
+              </td>
+              <td className={membershipMissing ? "permission-dialog-missing-value" : undefined}>
+                <a
+                  className="permission-dialog-role-link"
+                  href={requirement.roleUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Open ${requirement.role} in Athenz`}
+                >
+                  <code>{requirement.role}</code>
+                  <ExternalLink size={12} aria-hidden="true" />
+                </a>
+              </td>
+              {matchingPolicies.length > 0 ? (
+                <>
+                  <td>
+                    <div className="permission-dialog-rule-values">
+                      {matchingPolicies.map((policy) => (
+                        <code
+                          className={policy.status === "missing" ? "permission-dialog-missing-value" : undefined}
+                          key={`${policy.action}:${policy.resource}`}
+                        >
+                          {policy.action}
+                        </code>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="permission-dialog-rule-values">
+                      {matchingPolicies.map((policy) => (
+                        <code
+                          className={policy.status === "missing" ? "permission-dialog-missing-value" : undefined}
+                          key={`${policy.action}:${policy.resource}`}
+                        >
+                          {policy.resource}
+                        </code>
+                      ))}
+                    </div>
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td className="permission-dialog-empty-value">—</td>
+                  <td className="permission-dialog-empty-value">—</td>
+                </>
+              )}
+            </tr>
+          )
+        })}
       </tbody>
     </table>
   )
 }
 
+function combinedPermissionStatus(
+  membershipStatus: PermissionRequirementCheck["status"],
+  policies: PermissionPolicyRequirementCheck[],
+) {
+  if (membershipStatus === "missing" || policies.some(({ status }) => status === "missing")) return "missing"
+  if (membershipStatus === "unavailable" || policies.some(({ status }) => status === "unavailable")) return "unavailable"
+  return "ready"
+}
+
+function combinedStatusLabel(
+  membershipStatus: PermissionRequirementCheck["status"],
+  policies: PermissionPolicyRequirementCheck[],
+) {
+  if (policies.length === 0) return statusLabel(membershipStatus)
+  const policyMissing = policies.some(({ status }) => status === "missing")
+  if (membershipStatus === "missing" && policyMissing) return "Membership and policy missing"
+  if (membershipStatus === "missing") return "Membership missing"
+  if (policyMissing) return "Policy missing"
+  return statusLabel(combinedPermissionStatus(membershipStatus, policies))
+}
+
+function statusLabel(status: PermissionRequirementCheck["status"]) {
+  return status === "ready" ? "Available" : status === "missing" ? "Not available" : "Could not verify"
+}
+
 function PermissionEditor({
+  accessAudience,
   requirements,
+  servicePrincipal,
   setRequirements,
 }: {
+  accessAudience?: string
   requirements: EditableRequirement[]
+  servicePrincipal?: string
   setRequirements: Dispatch<SetStateAction<EditableRequirement[]>>
 }) {
   const update = (index: number, values: Partial<EditableRequirement>) => {
@@ -330,60 +547,86 @@ function PermissionEditor({
 
   return (
     <div className="permission-editor">
-      {requirements.map((requirement, index) => (
-        <div className="permission-editor-row" key={index}>
-          <label className="permission-editor-field permission-editor-label-field">
-            <span>Required access</span>
-            <input
-              required
-              value={requirement.label}
-              placeholder="Signed-in user can call the downstream API"
-              onChange={(event) => update(index, { label: event.target.value })}
-            />
-          </label>
-          <label className="permission-editor-field">
-            <span>Member type</span>
-            <select
-              value={requirement.memberType}
-              onChange={(event) => update(index, {
-                member: event.target.value === "signed-in-user" ? SIGNED_IN_USER_MEMBER : "",
-                memberType: event.target.value as EditableRequirement["memberType"],
-              })}
-            >
-              <option value="signed-in-user">Signed-in user</option>
-              <option value="service">Static service account</option>
-            </select>
-          </label>
-          <label className="permission-editor-field">
-            <span>Member</span>
-            {requirement.memberType === "signed-in-user" ? (
-              <input disabled value="Current signed-in user" />
-            ) : (
+      {requirements.map((requirement, requirementIndex) => (
+        <div className="permission-editor-group" key={requirementIndex}>
+          <div className="permission-editor-row">
+            <label className="permission-editor-field">
+              <span>Audience (Athenz domain)</span>
               <input
                 required
-                value={requirement.member}
-                placeholder="domain.service"
-                onChange={(event) => update(index, { member: event.target.value })}
+                value={requirement.audience}
+                placeholder="api"
+                onChange={(event) => update(requirementIndex, { audience: event.target.value })}
               />
-            )}
-          </label>
-          <label className="permission-editor-field permission-editor-role-field">
-            <span>Role</span>
-            <input
-              required
-              value={requirement.role}
-              placeholder="domain:role.role-name"
-              onChange={(event) => update(index, { role: event.target.value })}
+            </label>
+            <label className="permission-editor-field permission-editor-role-field">
+              <span>Required role</span>
+              <input
+                required
+                value={requirement.role}
+                placeholder="docs-getter"
+                onChange={(event) => update(requirementIndex, { role: event.target.value })}
+              />
+            </label>
+            <label className="permission-editor-field permission-editor-label-field">
+              <span>Description (optional)</span>
+              <input
+                value={requirement.label}
+                placeholder="Signed-in user can call the downstream API"
+                onChange={(event) => update(requirementIndex, { label: event.target.value })}
+              />
+            </label>
+            <label className="permission-editor-field">
+              <span>Member type</span>
+              <select
+                value={requirement.memberType}
+                onChange={(event) => {
+                  const memberType = event.target.value as EditableRequirement["memberType"]
+                  update(requirementIndex, {
+                    exchangeHelpersCustomized: false,
+                    helperRequirements: [],
+                    member: memberType === "signed-in-user" ? SIGNED_IN_USER_MEMBER : "",
+                    memberType,
+                  })
+                }}
+              >
+                <option value="signed-in-user">Signed-in user</option>
+                <option value="service">Static service account</option>
+              </select>
+            </label>
+            <label className="permission-editor-field">
+              <span>Member</span>
+              {requirement.memberType === "signed-in-user" ? (
+                <input disabled value="Current signed-in user" />
+              ) : (
+                <input
+                  required
+                  value={requirement.member}
+                  placeholder="domain.service"
+                  onChange={(event) => update(requirementIndex, { member: event.target.value })}
+                />
+              )}
+            </label>
+            <button
+              className="permission-editor-remove"
+              type="button"
+              aria-label={`Remove permission ${requirementIndex + 1}`}
+              onClick={() => setRequirements((current) => (
+                current.filter((_, currentIndex) => currentIndex !== requirementIndex)
+              ))}
+            >
+              <Trash2 size={15} aria-hidden="true" />
+            </button>
+          </div>
+          {requirement.memberType === "signed-in-user" ? (
+            <ExchangeHelperEditor
+              accessAudience={accessAudience}
+              requirement={requirement}
+              requirementIndex={requirementIndex}
+              servicePrincipal={servicePrincipal}
+              setRequirements={setRequirements}
             />
-          </label>
-          <button
-            className="permission-editor-remove"
-            type="button"
-            aria-label={`Remove permission ${index + 1}`}
-            onClick={() => setRequirements((current) => current.filter((_, currentIndex) => currentIndex !== index))}
-          >
-            <Trash2 size={15} aria-hidden="true" />
-          </button>
+          ) : null}
         </div>
       ))}
       <button
@@ -398,20 +641,325 @@ function PermissionEditor({
   )
 }
 
-function editableRequirements(requirements: PermissionRequirementCheck[]): EditableRequirement[] {
-  return requirements.map(({ configuredMember, label, role }) => ({
-    label,
-    member: configuredMember,
-    memberType: configuredMember === SIGNED_IN_USER_MEMBER ? "signed-in-user" : "service",
-    role,
-  }))
+function ExchangeHelperEditor({
+  accessAudience,
+  requirement,
+  requirementIndex,
+  servicePrincipal,
+  setRequirements,
+}: {
+  accessAudience?: string
+  requirement: EditableRequirement
+  requirementIndex: number
+  servicePrincipal?: string
+  setRequirements: Dispatch<SetStateAction<EditableRequirement[]>>
+}) {
+  const derivedHelperRequirements = previewExchangeHelperRequirements(
+    requirement,
+    servicePrincipal,
+    accessAudience,
+  )
+  const displayedHelperRequirements = requirement.exchangeHelpersCustomized
+    ? requirement.helperRequirements
+    : derivedHelperRequirements
+  const updateRequirement = (values: Partial<EditableRequirement>) => {
+    setRequirements((current) => current.map((item, index) => (
+      index === requirementIndex ? { ...item, ...values } : item
+    )))
+  }
+  const updateHelper = (helperIndex: number, values: Partial<EditableExchangeHelperRequirement>) => {
+    updateRequirement({
+      exchangeHelpersCustomized: true,
+      helperRequirements: displayedHelperRequirements.map((helper, index) => (
+        index === helperIndex ? { ...helper, ...values } : helper
+      )),
+    })
+  }
+  const updateHelperPolicy = (helperIndex: number, values: Partial<EditableExchangePolicyRule>) => {
+    const helper = displayedHelperRequirements[helperIndex]
+    updateHelper(helperIndex, { policy: { ...helper.policy, ...values } })
+  }
+  const removeHelper = (helperIndex: number) => {
+    updateRequirement({
+      exchangeHelpersCustomized: true,
+      helperRequirements: displayedHelperRequirements.filter((_, index) => index !== helperIndex),
+    })
+  }
+  const addHelper = () => {
+    updateRequirement({
+      exchangeHelpersCustomized: true,
+      helperRequirements: [...displayedHelperRequirements, emptyHelperRequirement()],
+    })
+  }
+
+  return (
+    <div className="permission-helper-settings">
+      <div className="permission-helper-heading">
+        <strong>Token-exchange helper permissions</strong>
+        <small>Each indented helper keeps its role membership and associated policy together.</small>
+      </div>
+      {!servicePrincipal ? (
+        <p className="permission-helper-note">Helpers require a Hub-managed MCP IAM account.</p>
+      ) : (
+        <div className="permission-helper-preview">
+          {displayedHelperRequirements.map((helper, helperIndex) => (
+            <div className="permission-helper-preview-row" key={helperIndex}>
+              <div className="permission-helper-membership-row">
+                <span className="permission-helper-row-label">Helper</span>
+                <label className="permission-editor-field">
+                  <span>Required access</span>
+                  <input
+                    required
+                    value={helper.label}
+                    onChange={(event) => updateHelper(helperIndex, { label: event.target.value })}
+                  />
+                </label>
+                <label className="permission-editor-field">
+                  <span>Member type</span>
+                  <select
+                    value={helper.memberType}
+                    onChange={(event) => {
+                      const memberType = event.target.value as EditableExchangeHelperRequirement["memberType"]
+                      updateHelper(helperIndex, {
+                        member: helperMember(memberType, servicePrincipal),
+                        memberType,
+                      })
+                    }}
+                  >
+                    <option value="gateway">MCP Gateway service</option>
+                    <option value="mcp-service">MCP IAM account</option>
+                    <option value="custom">Custom service account</option>
+                  </select>
+                </label>
+                <label className="permission-editor-field">
+                  <span>Member</span>
+                  <input
+                    required
+                    disabled={helper.memberType !== "custom"}
+                    value={helper.member}
+                    placeholder="domain.service"
+                    onChange={(event) => updateHelper(helperIndex, { member: event.target.value })}
+                  />
+                </label>
+                <label className="permission-editor-field">
+                  <span>Role</span>
+                  <input
+                    required
+                    value={helper.role}
+                    onChange={(event) => updateHelper(helperIndex, { role: event.target.value })}
+                  />
+                </label>
+                <button
+                  className="permission-editor-remove"
+                  type="button"
+                  aria-label={`Remove helper permission ${helperIndex + 1}`}
+                  onClick={() => removeHelper(helperIndex)}
+                >
+                  <Trash2 size={15} aria-hidden="true" />
+                </button>
+              </div>
+              <div className="permission-helper-policy-row">
+                <span className="permission-helper-row-label">Policy</span>
+                <label className="permission-editor-field permission-helper-effect-field">
+                  <span>Effect</span>
+                  <select
+                    value={helper.policy.effect}
+                    onChange={(event) => updateHelperPolicy(helperIndex, {
+                      effect: event.target.value as EditableExchangePolicyRule["effect"],
+                    })}
+                  >
+                    <option value="ALLOW">Allow</option>
+                    <option value="DENY">Deny</option>
+                  </select>
+                </label>
+                <label className="permission-editor-field">
+                  <span>Action</span>
+                  <input
+                    required
+                    value={helper.policy.action}
+                    placeholder="zts.jag_exchange"
+                    onChange={(event) => updateHelperPolicy(helperIndex, { action: event.target.value })}
+                  />
+                </label>
+                <label className="permission-editor-field permission-helper-resource-field">
+                  <span>Resource</span>
+                  <input
+                    required
+                    value={helper.policy.resource}
+                    placeholder="domain:role.role-name"
+                    onChange={(event) => updateHelperPolicy(helperIndex, { resource: event.target.value })}
+                  />
+                </label>
+              </div>
+            </div>
+          ))}
+          <div className="permission-helper-actions">
+            <button className="button permission-helper-add" type="button" onClick={addHelper}>
+              <Plus size={14} aria-hidden="true" />
+              Add helper permission
+            </button>
+            {displayedHelperRequirements.length === 0 ? (
+              <button
+                className="button permission-helper-reset"
+                type="button"
+                disabled={derivedHelperRequirements.length === 0}
+                onClick={() => updateRequirement({
+                  exchangeHelpersCustomized: false,
+                  helperRequirements: derivedHelperRequirements,
+                })}
+              >
+                Generate default helpers
+              </button>
+            ) : requirement.exchangeHelpersCustomized ? (
+              <button
+                className="button permission-helper-reset"
+                type="button"
+                disabled={derivedHelperRequirements.length === 0}
+                onClick={() => updateRequirement({
+                  exchangeHelpersCustomized: false,
+                  helperRequirements: derivedHelperRequirements,
+                })}
+              >
+                Reset to defaults
+              </button>
+            ) : null}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function previewExchangeHelperRequirements(
+  requirement: EditableRequirement,
+  servicePrincipal?: string,
+  sourceAudience?: string,
+) {
+  if (!servicePrincipal || !sourceAudience) return []
+  try {
+    const targetRole = configuredRole(requirement.audience, requirement.role)
+    const policiesByRole = new Map(exchangePolicyRules(targetRole, sourceAudience).map((policy) => (
+      [policy.role, policy] as const
+    )))
+    return exchangeHelperRequirements(
+      [{
+        label: requirement.label || "Required role membership",
+        member: SIGNED_IN_USER_MEMBER,
+        role: targetRole,
+      }],
+      servicePrincipal,
+    ).map((helper) => {
+      const policy = policiesByRole.get(helper.role)
+      return {
+        ...helper,
+        memberType: helperMemberType(helper.member, servicePrincipal),
+        policy: policy
+          ? { action: policy.action, effect: policy.effect, resource: policy.resource }
+          : emptyExchangePolicy(),
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+function editableRequirements(
+  requirements: PermissionRequirementCheck[],
+  helperRequirements: PermissionRequirementCheck[],
+  helperPolicies: PermissionPolicyRequirementCheck[],
+  servicePrincipal?: string,
+): EditableRequirement[] {
+  return requirements.map((requirement, index) => {
+    const parsedRole = editableRole(requirement.role)
+    const toolRequirementIndex = requirement.toolRequirementIndex ?? index
+    return {
+      audience: parsedRole.audience,
+      exchangeHelpersCustomized: requirement.exchangeHelpersCustomized === true
+        || requirement.includeExchangeHelpers === false,
+      helperRequirements: helperRequirements
+        .filter((helper) => helper.toolRequirementIndex === toolRequirementIndex)
+        .map(({ exchangePolicy, label, member, role }) => {
+          const checkedPolicy = helperPolicies.find((policy) => (
+            policy.toolRequirementIndex === toolRequirementIndex && policy.role === role
+          ))
+          return {
+            label,
+            member,
+            memberType: helperMemberType(member, servicePrincipal),
+            policy: exchangePolicy ?? (checkedPolicy
+              ? {
+                  action: checkedPolicy.action,
+                  effect: checkedPolicy.effect,
+                  resource: checkedPolicy.resource,
+                }
+              : emptyExchangePolicy()),
+            role,
+          }
+        }),
+      label: requirement.label,
+      member: requirement.configuredMember,
+      memberType: requirement.configuredMember === SIGNED_IN_USER_MEMBER ? "signed-in-user" : "service",
+      role: parsedRole.role,
+    }
+  })
 }
 
 function emptyRequirement(): EditableRequirement {
   return {
+    audience: "",
+    exchangeHelpersCustomized: false,
+    helperRequirements: [],
     label: "",
     member: SIGNED_IN_USER_MEMBER,
     memberType: "signed-in-user",
     role: "",
   }
+}
+
+function helperMemberType(
+  member: string,
+  servicePrincipal?: string,
+): EditableExchangeHelperRequirement["memberType"] {
+  if (member === "mcp-hub.mcp-gateway") return "gateway"
+  if (servicePrincipal && member === servicePrincipal) return "mcp-service"
+  return "custom"
+}
+
+function helperMember(
+  memberType: EditableExchangeHelperRequirement["memberType"],
+  servicePrincipal?: string,
+) {
+  if (memberType === "gateway") return "mcp-hub.mcp-gateway"
+  if (memberType === "mcp-service") return servicePrincipal ?? ""
+  return ""
+}
+
+function emptyHelperRequirement(): EditableExchangeHelperRequirement {
+  return {
+    label: "",
+    member: "",
+    memberType: "custom",
+    policy: emptyExchangePolicy(),
+    role: "",
+  }
+}
+
+function emptyExchangePolicy(): EditableExchangePolicyRule {
+  return {
+    action: "",
+    effect: "ALLOW",
+    resource: "",
+  }
+}
+
+function configuredRole(audience: string, role: string) {
+  return `${audience.trim()}:role.${role.trim()}`
+}
+
+function editableRole(role: string) {
+  const marker = ":role."
+  const markerIndex = role.indexOf(marker)
+  return markerIndex > 0
+    ? { audience: role.slice(0, markerIndex), role: role.slice(markerIndex + marker.length) }
+    : { audience: "", role }
 }

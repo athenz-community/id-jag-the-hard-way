@@ -8,6 +8,7 @@ import {
   updateMcpToolPermissions,
 } from "../features/registration/api/mcpResources.ts"
 import type { KubectlRunner } from "../features/kubernetes/api/kubectl.ts"
+import type { ZmsRequest } from "../features/registration/api/mcpManagedAccess.ts"
 
 const deployment = {
   metadata: {
@@ -202,30 +203,52 @@ test("stores per-tool permission overrides on the MCP deployment without restart
     patches.push(JSON.parse(await readFile(patchPath, "utf8")) as Record<string, unknown>)
     return { stdout: "", stderr: "" }
   }
+  let sourcePolicy: unknown
+  const requestZms: ZmsRequest = async (method, requestPath, body) => {
+    if (requestPath.endsWith("/role/accessor-source-exchanger")) {
+      return {
+        status: 200,
+        body: JSON.stringify({
+          roleMembers: [{ memberName: "mcp-hub.mcps.k8s-docs-server.runtime" }],
+        }),
+      }
+    }
+    if (requestPath.endsWith("/policy/accessor-source-exchanger_zts_token_source_exchange")) {
+      if (method === "PUT") sourcePolicy = body
+      return sourcePolicy === undefined
+        ? { status: 404, body: "{}" }
+        : { status: 200, body: JSON.stringify(sourcePolicy) }
+    }
+    return { status: 200, body: "{}" }
+  }
 
   const settings = await updateMcpToolPermissions(
     "k8s-docs-server",
     "docs-mcp",
     "get_k8s_docs",
     [{
+      includeExchangeHelpers: true,
       label: "Signed-in user can read documentation",
       member: "<signed_in_user>",
       role: "api:role.docs-getter",
-    }, {
-      label: "Docs MCP can exchange downstream access",
-      member: "api.api-mcp",
-      role: "api:role.docs-getter-exchanger",
     }],
     runner,
+    requestZms,
   )
 
-  assert.equal(settings.tools.get_k8s_docs.requirements.length, 2)
+  assert.equal(settings.tools.get_k8s_docs.requirements.length, 1)
+  assert.equal(settings.tools.get_k8s_docs.requirements[0].includeExchangeHelpers, true)
   assert.equal(calls.filter((args) => args.includes("patch")).length, 2)
   const metadata = patches[1].metadata as { annotations: Record<string, string> }
   const stored = JSON.parse(metadata.annotations["mcp.idthw.dev/tool-permissions"]) as {
-    tools: Record<string, { requirements: unknown[] }>
+    tools: Record<string, { requirements: Array<{ includeExchangeHelpers?: boolean }> }>
   }
-  assert.equal(stored.tools.get_k8s_docs.requirements.length, 2)
+  assert.equal(stored.tools.get_k8s_docs.requirements.length, 1)
+  assert.equal(stored.tools.get_k8s_docs.requirements[0].includeExchangeHelpers, true)
+  assert.deepEqual(
+    (sourcePolicy as { assertions: Array<{ resource: string }> }).assertions.map(({ resource }) => resource),
+    ["mcp-hub.mcps.k8s-docs-server:api"],
+  )
   assert.equal("spec" in patches[1], false)
 })
 

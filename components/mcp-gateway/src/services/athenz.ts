@@ -95,17 +95,18 @@ export class AthenzAccessTokenManager {
     private readonly now: () => number = Date.now,
   ) {}
 
-  async getAccessToken(session: GatewaySession, scope: string) {
+  async getAccessToken(session: GatewaySession, scope: string, audience?: string) {
+    const selectedAudience = accessTokenAudience(scope, audience)
     const normalizedScope = normalizeScope(scope)
     const requestedScopes = scopeValues(normalizedScope)
-    const cached = this.findAccessToken(session, requestedScopes)
+    const cached = this.findAccessToken(session, requestedScopes, selectedAudience)
     if (cached) return cached.token
 
-    const requestKey = cacheKey([ATHENZ_ZTS_AUDIENCE], requestedScopes)
+    const requestKey = cacheKey([selectedAudience], requestedScopes)
     const pending = this.inFlight.get(session)?.get(requestKey)
     if (pending) return pending
 
-    const issuance = this.issueAccessToken(session, requestedScopes)
+    const issuance = this.issueAccessToken(session, requestedScopes, selectedAudience)
     const sessionRequests = this.inFlight.get(session) ?? new Map<string, Promise<string>>()
     sessionRequests.set(requestKey, issuance)
     this.inFlight.set(session, sessionRequests)
@@ -190,7 +191,7 @@ export class AthenzAccessTokenManager {
     }
   }
 
-  private findAccessToken(session: GatewaySession, requestedScopes: string[]) {
+  private findAccessToken(session: GatewaySession, requestedScopes: string[], audience: string) {
     const cache = this.cachedTokens.get(session)
     if (!cache) return undefined
 
@@ -201,7 +202,7 @@ export class AthenzAccessTokenManager {
         continue
       }
       if (
-        audiencesExactlyMatch(entry.audiences, requestedAudiences(requestedScopes))
+        audiencesExactlyMatch(entry.audiences, [audience])
         && scopesExactlyMatch(entry.scopes, requestedScopes)
       ) return entry
     }
@@ -226,7 +227,7 @@ export class AthenzAccessTokenManager {
     return matches.sort((left, right) => left.scopes.length - right.scopes.length)[0]
   }
 
-  private async issueAccessToken(session: GatewaySession, requestedScopes: string[]) {
+  private async issueAccessToken(session: GatewaySession, requestedScopes: string[], audience: string) {
     const scope = requestedScopes.join(" ")
     const cachedIdJag = this.findIdJag(session, requestedScopes)
     const idJag = cachedIdJag?.token ?? await this.issueIdJag(session, requestedScopes)
@@ -234,11 +235,12 @@ export class AthenzAccessTokenManager {
     const accessTokenResponse = await this.postTokenForm(new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
       assertion: idJag,
+      audience,
       scope,
       expires_in: String(ATHENZ_ACCESS_TOKEN_EXPIRES_IN),
     }))
     const grant = tokenGrant(accessTokenResponse, "Athenz access token", this.now(), session.expiresAt, true)
-    const expectedAudiences = requestedAudiences(requestedScopes)
+    const expectedAudiences = [audience]
     if (!audiencesExactlyMatch(grant.audiences, expectedAudiences)) {
       throw new Error(
         `Athenz access token audience [${grant.audiences.join(" ")}] does not match requested audience [${expectedAudiences.join(" ")}]`,
@@ -319,6 +321,26 @@ function normalizeScope(scope: string) {
 
 function scopeValues(scope: string) {
   return [...new Set(scope.trim().split(/\s+/).filter(Boolean))].sort()
+}
+
+function accessTokenAudience(scope: string, configuredAudience?: string) {
+  const requestedScopes = scopeValues(scope)
+  const requestedDomains = requestedAudiences(requestedScopes)
+  const audience = configuredAudience?.trim() || scopeDomain(scope.trim().split(/\s+/)[0])
+  if (!audience || !requestedDomains.includes(audience)) {
+    throw new Error("Athenz access-token audience must match one of the requested scope domains")
+  }
+  return audience
+}
+
+function scopeDomain(scope: string | undefined) {
+  if (!scope) return undefined
+  const marker = ":role."
+  const index = scope.indexOf(marker)
+  if (index <= 0 || index + marker.length === scope.length) {
+    throw new Error(`Athenz scope must be fully qualified as <domain>:role.<role>: ${scope}`)
+  }
+  return scope.slice(0, index)
 }
 
 function tokenGrant(

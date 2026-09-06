@@ -3,12 +3,16 @@ import { readFile } from "node:fs/promises"
 import test from "node:test"
 import { parse } from "yaml"
 import {
+  exchangeHelperRequirements,
+  exchangePolicyRules,
   mergeToolPermissionSettings,
   parsePermissionPresetForServer,
   parseToolPermissionSettings,
   parseToolAccessScopesForServer,
+  permissionPresetFromToolSettings,
   SIGNED_IN_USER_MEMBER,
   withManagedAccessRequirements,
+  withExpectedExchangePolicies,
 } from "../features/permissions/lib/permissionPreset.ts"
 
 const validPreset = {
@@ -90,6 +94,371 @@ test("derives each tool's Gateway scope from signed-in-user requirements only", 
   })
 })
 
+test("derives indented exchange helpers from one direct tool permission", () => {
+  const requirements = [{
+    label: "Signed-in user can read documentation",
+    member: SIGNED_IN_USER_MEMBER,
+    role: "api:role.docs-getter",
+  }]
+  assert.deepEqual(exchangeHelperRequirements(
+    requirements,
+    "mcp-hub.mcps.k8s-docs-server.api-docs",
+  ), [{
+    label: "MCP Gateway can request delegated downstream access",
+    member: "mcp-hub.mcp-gateway",
+    role: "api:role.docs-getter-jag-exchanger",
+  }, {
+    label: "MCP service can exchange into the downstream role",
+    member: "mcp-hub.mcps.k8s-docs-server.api-docs",
+    role: "api:role.docs-getter-exchanger",
+  }])
+
+  const settings = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{ ...requirements[0], includeExchangeHelpers: true }],
+      },
+    },
+  })
+  const preset = permissionPresetFromToolSettings(
+    settings,
+    "demo-api",
+    "human.idjag-learner",
+    { servicePrincipal: "mcp-hub.mcps.k8s-docs-server.api-docs" },
+  )
+  assert.equal(preset.groups[0].requirements[0].includeExchangeHelpers, true)
+  assert.equal(preset.groups[0].requirements[0].toolRequirementIndex, 0)
+  assert.deepEqual(
+    preset.groups[0].requirements.map(({ source }) => source),
+    ["tool", "helper", "helper"],
+  )
+})
+
+test("derives compact exchange policy rules from the route source audience", () => {
+  assert.deepEqual(
+    exchangePolicyRules(
+      "api:role.docs-getter",
+      "mcp-hub.mcps.k8s-docs-server",
+      "mcp-hub.mcps.k8s-docs-server:role.accessor-source-exchanger",
+    ),
+    [{
+      action: "zts.jag_exchange",
+      effect: "ALLOW",
+      resource: "api:role.docs-getter",
+      role: "api:role.docs-getter-jag-exchanger",
+    }, {
+      action: "zts.token_source_exchange",
+      effect: "ALLOW",
+      resource: "mcp-hub.mcps.k8s-docs-server:api",
+      role: "mcp-hub.mcps.k8s-docs-server:role.accessor-source-exchanger",
+    }, {
+      action: "zts.token_target_exchange",
+      effect: "ALLOW",
+      resource: "api:mcp-hub.mcps.k8s-docs-server:role.docs-getter",
+      role: "api:role.docs-getter-exchanger",
+    }],
+  )
+  assert.equal(
+    exchangePolicyRules("api:role.docs-getter", "api")[1].resource,
+    "api:api:role.docs-getter",
+  )
+})
+
+test("keeps exchange policy checks independent and under their tool", () => {
+  const settings = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{
+          includeExchangeHelpers: true,
+          member: SIGNED_IN_USER_MEMBER,
+          role: "api:role.docs-getter",
+        }],
+      },
+    },
+  })
+  const toolPreset = permissionPresetFromToolSettings(
+    settings,
+    "myapiserver",
+    "human.idjag-learner",
+    { servicePrincipal: "mcp-hub.mcps.k8s-docs-server.api-docs" },
+  )
+  const managedPreset = withManagedAccessRequirements(
+    toolPreset,
+    "myapiserver",
+    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    "human.idjag-learner",
+    "mcp-hub.mcp-gateway",
+    "mcp-hub.mcps.k8s-docs-server.api-docs",
+  )
+  const preset = withExpectedExchangePolicies(
+    managedPreset,
+    "mcp-hub.mcps.k8s-docs-server",
+  )
+
+  assert.deepEqual(
+    preset?.groups[0].policies?.map(({ action, resource, source }) => ({
+      action,
+      resource,
+      source,
+    })),
+    [{
+      action: "zts.jag_exchange",
+      resource: "api:role.docs-getter",
+      source: "helper",
+    }, {
+      action: "zts.token_source_exchange",
+      resource: "mcp-hub.mcps.k8s-docs-server:api",
+      source: "managed",
+    }, {
+      action: "zts.token_target_exchange",
+      resource: "api:mcp-hub.mcps.k8s-docs-server:role.docs-getter",
+      source: "helper",
+    }, {
+      action: "zts.jag_exchange",
+      resource: "mcp-hub.mcps.k8s-docs-server:role.accessor",
+      source: "managed",
+    }],
+  )
+})
+
+test("preserves provider-customized exchange helper memberships", () => {
+  const settings = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{
+          includeExchangeHelpers: true,
+          member: SIGNED_IN_USER_MEMBER,
+          role: "api:role.docs-getter",
+          exchangeHelperRequirements: [{
+            label: "Custom source exchanger",
+            member: "custom.api-mcp",
+            role: "api:role.custom-source-exchanger",
+          }],
+        }],
+      },
+    },
+  })
+  const preset = permissionPresetFromToolSettings(
+    settings,
+    "demo-api",
+    "human.idjag-learner",
+  )
+
+  assert.equal(preset.groups[0].requirements[0].exchangeHelpersCustomized, true)
+  assert.deepEqual(preset.groups[0].requirements[1], {
+    configuredMember: "custom.api-mcp",
+    label: "Custom source exchanger",
+    member: "custom.api-mcp",
+    role: "api:role.custom-source-exchanger",
+    source: "helper",
+    toolRequirementIndex: 0,
+  })
+})
+
+test("keeps each customized helper policy attached to its helper role", () => {
+  const settings = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{
+          includeExchangeHelpers: true,
+          member: SIGNED_IN_USER_MEMBER,
+          role: "api:role.docs-getter",
+          exchangeHelperRequirements: [{
+            label: "Custom Gateway exchange",
+            member: "mcp-hub.mcp-gateway",
+            policy: {
+              action: "custom.jag_exchange",
+              effect: "DENY",
+              resource: "api:role.custom-docs-getter",
+            },
+            role: "api:role.docs-getter-jag-exchanger",
+          }],
+        }],
+      },
+    },
+  })
+  const preset = permissionPresetFromToolSettings(
+    settings,
+    "demo-api",
+    "human.idjag-learner",
+  )
+
+  assert.deepEqual(settings.tools.get_k8s_docs.requirements[0].exchangeHelperRequirements?.[0].policy, {
+    action: "custom.jag_exchange",
+    effect: "DENY",
+    resource: "api:role.custom-docs-getter",
+  })
+  assert.deepEqual(preset.groups[0].policies, [{
+    action: "custom.jag_exchange",
+    effect: "DENY",
+    label: "Configured exchange policy",
+    resource: "api:role.custom-docs-getter",
+    role: "api:role.docs-getter-jag-exchanger",
+    source: "helper",
+    toolRequirementIndex: 0,
+  }])
+  assert.deepEqual(preset.groups[0].requirements[1].exchangePolicy, {
+    action: "custom.jag_exchange",
+    effect: "DENY",
+    resource: "api:role.custom-docs-getter",
+  })
+
+  const enriched = withExpectedExchangePolicies(
+    withManagedAccessRequirements(
+      preset,
+      "demo-api",
+      "mcp-hub.mcps.demo:role.accessor",
+      "human.idjag-learner",
+      "mcp-hub.mcp-gateway",
+      "mcp-hub.mcps.demo.api-mcp",
+    ),
+    "mcp-hub.mcps.demo",
+  )
+  assert.deepEqual(
+    enriched?.groups[0].policies?.filter(({ source }) => source === "helper"),
+    preset.groups[0].policies,
+  )
+})
+
+test("rejects an incomplete customized helper policy", () => {
+  assert.throws(
+    () => parseToolPermissionSettings({
+      version: 1,
+      tools: {
+        get_k8s_docs: {
+          requirements: [{
+            includeExchangeHelpers: true,
+            member: SIGNED_IN_USER_MEMBER,
+            role: "api:role.docs-getter",
+            exchangeHelperRequirements: [{
+              label: "Broken helper",
+              member: "mcp-hub.mcp-gateway",
+              policy: {
+                action: "zts.jag_exchange",
+                effect: "ALLOW",
+              },
+              role: "api:role.docs-getter-jag-exchanger",
+            }],
+          }],
+        },
+      },
+    }),
+    /policy\.resource/,
+  )
+})
+
+test("preserves an intentionally empty helper list so defaults can be regenerated later", () => {
+  const settings = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{
+          exchangeHelperRequirements: [],
+          includeExchangeHelpers: true,
+          member: SIGNED_IN_USER_MEMBER,
+          role: "api:role.docs-getter",
+        }],
+      },
+    },
+  })
+  const preset = permissionPresetFromToolSettings(
+    settings,
+    "demo-api",
+    "human.idjag-learner",
+    { servicePrincipal: "mcp-hub.mcps.k8s-docs-server.api-docs" },
+  )
+
+  assert.equal(preset.groups[0].requirements.length, 1)
+  assert.equal(preset.groups[0].requirements[0].exchangeHelpersCustomized, true)
+})
+
+test("keeps exchange helpers grouped under each direct access requirement", () => {
+  const settings = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      read_and_write: {
+        requirements: [{
+          includeExchangeHelpers: true,
+          member: SIGNED_IN_USER_MEMBER,
+          role: "api:role.reader",
+        }, {
+          includeExchangeHelpers: true,
+          member: SIGNED_IN_USER_MEMBER,
+          role: "api:role.writer",
+        }],
+      },
+    },
+  })
+  const preset = permissionPresetFromToolSettings(
+    settings,
+    "demo-api",
+    "human.idjag-learner",
+    { servicePrincipal: "mcp-hub.mcps.k8s-docs-server.api-docs" },
+  )
+
+  assert.deepEqual(
+    preset.groups[0].requirements.map(({ role, source, toolRequirementIndex }) => ({
+      role,
+      source,
+      toolRequirementIndex,
+    })),
+    [{ role: "api:role.reader", source: "tool", toolRequirementIndex: 0 },
+      { role: "api:role.reader-jag-exchanger", source: "helper", toolRequirementIndex: 0 },
+      { role: "api:role.reader-exchanger", source: "helper", toolRequirementIndex: 0 },
+      { role: "api:role.writer", source: "tool", toolRequirementIndex: 1 },
+      { role: "api:role.writer-jag-exchanger", source: "helper", toolRequirementIndex: 1 },
+      { role: "api:role.writer-exchanger", source: "helper", toolRequirementIndex: 1 }],
+  )
+})
+
+test("rejects automatic exchange helpers on a static direct-access permission", () => {
+  assert.throws(
+    () => parseToolPermissionSettings({
+      version: 1,
+      tools: {
+        read: {
+          requirements: [{
+            includeExchangeHelpers: true,
+            member: "api.reader",
+            role: "api:role.reader",
+          }],
+        },
+      },
+    }),
+    /require the signed-in-user member/,
+  )
+})
+
+test("normalizes legacy tool-level exchange helpers onto one direct access requirement", () => {
+  const settings = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      read: {
+        includeExchangeHelpers: true,
+        exchangeHelperRequirements: [{
+          label: "Custom Gateway exchanger",
+          member: "mcp-hub.mcp-gateway",
+          role: "api:role.reader-jag-exchanger",
+        }],
+        requirements: [{
+          member: SIGNED_IN_USER_MEMBER,
+          role: "api:role.reader",
+        }],
+      },
+    },
+  })
+
+  assert.equal(settings.tools.read.requirements[0].includeExchangeHelpers, true)
+  assert.equal(
+    settings.tools.read.requirements[0].exchangeHelperRequirements?.[0].role,
+    "api:role.reader-jag-exchanger",
+  )
+})
+
 test("adds the managed route scope to every configured tool scope", () => {
   assert.deepEqual(parseToolAccessScopesForServer(
     validPreset,
@@ -106,6 +475,8 @@ test("shows managed user and Gateway requirements without a custom tool preset",
     "confluence",
     "mcp-hub.mcps.k8s-docs-server:role.accessor",
     "human.idjag-learner",
+    "mcp-hub.mcp-gateway",
+    "mcp-hub.mcps.k8s-docs-server.api-docs",
   )
 
   assert.deepEqual(preset, {
@@ -124,6 +495,12 @@ test("shows managed user and Gateway requirements without a custom tool preset",
         label: "MCP Gateway can request protected MCP access",
         member: "mcp-hub.mcp-gateway",
         role: "mcp-hub.mcps.k8s-docs-server:role.accessor-jag-exchanger",
+        source: "managed",
+      }, {
+        configuredMember: "mcp-hub.mcps.k8s-docs-server.api-docs",
+        label: "MCP service can exchange from this MCP access domain",
+        member: "mcp-hub.mcps.k8s-docs-server.api-docs",
+        role: "mcp-hub.mcps.k8s-docs-server:role.accessor-source-exchanger",
         source: "managed",
       }],
     }],
