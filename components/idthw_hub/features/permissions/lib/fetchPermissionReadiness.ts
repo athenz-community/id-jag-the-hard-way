@@ -13,7 +13,13 @@ import {
   permissionPresetFromToolSettings,
   toolPermissionSettingsForServer,
   withManagedAccessRequirements,
+  withExpectedExchangePolicies,
 } from "@/features/permissions/lib/permissionPreset"
+import {
+  parseZmsPolicy,
+  parseZmsPolicyList,
+  policyAssertionKey,
+} from "@/features/permissions/lib/zmsPolicy"
 import type {
   PermissionCheckStatus,
   PermissionReadiness,
@@ -45,7 +51,9 @@ export async function fetchPermissionReadiness(
   serverId: string,
   username: string,
   routeAccessScope?: string,
+  routeAccessAudience?: string,
   toolPermissionOverrides?: unknown,
+  servicePrincipal?: string,
 ): Promise<PermissionReadiness | null> {
   let preset
   try {
@@ -57,7 +65,10 @@ export async function fetchPermissionReadiness(
       : parseToolPermissionSettings(toolPermissionOverrides)
     const settings = mergeToolPermissionSettings(configuredSettings, overrideSettings)
     preset = settings
-      ? permissionPresetFromToolSettings(settings, serverId, signedInPrincipal)
+      ? permissionPresetFromToolSettings(settings, serverId, signedInPrincipal, {
+        gatewayPrincipal: process.env.MCP_HUB_GATEWAY_PRINCIPAL ?? "mcp-hub.mcp-gateway",
+        servicePrincipal,
+      })
       : undefined
     preset = withManagedAccessRequirements(
       preset,
@@ -65,7 +76,9 @@ export async function fetchPermissionReadiness(
       routeAccessScope,
       signedInPrincipal,
       process.env.MCP_HUB_GATEWAY_PRINCIPAL ?? "mcp-hub.mcp-gateway",
+      servicePrincipal,
     )
+    preset = withExpectedExchangePolicies(preset, routeAccessAudience)
   } catch (error) {
     return {
       status: "configuration-error",
@@ -84,6 +97,11 @@ export async function fetchPermissionReadiness(
     return {
       groups: preset.groups.map((group) => ({
         ...group,
+        policies: (group.policies ?? []).map((policy) => ({
+          ...policy,
+          roleUrl: rolePoliciesUrl(athenzUiUrl, policy.role),
+          status: "unavailable",
+        })),
         requirements: group.requirements.map((requirement) => ({
           ...requirement,
           roleUrl: roleMembersUrl(athenzUiUrl, requirement.role),
@@ -95,17 +113,23 @@ export async function fetchPermissionReadiness(
   }
 
   const roleLookups = new Map<string, Promise<Set<string>>>()
+  const policyLookups = new Map<string, Promise<Set<string>>>()
   for (const group of preset.groups) {
     for (const requirement of group.requirements) {
       if (!roleLookups.has(requirement.member)) {
         roleLookups.set(requirement.member, fetchPrincipalRoles(zmsUrl, requirement.member, tls))
       }
     }
+    for (const policy of group.policies ?? []) {
+      const domain = parseAthenzRole(policy.role).domain
+      if (!policyLookups.has(domain)) {
+        policyLookups.set(domain, fetchDomainPolicyAssertions(zmsUrl, domain, tls))
+      }
+    }
   }
 
-  const groups: PermissionReadinessGroup[] = await Promise.all(preset.groups.map(async (group) => ({
-    ...group,
-    requirements: await Promise.all(group.requirements.map(async (requirement) => {
+  const groups: PermissionReadinessGroup[] = await Promise.all(preset.groups.map(async (group) => {
+    const requirements = await Promise.all(group.requirements.map(async (requirement) => {
       let status: PermissionCheckStatus
       try {
         const roles = await roleLookups.get(requirement.member)
@@ -118,10 +142,29 @@ export async function fetchPermissionReadiness(
         roleUrl: roleMembersUrl(athenzUiUrl, requirement.role),
         status,
       }
-    })),
-  })))
+    }))
+    const policies = await Promise.all((group.policies ?? []).map(async (policy) => {
+      let status: PermissionCheckStatus
+      try {
+        const domain = parseAthenzRole(policy.role).domain
+        const assertions = await policyLookups.get(domain)
+        status = assertions?.has(policyAssertionKey(policy)) ? "ready" : "missing"
+      } catch {
+        status = "unavailable"
+      }
+      return {
+        ...policy,
+        roleUrl: rolePoliciesUrl(athenzUiUrl, policy.role),
+        status,
+      }
+    }))
+    return { ...group, policies, requirements }
+  }))
 
-  const statuses = groups.flatMap(({ requirements }) => requirements.map(({ status }) => status))
+  const statuses = groups.flatMap(({ policies, requirements }) => [
+    ...requirements.map(({ status }) => status),
+    ...policies.map(({ status }) => status),
+  ])
   const status: PermissionCheckStatus = statuses.includes("unavailable")
     ? "unavailable"
     : statuses.includes("missing")
@@ -219,6 +262,38 @@ async function fetchPrincipalRoles(zmsUrl: string, principal: string, tls: ZmsCr
     roles.add(scopedRole)
   }
   return roles
+}
+
+async function fetchDomainPolicyAssertions(
+  zmsUrl: string,
+  domain: string,
+  tls: ZmsCredentials,
+) {
+  const listEndpoint = new URL(`${zmsUrl}/domain/${encodeURIComponent(domain)}/policy`)
+  const listResponse = await requestZms(listEndpoint, tls)
+  if (listResponse.status === 404) return new Set<string>()
+  if (listResponse.status !== 200) throw new Error(`ZMS returned HTTP ${listResponse.status}`)
+
+  const listed = parseZmsPolicyList(listResponse.body)
+  const detailAssertions = await Promise.all(listed.names.map(async (listedName) => {
+    const policyName = simplePolicyName(domain, listedName)
+    const endpoint = new URL(
+      `${zmsUrl}/domain/${encodeURIComponent(domain)}/policy/${encodeURIComponent(policyName)}`,
+    )
+    const response = await requestZms(endpoint, tls)
+    if (response.status === 404) return []
+    if (response.status !== 200) throw new Error(`ZMS returned HTTP ${response.status}`)
+    return parseZmsPolicy(response.body)
+  }))
+
+  return new Set(
+    [...listed.assertions, ...detailAssertions.flat()].map(policyAssertionKey),
+  )
+}
+
+function simplePolicyName(domain: string, name: string) {
+  const prefix = `${domain}:policy.`
+  return name.startsWith(prefix) ? name.slice(prefix.length) : name
 }
 
 async function loadZmsCredentials(): Promise<ZmsCredentials> {
@@ -321,6 +396,11 @@ function requestJson<T>({
 function roleMembersUrl(athenzUiUrl: string, role: string) {
   const parsed = parseAthenzRole(role)
   return `${athenzUiUrl}/domain/${encodeURIComponent(parsed.domain)}/role/${encodeURIComponent(parsed.role)}/members`
+}
+
+function rolePoliciesUrl(athenzUiUrl: string, role: string) {
+  const parsed = parseAthenzRole(role)
+  return `${athenzUiUrl}/domain/${encodeURIComponent(parsed.domain)}/role/${encodeURIComponent(parsed.role)}/policy`
 }
 
 function signedInAthenzPrincipal(username: string) {

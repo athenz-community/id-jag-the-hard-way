@@ -13,13 +13,17 @@ import type {
 const COLLAPSED_TOOL_COUNT = 5
 
 export function PermissionReadinessSection({
+  accessAudience,
   mcpKeyName,
   project,
+  servicePrincipal,
   readiness,
   toolsResult,
 }: {
+  accessAudience?: string
   mcpKeyName: string
   project: string
+  servicePrincipal?: string
   readiness: PermissionReadiness | null
   toolsResult: McpToolsResult
 }) {
@@ -65,8 +69,10 @@ export function PermissionReadinessSection({
         {toolsResult.tools.length > COLLAPSED_TOOL_COUNT ? (
           <>
             <ToolPermissionList
+              accessAudience={accessAudience}
               mcpKeyName={mcpKeyName}
               project={project}
+              servicePrincipal={servicePrincipal}
               sharedGroup={sharedGroup}
               toolGroups={toolGroups}
               tools={toolsExpanded ? toolsResult.tools : toolsResult.tools.slice(0, COLLAPSED_TOOL_COUNT)}
@@ -85,8 +91,10 @@ export function PermissionReadinessSection({
           </>
         ) : toolsResult.tools.length > 0 ? (
           <ToolPermissionList
+            accessAudience={accessAudience}
             mcpKeyName={mcpKeyName}
             project={project}
+            servicePrincipal={servicePrincipal}
             sharedGroup={sharedGroup}
             toolGroups={toolGroups}
             tools={toolsResult.tools}
@@ -100,14 +108,18 @@ export function PermissionReadinessSection({
 }
 
 function ToolPermissionList({
+  accessAudience,
   mcpKeyName,
   project,
+  servicePrincipal,
   sharedGroup,
   toolGroups,
   tools,
 }: {
+  accessAudience?: string
   mcpKeyName: string
   project: string
+  servicePrincipal?: string
   sharedGroup?: PermissionReadinessGroup
   toolGroups: Map<string, PermissionReadinessGroup>
   tools: McpTool[]
@@ -116,10 +128,12 @@ function ToolPermissionList({
     <div className="permission-tool-list">
       {tools.map((tool, index) => (
         <ToolPermissionRow
+          accessAudience={accessAudience}
           group={toolGroups.get(tool.name) ?? sharedGroup}
           key={`${tool.name}:${index}`}
           mcpKeyName={mcpKeyName}
           project={project}
+          servicePrincipal={servicePrincipal}
           tool={tool}
         />
       ))}
@@ -128,14 +142,18 @@ function ToolPermissionList({
 }
 
 function ToolPermissionRow({
+  accessAudience,
   group,
   mcpKeyName,
   project,
+  servicePrincipal,
   tool,
 }: {
+  accessAudience?: string
   group?: PermissionReadinessGroup
   mcpKeyName: string
   project: string
+  servicePrincipal?: string
   tool: McpTool
 }) {
   if (!group) {
@@ -144,9 +162,12 @@ function ToolPermissionRow({
         <span className="permission-status-icon" aria-hidden="true"><TriangleAlert size={19} /></span>
         <ToolIdentity tool={tool} />
         <PermissionRequestDialog
+          accessAudience={accessAudience}
           configurationMissing
           mcpKeyName={mcpKeyName}
           project={project}
+          policies={[]}
+          servicePrincipal={servicePrincipal}
           requirements={[]}
           subject={`Tool: ${tool.name}`}
           toolName={tool.name}
@@ -162,8 +183,11 @@ function ToolPermissionRow({
       <PermissionStatusIcon status={status} />
       <ToolIdentity tool={tool} />
       <PermissionRequestDialog
+        accessAudience={accessAudience}
         mcpKeyName={mcpKeyName}
         project={project}
+        policies={group.policies}
+        servicePrincipal={servicePrincipal}
         requirements={group.requirements}
         subject={`Tool: ${tool.name}`}
         toolName={tool.name}
@@ -212,7 +236,10 @@ function PermissionHeading() {
 }
 
 function groupStatus(group: PermissionReadinessGroup): PermissionCheckStatus {
-  const statuses = group.requirements.map(({ status }) => status)
+  const statuses = [
+    ...group.requirements.map(({ status }) => status),
+    ...group.policies.map(({ status }) => status),
+  ]
   if (statuses.includes("unavailable")) return "unavailable"
   if (statuses.includes("missing")) return "missing"
   return "ready"

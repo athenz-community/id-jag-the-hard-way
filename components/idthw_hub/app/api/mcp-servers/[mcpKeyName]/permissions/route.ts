@@ -81,7 +81,14 @@ function validateToolPermissionUpdate(value: unknown) {
   }
   const settings = parseToolPermissionSettings({
     version: 1,
-    tools: { [toolName]: { requirements: input.requirements } },
+    tools: {
+      [toolName]: {
+        requirements: input.requirements,
+      },
+    },
   })
-  return { toolName, requirements: settings.tools[toolName].requirements }
+  return {
+    toolName,
+    requirements: settings.tools[toolName].requirements,
+  }
 }

@@ -15,7 +15,7 @@ import { sessionStore, type GatewaySession } from "../utils/sessionStore.js"
 
 export type ProtectedRouterDependencies = {
   accessScope: string
-  getAccessToken: (session: GatewaySession, scope: string) => Promise<string>
+  getAccessToken: (session: GatewaySession, scope: string, audience?: string) => Promise<string>
   resolveRoute: (serverId: string) => Promise<ResolvedMcpRoute>
   upstreamResponseTimeoutMs: number
 }
@@ -24,7 +24,7 @@ export const MCP_DOWNSTREAM_SCOPE_HEADER = "x-idthw-mcp-downstream-scope"
 
 const defaultDependencies: ProtectedRouterDependencies = {
   accessScope: MCP_GATEWAY_ACCESS_SCOPE,
-  getAccessToken: (session, scope) => athenzAccessTokenManager.getAccessToken(session, scope),
+  getAccessToken: (session, scope, audience) => athenzAccessTokenManager.getAccessToken(session, scope, audience),
   resolveRoute: (serverId) => mcpRegistryClient.resolveRoute(serverId),
   upstreamResponseTimeoutMs: 60_000,
 }
@@ -76,7 +76,7 @@ export function createProtectedRouter(overrides: Partial<ProtectedRouterDependen
         ? undefined
         : accessScopeForRequest(request, route, dependencies.accessScope)
       const accessToken = accessScope
-        ? await dependencies.getAccessToken(session, accessScope)
+        ? await dependencies.getAccessToken(session, accessScope, route.accessAudience)
         : undefined
       await proxyToCore({
         request,

@@ -18,7 +18,9 @@ const ANNOTATION_ID = "mcp.idthw.dev/id"
 const ANNOTATION_ICON = "mcp.idthw.dev/icon"
 const ANNOTATION_PROJECT = "mcp.idthw.dev/project"
 const ANNOTATION_ALIAS = "mcp.idthw.dev/alias"
+const ANNOTATION_ACCESS_AUDIENCE = "mcp.idthw.dev/access-audience"
 const ANNOTATION_ACCESS_SCOPE = "mcp.idthw.dev/access-scope"
+const ANNOTATION_IAM_SERVICE_ACCOUNT = "mcp.idthw.dev/iam-service-account"
 const ANNOTATION_PUBLIC_URL = "mcp.idthw.dev/public-url"
 const ANNOTATION_TOOL_PERMISSIONS = "mcp.idthw.dev/tool-permissions"
 const LEGACY_ANNOTATION_SERVER = "mcp.idthw.dev/server"
@@ -112,6 +114,7 @@ function deploymentToMcpServer(
   if (!project) return null
   const routeId = annotations[ANNOTATION_ID] ?? name
   if (!isValidRouteId(routeId)) return null
+  const accessScope = annotations[ANNOTATION_ACCESS_SCOPE]?.trim() || undefined
 
   return {
     id: `${namespace}:${name}`,
@@ -124,7 +127,10 @@ function deploymentToMcpServer(
     publicUrl: annotations[ANNOTATION_PUBLIC_URL],
     gatewayUrl: publicGatewayUrl(routeId),
     proxyUrl: coreProxyUrl(routeId),
-    accessScope: annotations[ANNOTATION_ACCESS_SCOPE]?.trim() || undefined,
+    accessAudience: annotations[ANNOTATION_ACCESS_AUDIENCE]?.trim()
+      || firstScopeDomain(accessScope),
+    accessScope,
+    serviceAccount: annotations[ANNOTATION_IAM_SERVICE_ACCOUNT]?.trim() || undefined,
     toolPermissionOverrides: parseJsonAnnotation(annotations[ANNOTATION_TOOL_PERMISSIONS]),
     totalToolCalls: "N/A",
     iconSrc: resolveMcpIconSrc(annotations[ANNOTATION_ICON], iconOptions),
@@ -132,6 +138,13 @@ function deploymentToMcpServer(
     logoBg: "#ffffff",
     logoFg: "#111111",
   }
+}
+
+function firstScopeDomain(accessScope: string | undefined) {
+  const firstScope = accessScope?.split(/\s+/).find(Boolean)
+  const marker = ":role."
+  const markerIndex = firstScope?.indexOf(marker) ?? -1
+  return markerIndex > 0 ? firstScope?.slice(0, markerIndex) : undefined
 }
 
 function parseJsonAnnotation(value: string | undefined): unknown {

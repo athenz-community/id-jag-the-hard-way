@@ -37,7 +37,9 @@ export default async function McpServerClientConfigurationRoute({
       server.routeId,
       session.user.username,
       server.accessScope,
+      server.accessAudience,
       server.toolPermissionOverrides,
+      server.serviceAccount,
     ),
     listLiveMcpTools(server),
   ])
@@ -53,8 +55,10 @@ export default async function McpServerClientConfigurationRoute({
         mcpServerUrl={mcpServerUrl}
         permissionCheck={(
           <PermissionReadinessSection
+            accessAudience={server.accessAudience}
             mcpKeyName={server.name}
             project={server.namespace}
+            servicePrincipal={server.serviceAccount}
             readiness={permissionReadiness}
             toolsResult={toolsResult}
           />
