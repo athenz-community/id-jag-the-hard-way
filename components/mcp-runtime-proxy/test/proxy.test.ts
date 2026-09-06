@@ -62,16 +62,109 @@ test("streams event responses without changing their content type", async (t) =>
   assert.equal(await response.text(), "event: message\ndata: first\n\nevent: message\ndata: second\n\n")
 })
 
-test("serves health checks without contacting the MCP target", async (t) => {
+test("serves the liveness check without contacting the MCP target", async (t) => {
   const proxy = createRuntimeProxyServer(new URL("http://127.0.0.1:1"), allowAccess)
   const proxyPort = await listen(proxy)
   t.after(() => close(proxy))
 
-  for (const path of ["/healthz", "/readyz"]) {
-    const response = await fetch(`http://127.0.0.1:${proxyPort}${path}`)
-    assert.equal(response.status, 200)
-    assert.deepEqual(await response.json(), { ok: true })
-  }
+  const response = await fetch(`http://127.0.0.1:${proxyPort}/healthz`)
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), { ok: true, status: "alive" })
+})
+
+test("reports not ready when the MCP target cannot be reached", async (t) => {
+  const proxy = createRuntimeProxyServer(
+    new URL("http://127.0.0.1:1"),
+    allowAccess,
+    undefined,
+    undefined,
+    { timeoutMs: 100 },
+  )
+  const proxyPort = await listen(proxy)
+  t.after(() => close(proxy))
+
+  const response = await fetch(`http://127.0.0.1:${proxyPort}/readyz`)
+  assert.equal(response.status, 503)
+  assert.deepEqual(await response.json(), { ok: false, status: "not_ready" })
+})
+
+test("uses the MCP lifecycle, ping, and tools/list for readiness", async (t) => {
+  const requests: Array<{ method: string; path: string; sessionId: string }> = []
+  const upstream = http.createServer(async (request, response) => {
+    if (request.method === "DELETE") {
+      requests.push({
+        method: "DELETE",
+        path: request.url ?? "",
+        sessionId: String(request.headers["mcp-session-id"] ?? ""),
+      })
+      response.writeHead(204).end()
+      return
+    }
+
+    let body = ""
+    for await (const chunk of request) body += chunk
+    const payload = JSON.parse(body) as { id?: number; method: string }
+    requests.push({
+      method: payload.method,
+      path: request.url ?? "",
+      sessionId: String(request.headers["mcp-session-id"] ?? ""),
+    })
+    if (payload.method === "notifications/initialized") {
+      response.writeHead(202).end()
+      return
+    }
+
+    response.setHeader("content-type", "application/json")
+    if (payload.method === "initialize") {
+      response.setHeader("mcp-session-id", "readiness-session")
+      response.end(JSON.stringify({
+        jsonrpc: "2.0",
+        id: payload.id,
+        result: {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          serverInfo: { name: "test", version: "1" },
+        },
+      }))
+      return
+    }
+    response.end(JSON.stringify({
+      jsonrpc: "2.0",
+      id: payload.id,
+      result: payload.method === "tools/list" ? { tools: [{ name: "get_docs" }] } : {},
+    }))
+  })
+  const upstreamPort = await listen(upstream)
+  t.after(() => close(upstream))
+
+  const proxy = createRuntimeProxyServer(
+    new URL(`http://127.0.0.1:${upstreamPort}`),
+    allowAccess,
+    undefined,
+    undefined,
+    { path: "/custom-mcp", timeoutMs: 1000 },
+  )
+  const proxyPort = await listen(proxy)
+  t.after(() => close(proxy))
+
+  const response = await fetch(`http://127.0.0.1:${proxyPort}/readyz`)
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), { ok: true, status: "ready", toolCount: 1 })
+  assert.deepEqual(requests.map(({ method }) => method), [
+    "initialize",
+    "notifications/initialized",
+    "ping",
+    "tools/list",
+    "DELETE",
+  ])
+  assert.deepEqual(requests.map(({ path }) => path), Array(5).fill("/custom-mcp"))
+  assert.deepEqual(requests.map(({ sessionId }) => sessionId), [
+    "",
+    "readiness-session",
+    "readiness-session",
+    "readiness-session",
+    "readiness-session",
+  ])
 })
 
 test("allows protocol bootstrap and tool discovery without an access token", async (t) => {

@@ -12,6 +12,8 @@ import Link from "next/link"
 import { ServerLogo } from "@/components/atoms/ServerLogo"
 import { ResourceActionMenu } from "@/components/molecules/ResourceActionMenu"
 import { catalogServerSuffix, consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
+import { CatalogStatusRefreshButton } from "@/features/catalog/components/CatalogStatusRefreshButton"
+import { McpServerStatusBadge } from "@/features/catalog/components/McpServerStatusBadge"
 import type { McpServer } from "@/features/catalog/types/catalog"
 
 export function CatalogBreadcrumb({ project, product }: { project: string; product: string }) {
@@ -82,6 +84,7 @@ export function CatalogFilters() {
       <button className="add-filter-button" type="button" disabled>
         Add
       </button>
+      <CatalogStatusRefreshButton />
     </div>
   )
 }
@@ -135,17 +138,24 @@ export function CatalogTable({
                 <td>
                   <div className="server-cell">
                     <ServerLogo server={server} />
-                    <Link
-                      className="server-name"
-                      href={consoleHref({
-                        project,
-                        product,
-                        section: "catalog",
-                        suffix: catalogServerSuffix(server.id, "client-configuration"),
-                      })}
-                    >
-                      {server.alias ?? server.name}
-                    </Link>
+                    <div className="server-name-group">
+                      <Link
+                        className="server-name"
+                        href={consoleHref({
+                          project,
+                          product,
+                          section: "catalog",
+                          suffix: catalogServerSuffix(server.id, "client-configuration"),
+                        })}
+                      >
+                        {server.alias ?? server.name}
+                      </Link>
+                      <McpServerStatusBadge
+                        compact
+                        status={server.status}
+                        message={server.statusMessage}
+                      />
+                    </div>
                   </div>
                 </td>
                 <td>{server.description}</td>

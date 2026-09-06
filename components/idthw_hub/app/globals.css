@@ -1143,6 +1143,17 @@ input:disabled {
   color: #bebfc4;
 }
 
+.catalog-status-refresh {
+  min-height: 38px;
+  margin-left: 2px;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.catalog-refresh-icon.spinning {
+  animation: permission-refresh-spin 0.8s linear infinite;
+}
+
 .add-filter-button:disabled,
 .pager button:disabled {
   cursor: not-allowed;
@@ -1271,6 +1282,14 @@ input:disabled {
   font-size: 13px;
   font-weight: 800;
   text-decoration: none;
+}
+
+.server-name-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  min-width: 0;
 }
 
 .table-action {
@@ -1541,6 +1560,24 @@ input:disabled {
   color: #179247;
   font-size: 11px;
   font-weight: 900;
+}
+
+.status-badge[data-status="in-progress"] {
+  background: #fff3d6;
+  color: #9a6700;
+}
+
+.status-badge[data-status="unhealthy"] {
+  background: #ffe4e6;
+  color: #b42318;
+}
+
+.status-badge.compact {
+  min-width: 0;
+  min-height: 18px;
+  padding: 1px 6px;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .detail-tabs {

@@ -1,3 +1,5 @@
+export type McpServerStatus = "active" | "in-progress" | "unhealthy"
+
 export type McpServer = {
   id: string
   routeId: string
@@ -12,6 +14,8 @@ export type McpServer = {
   accessAudience?: string
   accessScope?: string
   serviceAccount?: string
+  status: McpServerStatus
+  statusMessage: string
   toolPermissionOverrides?: unknown
   toolScopes?: Record<string, string>
   totalToolCalls: string

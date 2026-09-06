@@ -431,6 +431,8 @@ args = [
 
 The Tools page uses the deployment's Core MCP Proxy route to perform public live `tools/list` discovery from the IDTHW Hub server. This avoids treating a host-only `127.0.0.1` port-forward as container-local. Protected client calls continue through MCP Gateway's workload-certificate → user-scoped Athenz token flow.
 
+Hub-managed deployments use Runtime Proxy `/healthz` as their liveness probe and `/readyz` as their readiness probe. Readiness performs `initialize`, `notifications/initialized`, `ping`, and `tools/list` against the colocated MCP server, then closes a stateful session when one was created. The catalog maps the Kubernetes Deployment state to `Active`, `In progress`, or `Unhealthy`; a newly created server remains `In progress` until the protocol readiness lifecycle succeeds.
+
 ## Example MCP Deployment
 
 ```yaml

@@ -17,6 +17,9 @@ import {
 } from "./tokenExchange.ts"
 
 const MAX_BUFFERED_REQUEST_BYTES = 64 * 1024
+const MCP_PROTOCOL_VERSION = "2025-06-18"
+const DEFAULT_MCP_READINESS_PATH = "/mcp"
+const DEFAULT_MCP_READINESS_TIMEOUT_MS = 4000
 const PUBLIC_MCP_METHODS = new Set([
   "initialize",
   "notifications/initialized",
@@ -40,6 +43,7 @@ export function createRuntimeProxyServer(
   accessTokenVerifier: AthenzAccessTokenVerifier,
   logger: RuntimeProxyLogger = runtimeProxyLogger,
   tokenPublisher?: ToolAccessTokenPublisher,
+  readiness: RuntimeProxyReadinessOptions = {},
 ) {
   if (!(["http:", "https:"] as string[]).includes(target.protocol)) {
     throw new Error("MCP_TARGET_URL must use http or https")
@@ -49,7 +53,7 @@ export function createRuntimeProxyServer(
   }
 
   const server = http.createServer((request, response) => {
-    void handleRequest(request, response, target, accessTokenVerifier, logger, tokenPublisher)
+    void handleRequest(request, response, target, accessTokenVerifier, logger, tokenPublisher, readiness)
   })
   server.requestTimeout = 0
   return server
@@ -62,10 +66,23 @@ async function handleRequest(
   accessTokenVerifier: AthenzAccessTokenVerifier,
   logger: RuntimeProxyLogger,
   tokenPublisher?: ToolAccessTokenPublisher,
+  readiness: RuntimeProxyReadinessOptions = {},
 ) {
   const requestUrl = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`)
-  if (requestUrl.pathname === "/healthz" || requestUrl.pathname === "/readyz") {
-    sendJson(response, 200, { ok: true })
+  if (requestUrl.pathname === "/healthz") {
+    sendJson(response, 200, { ok: true, status: "alive" })
+    return
+  }
+  if (requestUrl.pathname === "/readyz") {
+    try {
+      const probe = await probeMcpReadiness(target, readiness)
+      sendJson(response, 200, { ok: true, status: "ready", toolCount: probe.toolCount })
+    } catch (error) {
+      logger.warn("mcp_readiness_probe_failed", {
+        message: error instanceof Error ? error.message : "Unknown MCP readiness failure",
+      })
+      sendJson(response, 503, { ok: false, status: "not_ready" })
+    }
     return
   }
 
@@ -197,6 +214,161 @@ async function handleRequest(
       }
     }
   }
+}
+
+export type RuntimeProxyReadinessOptions = {
+  path?: string
+  timeoutMs?: number
+}
+
+async function probeMcpReadiness(
+  target: URL,
+  {
+    path = DEFAULT_MCP_READINESS_PATH,
+    timeoutMs = DEFAULT_MCP_READINESS_TIMEOUT_MS,
+  }: RuntimeProxyReadinessOptions,
+) {
+  if (!path.startsWith("/") || path.startsWith("//")) {
+    throw new Error("MCP readiness path must start with one slash")
+  }
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error("MCP readiness timeout must be a positive integer")
+  }
+
+  const endpoint = buildUpstreamUrl(target, new URL(path, "http://localhost"))
+  const signal = AbortSignal.timeout(timeoutMs)
+  let sessionId = ""
+  let protocolVersion = MCP_PROTOCOL_VERSION
+
+  try {
+    const initialized = await sendMcpProbeRequest(endpoint, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: "mcp-runtime-proxy-readiness", version: "1.0.0" },
+      },
+    }, signal)
+    const initializePayload = await successfulMcpProbePayload(initialized, "initialize")
+    sessionId = initialized.headers.get("mcp-session-id")?.trim() ?? ""
+    protocolVersion = stringProperty(initializePayload.result, "protocolVersion") ?? MCP_PROTOCOL_VERSION
+
+    const notification = await sendMcpProbeRequest(endpoint, {
+      jsonrpc: "2.0",
+      method: "notifications/initialized",
+    }, signal, sessionId, protocolVersion)
+    if (!notification.ok) {
+      throw new Error(`MCP initialized notification returned HTTP ${notification.status}`)
+    }
+
+    const ping = await sendMcpProbeRequest(endpoint, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "ping",
+      params: {},
+    }, signal, sessionId, protocolVersion)
+    await successfulMcpProbePayload(ping, "ping")
+
+    const listed = await sendMcpProbeRequest(endpoint, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/list",
+      params: {},
+    }, signal, sessionId, protocolVersion)
+    const toolsPayload = await successfulMcpProbePayload(listed, "tools/list")
+    const tools = arrayProperty(toolsPayload.result, "tools")
+    if (!tools) throw new Error("MCP tools/list response has no tools array")
+    return { toolCount: tools.length }
+  } finally {
+    if (sessionId) {
+      try {
+        await fetch(endpoint, {
+          method: "DELETE",
+          headers: {
+            "MCP-Protocol-Version": protocolVersion,
+            "Mcp-Session-Id": sessionId,
+          },
+          signal,
+        })
+      } catch {
+        // Session cleanup is best-effort and must not override readiness results.
+      }
+    }
+  }
+}
+
+function sendMcpProbeRequest(
+  endpoint: URL,
+  payload: Record<string, unknown>,
+  signal: AbortSignal,
+  sessionId = "",
+  protocolVersion = MCP_PROTOCOL_VERSION,
+) {
+  const headers: Record<string, string> = {
+    Accept: "application/json, text/event-stream",
+    "Content-Type": "application/json",
+    "MCP-Protocol-Version": protocolVersion,
+  }
+  if (sessionId) headers["Mcp-Session-Id"] = sessionId
+  return fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    signal,
+  })
+}
+
+async function successfulMcpProbePayload(response: Response, method: string) {
+  if (!response.ok) throw new Error(`MCP ${method} returned HTTP ${response.status}`)
+  const payload = await parseMcpProbePayload(response)
+  if (recordProperty(payload, "error")) throw new Error(`MCP ${method} returned a JSON-RPC error`)
+  if (!recordProperty(payload, "result")) throw new Error(`MCP ${method} response has no result`)
+  return payload
+}
+
+async function parseMcpProbePayload(response: Response): Promise<Record<string, unknown>> {
+  const body = await response.text()
+  const contentType = response.headers.get("content-type") ?? ""
+  if (contentType.includes("text/event-stream") || body.trimStart().startsWith("event:")) {
+    for (const event of body.split(/\r?\n\r?\n/)) {
+      const data = event
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice("data:".length).trimStart())
+        .join("\n")
+      if (!data) continue
+      const payload = JSON.parse(data) as unknown
+      if (isRecord(payload) && ("result" in payload || "error" in payload)) return payload
+    }
+    throw new Error("MCP server returned SSE without a JSON-RPC result")
+  }
+  const payload = JSON.parse(body) as unknown
+  if (!isRecord(payload)) throw new Error("MCP server returned a non-object JSON-RPC response")
+  return payload
+}
+
+function recordProperty(value: unknown, key: string) {
+  if (!isRecord(value)) return undefined
+  const item = value[key]
+  return isRecord(item) ? item : undefined
+}
+
+function stringProperty(value: unknown, key: string) {
+  if (!isRecord(value)) return undefined
+  const item = value[key]
+  return typeof item === "string" ? item : undefined
+}
+
+function arrayProperty(value: unknown, key: string) {
+  if (!isRecord(value)) return undefined
+  const item = value[key]
+  return Array.isArray(item) ? item : undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value))
 }
 
 async function authorizeRequest(

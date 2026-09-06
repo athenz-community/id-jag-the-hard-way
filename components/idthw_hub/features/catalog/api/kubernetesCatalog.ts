@@ -7,7 +7,7 @@ import {
   resolveMcpIconSrc,
   type McpIconOption,
 } from "../../mcp-servers/lib/mcpIcons.ts"
-import type { McpServer } from "../types/catalog"
+import type { McpServer, McpServerStatus } from "../types/catalog"
 
 const execFileAsync = promisify(execFile)
 
@@ -34,10 +34,26 @@ type KubernetesList<T> = {
 
 type Deployment = {
   metadata?: {
+    generation?: number
     name?: string
     namespace?: string
     labels?: Record<string, string>
     annotations?: Record<string, string>
+  }
+  spec?: {
+    replicas?: number
+  }
+  status?: {
+    availableReplicas?: number
+    conditions?: Array<{
+      message?: string
+      reason?: string
+      status?: string
+      type?: string
+    }>
+    observedGeneration?: number
+    readyReplicas?: number
+    updatedReplicas?: number
   }
 }
 
@@ -115,6 +131,7 @@ function deploymentToMcpServer(
   const routeId = annotations[ANNOTATION_ID] ?? name
   if (!isValidRouteId(routeId)) return null
   const accessScope = annotations[ANNOTATION_ACCESS_SCOPE]?.trim() || undefined
+  const runtimeStatus = deploymentRuntimeStatus(deployment)
 
   return {
     id: `${namespace}:${name}`,
@@ -131,12 +148,53 @@ function deploymentToMcpServer(
       || firstScopeDomain(accessScope),
     accessScope,
     serviceAccount: annotations[ANNOTATION_IAM_SERVICE_ACCOUNT]?.trim() || undefined,
+    status: runtimeStatus.status,
+    statusMessage: runtimeStatus.message,
     toolPermissionOverrides: parseJsonAnnotation(annotations[ANNOTATION_TOOL_PERMISSIONS]),
     totalToolCalls: "N/A",
     iconSrc: resolveMcpIconSrc(annotations[ANNOTATION_ICON], iconOptions),
     logoText: initialsFor(displayName),
     logoBg: "#ffffff",
     logoFg: "#111111",
+  }
+}
+
+export function deploymentRuntimeStatus(deployment: Deployment): {
+  status: McpServerStatus
+  message: string
+} {
+  const desiredReplicas = deployment.spec?.replicas ?? 1
+  const deploymentStatus = deployment.status ?? {}
+  const conditions = deploymentStatus.conditions ?? []
+  const failed = conditions.find(({ status, type }) => (
+    status === "True" && type === "ReplicaFailure"
+  )) ?? conditions.find(({ status, type }) => (
+    status === "False" && type === "Progressing"
+  ))
+
+  if (failed) {
+    return {
+      status: "unhealthy",
+      message: failed.message?.trim() || failed.reason?.trim() || "The MCP deployment rollout failed.",
+    }
+  }
+  if (desiredReplicas < 1) {
+    return { status: "unhealthy", message: "The MCP deployment is scaled to zero." }
+  }
+
+  const generation = deployment.metadata?.generation ?? 0
+  const observedGeneration = deploymentStatus.observedGeneration ?? 0
+  const rolloutObserved = generation === 0 || observedGeneration >= generation
+  const ready = (deploymentStatus.readyReplicas ?? 0) >= desiredReplicas
+  const available = (deploymentStatus.availableReplicas ?? 0) >= desiredReplicas
+  const updated = (deploymentStatus.updatedReplicas ?? 0) >= desiredReplicas
+  if (rolloutObserved && ready && available && updated) {
+    return { status: "active", message: "The MCP deployment is available." }
+  }
+
+  return {
+    status: "in-progress",
+    message: "Waiting for the MCP deployment and protocol readiness check.",
   }
 }
 

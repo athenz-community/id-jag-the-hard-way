@@ -5,6 +5,7 @@ import { CopyButton } from "@/components/atoms/CopyButton"
 import { ServerLogo } from "@/components/atoms/ServerLogo"
 import { catalogServerSuffix, consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import { ClientConfiguration } from "@/components/molecules/ClientConfiguration"
+import { McpServerStatusBadge } from "@/features/catalog/components/McpServerStatusBadge"
 import type { McpServer } from "@/features/catalog/types/catalog"
 
 export function McpServerDetailBreadcrumb({
@@ -59,7 +60,7 @@ export function McpServerDetailHeader({
         </Link>
         <ServerLogo server={server} />
         <h1 className="detail-title">{displayName}</h1>
-        <span className="status-badge">Active</span>
+        <McpServerStatusBadge status={server.status} message={server.statusMessage} />
       </div>
 
       <div className="actions">

@@ -132,6 +132,7 @@ export function buildMcpKubernetesResources(
       env: [
         { name: "PORT", value: String(RUNTIME_PROXY_PORT) },
         { name: "MCP_TARGET_URL", value: `http://127.0.0.1:${port}` },
+        { name: "MCP_READINESS_PATH", value: input.path || "/mcp" },
         {
           name: "ATHENZ_JWKS_URL",
           value: "https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true",
@@ -140,7 +141,19 @@ export function buildMcpKubernetesResources(
         { name: "ATHENZ_EXPECTED_AUDIENCE", value: expectedAudience },
         { name: "ATHENZ_REQUIRED_SCOPE", value: requiredScope },
       ],
+      livenessProbe: {
+        httpGet: { path: "/healthz", port: "proxy-http" },
+        failureThreshold: 3,
+        periodSeconds: 10,
+        timeoutSeconds: 2,
+      },
       ports: [{ name: "proxy-http", containerPort: RUNTIME_PROXY_PORT }],
+      readinessProbe: {
+        httpGet: { path: "/readyz", port: "proxy-http" },
+        failureThreshold: 2,
+        periodSeconds: 5,
+        timeoutSeconds: 5,
+      },
       volumeMounts: [{ name: "athenz-ca", mountPath: "/var/run/athenz", readOnly: true }],
     }
     containers.push(runtimeProxy)
@@ -369,6 +382,7 @@ export function buildMcpKubernetesResources(
       annotations,
     },
     spec: {
+      progressDeadlineSeconds: 120,
       replicas: 1,
       selector: { matchLabels: { "app.kubernetes.io/name": name } },
       template: {
