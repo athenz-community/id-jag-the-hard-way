@@ -2463,7 +2463,7 @@ body:has(.permission-request-dialog[open]) {
 
 .permission-helper-policy-row {
   display: grid;
-  grid-template-columns: 48px 105px minmax(210px, 0.9fr) minmax(330px, 1.5fr);
+  grid-template-columns: 48px 105px minmax(210px, 0.9fr) minmax(330px, 1.5fr) 32px;
   align-items: end;
   gap: 8px;
   margin: 0 9px 8px 48px;
@@ -2472,6 +2472,24 @@ body:has(.permission-request-dialog[open]) {
   border-radius: 0 4px 4px 0;
   padding: 7px 9px;
   background: #f9fbfd;
+}
+
+.permission-helper-policy-actions {
+  display: flex;
+  margin: -2px 9px 8px 105px;
+}
+
+.permission-helper-policy-add {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 850;
 }
 
 .permission-helper-row-label {

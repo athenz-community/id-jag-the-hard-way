@@ -258,7 +258,7 @@ test("preserves provider-customized exchange helper memberships", () => {
   })
 })
 
-test("keeps each customized helper policy attached to its helper role", () => {
+test("normalizes a legacy singular helper policy and keeps it attached to its helper role", () => {
   const settings = parseToolPermissionSettings({
     version: 1,
     tools: {
@@ -287,11 +287,11 @@ test("keeps each customized helper policy attached to its helper role", () => {
     "human.idjag-learner",
   )
 
-  assert.deepEqual(settings.tools.get_k8s_docs.requirements[0].exchangeHelperRequirements?.[0].policy, {
+  assert.deepEqual(settings.tools.get_k8s_docs.requirements[0].exchangeHelperRequirements?.[0].policies, [{
     action: "custom.jag_exchange",
     effect: "DENY",
     resource: "api:role.custom-docs-getter",
-  })
+  }])
   assert.deepEqual(preset.groups[0].policies, [{
     action: "custom.jag_exchange",
     effect: "DENY",
@@ -301,11 +301,12 @@ test("keeps each customized helper policy attached to its helper role", () => {
     source: "helper",
     toolRequirementIndex: 0,
   }])
-  assert.deepEqual(preset.groups[0].requirements[1].exchangePolicy, {
+  assert.deepEqual(preset.groups[0].requirements[1].exchangePolicies, [{
     action: "custom.jag_exchange",
     effect: "DENY",
     resource: "api:role.custom-docs-getter",
-  })
+  }])
+  assert.equal(preset.groups[0].requirements[1].exchangePoliciesCustomized, true)
 
   const enriched = withExpectedExchangePolicies(
     withManagedAccessRequirements(
@@ -322,6 +323,80 @@ test("keeps each customized helper policy attached to its helper role", () => {
     enriched?.groups[0].policies?.filter(({ source }) => source === "helper"),
     preset.groups[0].policies,
   )
+})
+
+test("keeps multiple customized policies on one helper role", () => {
+  const settings = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{
+          includeExchangeHelpers: true,
+          member: SIGNED_IN_USER_MEMBER,
+          role: "api:role.docs-getter",
+          exchangeHelperRequirements: [{
+            label: "Custom Gateway exchange",
+            member: "mcp-hub.mcp-gateway",
+            policies: [{
+              action: "zts.jag_exchange",
+              effect: "ALLOW",
+              resource: "api:role.docs-getter",
+            }, {
+              action: "custom.audit",
+              effect: "DENY",
+              resource: "api:role.restricted",
+            }],
+            role: "api:role.docs-getter-jag-exchanger",
+          }],
+        }],
+      },
+    },
+  })
+  const preset = permissionPresetFromToolSettings(settings, "demo-api", "human.idjag-learner")
+
+  assert.equal(preset.groups[0].policies?.length, 2)
+  assert.deepEqual(
+    preset.groups[0].policies?.map(({ action, effect, resource, role }) => ({ action, effect, resource, role })),
+    [{
+      action: "zts.jag_exchange",
+      effect: "ALLOW",
+      resource: "api:role.docs-getter",
+      role: "api:role.docs-getter-jag-exchanger",
+    }, {
+      action: "custom.audit",
+      effect: "DENY",
+      resource: "api:role.restricted",
+      role: "api:role.docs-getter-jag-exchanger",
+    }],
+  )
+})
+
+test("preserves an explicitly empty helper policy list", () => {
+  const settings = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      get_k8s_docs: {
+        requirements: [{
+          includeExchangeHelpers: true,
+          member: SIGNED_IN_USER_MEMBER,
+          role: "api:role.docs-getter",
+          exchangeHelperRequirements: [{
+            label: "Gateway exchange without a policy check",
+            member: "mcp-hub.mcp-gateway",
+            policies: [],
+            role: "api:role.docs-getter-jag-exchanger",
+          }],
+        }],
+      },
+    },
+  })
+  const preset = withExpectedExchangePolicies(
+    permissionPresetFromToolSettings(settings, "demo-api", "human.idjag-learner"),
+    "mcp-hub.mcps.demo",
+  )
+
+  assert.deepEqual(settings.tools.get_k8s_docs.requirements[0].exchangeHelperRequirements?.[0].policies, [])
+  assert.deepEqual(preset?.groups[0].policies, [])
 })
 
 test("rejects an incomplete customized helper policy", () => {

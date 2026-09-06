@@ -146,33 +146,124 @@ export function SourceForm({
       </fieldset>
 
       {usesTemplate ? (
-        <div className="mcp-create-field">
-          <label htmlFor="mcp-template">MCP template name <span aria-label="required">*</span></label>
-          <p>Select a project template to create an MCP server.</p>
-          <select
-            id="mcp-template"
-            className="filter-select"
-            value={draft.selectedTemplateKey}
-            disabled={templateLoading}
-            onChange={(event) => selectTemplate(event.target.value)}
-          >
-            <option value="">
-              {templates.length === 0 ? "No MCP templates found" : "Select an MCP template"}
-            </option>
-            {templates.map((template) => (
-              <option value={template.key} key={template.key}>{template.name}</option>
-            ))}
-          </select>
-          {templateLoading ? <p className="mcp-create-field-status" role="status">Loading template...</p> : null}
-          {templateError ? <p className="mcp-create-service-warning" role="alert">{templateError}</p> : null}
+        <>
+          <div className="mcp-create-field">
+            <label htmlFor="mcp-template">MCP template name <span aria-label="required">*</span></label>
+            <p>Select a project template to create an MCP server.</p>
+            <select
+              id="mcp-template"
+              className="filter-select"
+              value={draft.selectedTemplateKey}
+              disabled={templateLoading}
+              onChange={(event) => selectTemplate(event.target.value)}
+            >
+              <option value="">
+                {templates.length === 0 ? "No MCP templates found" : "Select an MCP template"}
+              </option>
+              {templates.map((template) => (
+                <option value={template.key} key={template.key}>{template.name}</option>
+              ))}
+            </select>
+            {templateLoading ? <p className="mcp-create-field-status" role="status">Loading template...</p> : null}
+            {templateError ? <p className="mcp-create-service-warning" role="alert">{templateError}</p> : null}
+            {draft.selectedTemplate ? (
+              <div className="mcp-create-template-summary">
+                <strong>{draft.selectedTemplate.name}</strong>
+                <span>{draft.selectedTemplate.description || "No description provided."}</span>
+                <code>{draft.selectedTemplate.templateKey}</code>
+              </div>
+            ) : null}
+          </div>
+
           {draft.selectedTemplate ? (
-            <div className="mcp-create-template-summary">
-              <strong>{draft.selectedTemplate.name}</strong>
-              <span>{draft.selectedTemplate.description || "No description provided."}</span>
-              <code>{draft.selectedTemplate.templateKey}</code>
+            <div className="mcp-template-source-preview">
+              <fieldset className="mcp-create-fieldset">
+                <legend>Source</legend>
+                <div className="mcp-create-choice-list">
+                  <label className="mcp-create-choice source-choice disabled">
+                    <input type="radio" checked disabled readOnly />
+                    <span>
+                      <strong>Container registry</strong>
+                      <small>Defined by the selected MCP template.</small>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <div className="mcp-create-field">
+                <label htmlFor="mcp-template-image">Container image URL</label>
+                <p>Defined by the selected MCP template.</p>
+                <input
+                  id="mcp-template-image"
+                  className="filter-select mcp-template-key-readonly"
+                  value={draft.selectedTemplate.image}
+                  readOnly
+                />
+              </div>
+
+              <div className="mcp-create-field">
+                <label htmlFor="mcp-template-port">Target port</label>
+                <p>Defined by the selected MCP template.</p>
+                <input
+                  id="mcp-template-port"
+                  className="filter-select mcp-template-key-readonly"
+                  type="number"
+                  value={draft.selectedTemplate.port}
+                  readOnly
+                />
+              </div>
+
+              <fieldset className="mcp-create-fieldset">
+                <legend>Protocol</legend>
+                <div className="mcp-create-choice-list">
+                  <label className="mcp-create-choice disabled">
+                    <input type="radio" checked disabled readOnly />
+                    <span>
+                      <strong>Streamable HTTP</strong>
+                      <small>Defined by the selected MCP template.</small>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <details className="mcp-create-additional" open>
+                <summary>Additional settings</summary>
+                <div className="mcp-create-field">
+                  <label htmlFor="mcp-template-path">Path</label>
+                  <input
+                    id="mcp-template-path"
+                    className="filter-select mcp-template-key-readonly"
+                    value={draft.selectedTemplate.path}
+                    readOnly
+                  />
+                </div>
+                <div className="mcp-create-field">
+                  <label htmlFor="mcp-template-command">Container command</label>
+                  <p>Defined by the selected MCP template.</p>
+                  <input
+                    id="mcp-template-command"
+                    className="filter-select mcp-template-key-readonly"
+                    value={draft.selectedTemplate.command}
+                    placeholder="Not provided"
+                    readOnly
+                  />
+                </div>
+                <div className="mcp-create-field">
+                  <label htmlFor="mcp-template-arguments">Container arguments</label>
+                  <p>Defined by the selected MCP template.</p>
+                  <textarea
+                    id="mcp-template-arguments"
+                    className="filter-select mcp-create-arguments-textarea mcp-template-key-readonly"
+                    rows={7}
+                    value={draft.selectedTemplate.arguments.join("\n")}
+                    placeholder="Not provided"
+                    readOnly
+                  />
+                </div>
+              </details>
             </div>
           ) : null}
-        </div>
+        </>
       ) : (
         <>
           <fieldset className="mcp-create-fieldset">

@@ -2,11 +2,6 @@
 
 import { useMcpCreateDraft } from "./McpCreateDraftContext"
 
-const DEFAULT_MCP_IMAGES = [
-  "ghcr.io/mlajkim/mcp:latest",
-  "ghcr.io/sooperset/mcp-atlassian:latest",
-]
-
 export function ContainerImageField() {
   const { draft, setDraft } = useMcpCreateDraft()
 
@@ -27,20 +22,6 @@ export function ContainerImageField() {
         value={draft.image}
         onChange={(event) => setImage(event.target.value)}
       />
-      <div className="mcp-create-suggestions">
-        <span>Suggestion</span>
-        {DEFAULT_MCP_IMAGES.map((suggestedImage) => (
-          <button
-            className="button"
-            type="button"
-            disabled={draft.image === suggestedImage}
-            onClick={() => setImage(suggestedImage)}
-            key={suggestedImage}
-          >
-            {suggestedImage}
-          </button>
-        ))}
-      </div>
     </div>
   )
 }

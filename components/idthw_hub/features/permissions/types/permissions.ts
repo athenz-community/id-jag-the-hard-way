@@ -9,7 +9,9 @@ export type ConfiguredPermissionRequirement = {
 export type ConfiguredExchangeHelperRequirement = {
   label: string
   member: string
+  /** Legacy singular form accepted and normalized by the parser. */
   policy?: ConfiguredExchangePolicyRule
+  policies?: ConfiguredExchangePolicyRule[]
   role: string
 }
 
@@ -28,7 +30,8 @@ export type ToolPermissionSettings = {
 
 export type PermissionRequirement = {
   configuredMember: string
-  exchangePolicy?: ConfiguredExchangePolicyRule
+  exchangePolicies?: ConfiguredExchangePolicyRule[]
+  exchangePoliciesCustomized?: boolean
   label: string
   member: string
   role: string
