@@ -26,6 +26,7 @@ export function PermissionReadinessSection({
       .filter((group) => group.toolName)
       .map((group) => [group.toolName as string, group]) ?? [],
   )
+  const sharedGroup = evaluatedReadiness?.groups.find((group) => !group.toolName)
 
   return (
     <div className="permission-readiness-section" aria-labelledby="permission-readiness-heading">
@@ -60,6 +61,7 @@ export function PermissionReadinessSection({
         {toolsResult.tools.length > COLLAPSED_TOOL_COUNT ? (
           <>
             <ToolPermissionList
+              sharedGroup={sharedGroup}
               toolGroups={toolGroups}
               tools={toolsExpanded ? toolsResult.tools : toolsResult.tools.slice(0, COLLAPSED_TOOL_COUNT)}
             />
@@ -76,7 +78,7 @@ export function PermissionReadinessSection({
             </button>
           </>
         ) : toolsResult.tools.length > 0 ? (
-          <ToolPermissionList toolGroups={toolGroups} tools={toolsResult.tools} />
+          <ToolPermissionList sharedGroup={sharedGroup} toolGroups={toolGroups} tools={toolsResult.tools} />
         ) : toolsResult.error ? null : (
           <div className="permission-tools-empty">This MCP server returned no tools.</div>
         )}
@@ -86,9 +88,11 @@ export function PermissionReadinessSection({
 }
 
 function ToolPermissionList({
+  sharedGroup,
   toolGroups,
   tools,
 }: {
+  sharedGroup?: PermissionReadinessGroup
   toolGroups: Map<string, PermissionReadinessGroup>
   tools: McpTool[]
 }) {
@@ -96,7 +100,7 @@ function ToolPermissionList({
     <div className="permission-tool-list">
       {tools.map((tool, index) => (
         <ToolPermissionRow
-          group={toolGroups.get(tool.name)}
+          group={toolGroups.get(tool.name) ?? sharedGroup}
           key={`${tool.name}:${index}`}
           tool={tool}
         />

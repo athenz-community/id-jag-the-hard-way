@@ -6,6 +6,7 @@ import {
   parsePermissionPresetForServer,
   parseToolAccessScopesForServer,
   SIGNED_IN_USER_MEMBER,
+  withManagedAccessRequirements,
 } from "../features/permissions/lib/permissionPreset.ts"
 
 const validPreset = {
@@ -84,6 +85,70 @@ test("derives each tool's Gateway scope from signed-in-user requirements only", 
     post_k8s_doc: "api:role.docs-poster api:role.mcp-accessor",
     delete_k8s_doc: "api:role.docs-deleter api:role.mcp-accessor",
   })
+})
+
+test("adds the managed route scope to every configured tool scope", () => {
+  assert.deepEqual(parseToolAccessScopesForServer(
+    validPreset,
+    "k8s-docs-server",
+    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+  ), {
+    get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor mcp-hub.mcps.k8s-docs-server:role.accessor",
+  })
+})
+
+test("shows managed user and Gateway requirements without a custom tool preset", () => {
+  const preset = withManagedAccessRequirements(
+    undefined,
+    "confluence",
+    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    "human.idjag-learner",
+  )
+
+  assert.deepEqual(preset, {
+    serverId: "confluence",
+    groups: [{
+      kind: "tool",
+      label: "Athenz-protected MCP access",
+      requirements: [{
+        configuredMember: SIGNED_IN_USER_MEMBER,
+        label: "Signed-in user can invoke this Athenz-protected MCP server",
+        member: "human.idjag-learner",
+        role: "mcp-hub.mcps.k8s-docs-server:role.accessor",
+      }, {
+        configuredMember: "mcp-hub.mcp-gateway",
+        label: "MCP Gateway can request protected MCP access",
+        member: "mcp-hub.mcp-gateway",
+        role: "mcp-hub.mcps.k8s-docs-server:role.accessor-jag-exchanger",
+      }],
+    }],
+  })
+})
+
+test("adds managed user and Gateway requirements to every custom tool preset", () => {
+  const preset = parsePermissionPresetForServer(
+    validPreset,
+    "k8s-docs-server",
+    "human.idjag-learner",
+  )
+  const managedPreset = withManagedAccessRequirements(
+    preset,
+    "k8s-docs-server",
+    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    "human.idjag-learner",
+  )
+
+  assert.ok(managedPreset)
+  assert.deepEqual(
+    managedPreset.groups[0].requirements.slice(-2).map(({ member, role }) => ({ member, role })),
+    [{
+      member: "human.idjag-learner",
+      role: "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    }, {
+      member: "mcp-hub.mcp-gateway",
+      role: "mcp-hub.mcps.k8s-docs-server:role.accessor-jag-exchanger",
+    }],
+  )
 })
 
 test("returns no preset for a server that is intentionally not configured", () => {

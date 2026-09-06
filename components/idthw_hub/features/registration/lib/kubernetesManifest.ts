@@ -32,6 +32,14 @@ type McpKubernetesResourceOptions = {
   includeSecretValues?: boolean
 }
 
+export function managedMcpAccessDomain(project: string) {
+  return `mcp-hub.mcps.${project}`
+}
+
+export function managedMcpAccessScope(project: string) {
+  return `${managedMcpAccessDomain(project)}:role.accessor`
+}
+
 export function buildMcpKubernetesManifest(input: McpKubernetesManifestInput) {
   return buildMcpKubernetesResources(input)
     .map((resource) => stringify(resource, { lineWidth: 0 }).trimEnd())
@@ -65,6 +73,9 @@ export function buildMcpKubernetesResources(
   }
   if (input.serviceAccount) {
     annotations["mcp.idthw.dev/iam-service-account"] = input.serviceAccount
+  }
+  if (input.accessManagement === "hub") {
+    annotations["mcp.idthw.dev/access-scope"] = managedMcpAccessScope(input.project)
   }
 
   const container: Record<string, unknown> = {

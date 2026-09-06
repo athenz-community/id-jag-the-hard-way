@@ -88,3 +88,21 @@ test("does not overwrite an existing MCP Deployment or Service", async () => {
     McpResourceConflictError,
   )
 })
+
+test("does not provision managed access when the server key conflicts", async () => {
+  let provisioned = false
+  const runner: KubectlRunner = async (args) => ({
+    stdout: args.includes("--all-namespaces")
+      ? "docs-mcp docs-mcp other-project <none>\n"
+      : "",
+    stderr: "",
+  })
+
+  await assert.rejects(
+    createMcpResources(input, runner, {
+      beforeCreate: async () => { provisioned = true },
+    }),
+    McpResourceConflictError,
+  )
+  assert.equal(provisioned, false)
+})
