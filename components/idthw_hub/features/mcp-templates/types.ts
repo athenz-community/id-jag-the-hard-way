@@ -14,7 +14,7 @@ export type McpTemplateInput = {
   port: string
   path: string
   command: string
-  argument: string
+  arguments: string[]
   transport: "streamable-http"
   environmentVariables: McpTemplateEnvironmentVariable[]
   visibility: "project"

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { ContainerArgumentsField } from "@/features/registration/components/ContainerArgumentsField"
 import { useMcpTemplateDraft } from "./McpTemplateDraftContext"
 
 const DEFAULT_MCP_IMAGES = [
@@ -125,17 +126,11 @@ export function SourceForm({
             onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, command: event.target.value }))}
           />
         </div>
-        <div className="mcp-create-field">
-          <label htmlFor="template-argument">Container argument</label>
-          <input
-            id="template-argument"
-            className="filter-select"
-            name="argument"
-            placeholder="e.g. --port 8080"
-            value={draft.argument}
-            onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, argument: event.target.value }))}
-          />
-        </div>
+        <ContainerArgumentsField
+          idPrefix="template"
+          containerArguments={draft.containerArguments}
+          onChange={(containerArguments) => setDraft((currentDraft) => ({ ...currentDraft, containerArguments }))}
+        />
       </details>
 
       <div className="mcp-create-actions">

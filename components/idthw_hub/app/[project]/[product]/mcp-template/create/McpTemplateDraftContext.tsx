@@ -16,7 +16,7 @@ type McpTemplateDraft = {
   port: string
   path: string
   command: string
-  argument: string
+  containerArguments: Array<{ id: number; value: string }>
   name: string
   templateKey: string
   templateKeyWasCustomized: boolean
@@ -32,7 +32,7 @@ const INITIAL_DRAFT: McpTemplateDraft = {
   port: "8080",
   path: "/mcp",
   command: "",
-  argument: "",
+  containerArguments: [{ id: 1, value: "" }],
   name: "",
   templateKey: "",
   templateKeyWasCustomized: false,

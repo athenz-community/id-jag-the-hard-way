@@ -634,6 +634,13 @@ input:disabled {
   width: 100%;
 }
 
+.mcp-create-arguments-textarea {
+  min-height: 168px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  line-height: 1.5;
+}
+
 .mcp-create-notice {
   max-width: 880px;
   margin: 16px 0 0;
@@ -892,6 +899,11 @@ input:disabled {
 .mcp-confirm-nested-list dd {
   padding: 0;
   background: transparent;
+}
+
+.mcp-confirm-argument-list {
+  margin: 0;
+  padding-left: 20px;
 }
 
 .mcp-confirm-env-table {
