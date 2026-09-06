@@ -6,11 +6,11 @@ import {
   Filter,
   Home,
   MoreHorizontal,
-  Pencil,
   Search,
 } from "lucide-react"
 import Link from "next/link"
 import { ServerLogo } from "@/components/atoms/ServerLogo"
+import { ResourceActionMenu } from "@/components/molecules/ResourceActionMenu"
 import { catalogServerSuffix, consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import type { McpServer } from "@/features/catalog/types/catalog"
 
@@ -154,19 +154,17 @@ export function CatalogTable({
                 <td>{server.totalToolCalls}</td>
                 <td>
                   {editable ? (
-                    <Link
-                      className="table-action"
-                      href={consoleHref({
+                    <ResourceActionMenu
+                      resourceKind="MCP server"
+                      resourceName={server.alias ?? server.name}
+                      editHref={consoleHref({
                         project,
                         product,
                         section: "mcp-server",
                         suffix: `${encodeURIComponent(server.name)}/edit`,
                       })}
-                      aria-label={`Edit ${server.alias ?? server.name}`}
-                      title={`Edit ${server.alias ?? server.name}`}
-                    >
-                      <Pencil size={16} aria-hidden="true" />
-                    </Link>
+                      deleteEndpoint={`/api/mcp-servers/${encodeURIComponent(server.name)}?project=${encodeURIComponent(project)}`}
+                    />
                   ) : (
                     <button className="table-action" aria-label={`Open actions for ${server.name}`} type="button" disabled>
                       <MoreHorizontal size={16} aria-hidden="true" />

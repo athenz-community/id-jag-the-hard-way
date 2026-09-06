@@ -77,6 +77,25 @@ export async function updateMcpTemplate(
   }
 }
 
+export async function deleteMcpTemplate(
+  project: string,
+  templateKey: string,
+  runKubectl: KubectlRunner = runKubectlCommand,
+) {
+  await getMcpTemplate(project, templateKey, runKubectl)
+  const resourceName = `${TEMPLATE_PREFIX}${templateKey}`
+  const deleteArgs = [
+    "delete",
+    `secret/${resourceName}`,
+    "--namespace",
+    TEMPLATE_NAMESPACE,
+    "--ignore-not-found",
+    "--wait=true",
+  ]
+  await runKubectl(kubectlArgs([...deleteArgs, "--dry-run=server"]))
+  await runKubectl(kubectlArgs(deleteArgs))
+}
+
 export async function listMcpTemplates(
   project: string,
   runKubectl: KubectlRunner = runKubectlCommand,

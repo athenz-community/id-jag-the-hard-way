@@ -1,6 +1,7 @@
-import { ChevronRight, ChevronsUpDown, Home, Pencil, Plus } from "lucide-react"
+import { ChevronRight, ChevronsUpDown, Home, Plus } from "lucide-react"
 import Link from "next/link"
 import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
+import { ResourceActionMenu } from "@/components/molecules/ResourceActionMenu"
 import { ConsoleTemplate } from "@/components/templates/ConsoleTemplate"
 import { requireHubSession } from "@/features/auth/lib/session"
 import { CatalogFilters, CatalogPagination } from "@/features/catalog/components/CatalogPage"
@@ -67,19 +68,17 @@ export default async function McpTemplateRoute({
                 <td>{template.visibility}</td>
                 <td>{template.project}</td>
                 <td>
-                  <Link
-                    className="table-action"
-                    href={consoleHref({
+                  <ResourceActionMenu
+                    resourceKind="MCP template"
+                    resourceName={template.name}
+                    editHref={consoleHref({
                       project,
                       product,
                       section: "mcp-template",
                       suffix: `${encodeURIComponent(template.key)}/edit`,
                     })}
-                    aria-label={`Edit ${template.name}`}
-                    title={`Edit ${template.name}`}
-                  >
-                    <Pencil size={16} />
-                  </Link>
+                    deleteEndpoint={`/api/mcp-templates/${encodeURIComponent(template.key)}?project=${encodeURIComponent(project)}`}
+                  />
                 </td>
               </tr>
             )) : (

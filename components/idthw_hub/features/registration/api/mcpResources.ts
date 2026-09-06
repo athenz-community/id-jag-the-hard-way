@@ -195,6 +195,26 @@ export async function updateMcpResources(
   }
 }
 
+export async function deleteMcpResources(
+  project: string,
+  mcpKeyName: string,
+  runKubectl: KubectlRunner = runKubectlCommand,
+) {
+  await getMcpServerConfiguration(project, mcpKeyName, runKubectl)
+  const deleteArgs = [
+    "delete",
+    `deployment/${mcpKeyName}`,
+    `service/${mcpKeyName}`,
+    `secret/${mcpKeyName}-env`,
+    "--namespace",
+    project,
+    "--ignore-not-found",
+    "--wait=true",
+  ]
+  await runKubectl(kubectlArgs([...deleteArgs, "--dry-run=server"]))
+  await runKubectl(kubectlArgs(deleteArgs))
+}
+
 export function buildMcpResourceUpdate(
   input: McpKubernetesManifestInput,
   currentDeployment: KubernetesDeployment,

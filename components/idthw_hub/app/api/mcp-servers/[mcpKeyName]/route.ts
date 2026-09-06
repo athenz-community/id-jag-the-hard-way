@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { auth } from "@/features/auth/lib/auth"
 import {
+  deleteMcpResources,
   getMcpServerConfiguration,
   McpResourceNotFoundError,
   updateMcpResources,
@@ -44,6 +45,69 @@ export async function GET(
     }
     return NextResponse.json(
       { error: "Unable to load MCP server from Kubernetes" },
+      { status: 500, headers: NO_STORE_HEADERS },
+    )
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ mcpKeyName: string }> },
+) {
+  const session = await auth()
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401, headers: NO_STORE_HEADERS },
+    )
+  }
+
+  const reference = await serverReference(request, params)
+  if (!reference) {
+    return NextResponse.json(
+      { error: "Invalid MCP server reference" },
+      { status: 400, headers: NO_STORE_HEADERS },
+    )
+  }
+
+  let payload: unknown
+  try {
+    payload = await request.json()
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid MCP server deletion request" },
+      { status: 400, headers: NO_STORE_HEADERS },
+    )
+  }
+  const confirmation = deleteConfirmation(payload)
+  if (confirmation === null) {
+    return NextResponse.json(
+      { error: "MCP server name confirmation is required" },
+      { status: 400, headers: NO_STORE_HEADERS },
+    )
+  }
+
+  try {
+    const server = await getMcpServerConfiguration(reference.project, reference.mcpKeyName)
+    if (confirmation !== server.serverName) {
+      return NextResponse.json(
+        { error: "MCP server name confirmation does not match" },
+        { status: 400, headers: NO_STORE_HEADERS },
+      )
+    }
+    await deleteMcpResources(reference.project, reference.mcpKeyName)
+    return NextResponse.json({ deleted: reference }, { headers: NO_STORE_HEADERS })
+  } catch (error) {
+    if (error instanceof McpResourceNotFoundError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 404, headers: NO_STORE_HEADERS },
+      )
+    }
+    const detail = error instanceof Error ? error.message.trim().replace(/\s+/g, " ").slice(0, 300) : ""
+    console.error("Unable to delete MCP server", { ...reference, detail })
+    return NextResponse.json(
+      { error: detail ? `Unable to delete MCP server: ${detail}` : "Unable to delete MCP server" },
       { status: 500, headers: NO_STORE_HEADERS },
     )
   }
@@ -123,4 +187,10 @@ async function serverReference(
   return DNS_LABEL_PATTERN.test(project) && DNS_LABEL_PATTERN.test(mcpKeyName)
     ? { project, mcpKeyName }
     : null
+}
+
+function deleteConfirmation(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null
+  const confirmation = (payload as Record<string, unknown>).confirmation
+  return typeof confirmation === "string" ? confirmation : null
 }
