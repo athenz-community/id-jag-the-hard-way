@@ -16,6 +16,8 @@ import {
 
 const port = parsePort(process.env.PORT ?? "8082")
 const target = new URL(process.env.MCP_TARGET_URL ?? "http://127.0.0.1:8080")
+const readinessPath = process.env.MCP_READINESS_PATH ?? "/mcp"
+const readinessTimeoutMs = positiveInteger(process.env.MCP_READINESS_TIMEOUT_MS ?? "4000")
 const expectedAudience = requiredEnvironment("ATHENZ_EXPECTED_AUDIENCE")
 const requiredScope = requiredEnvironment("ATHENZ_REQUIRED_SCOPE")
 const jwksUrl = new URL(
@@ -43,13 +45,21 @@ const tokenExchangeConfig = tokenExchangeConfigFromEnvironment()
 const tokenPublisher = tokenExchangeConfig
   ? createAthenzTokenFilePublisher(tokenExchangeConfig)
   : undefined
-const server = createRuntimeProxyServer(target, accessTokenVerifier, runtimeProxyLogger, tokenPublisher)
+const server = createRuntimeProxyServer(
+  target,
+  accessTokenVerifier,
+  runtimeProxyLogger,
+  tokenPublisher,
+  { path: readinessPath, timeoutMs: readinessTimeoutMs },
+)
 
 server.listen(port, "0.0.0.0", () => {
   runtimeProxyLogger.info("server_started", {
     expectedAudience,
     listenAddress: `0.0.0.0:${port}`,
     requiredScope,
+    readinessPath,
+    readinessTimeoutMs,
     target: `${target.origin}${target.pathname}`,
   })
 })

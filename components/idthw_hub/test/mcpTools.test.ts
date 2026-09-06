@@ -65,6 +65,8 @@ test("live tool discovery does not send an authorization header", async () => {
       description: "Kubernetes API docs",
       project: "k8s-docs-server",
       proxyUrl: `http://127.0.0.1:${address.port}/mcp/k8s-docs-server`,
+      status: "active",
+      statusMessage: "The MCP deployment is available.",
       totalToolCalls: "0",
       logoText: "KD",
       logoBg: "#000",

@@ -41,12 +41,14 @@ test("builds namespace, secret, deployment, and service resources", () => {
 
   const deployment = resources.find(({ kind }) => kind === "Deployment") as {
     metadata: { annotations: Record<string, string> }
-    spec: { template: { spec: {
+    spec: { progressDeadlineSeconds: number; template: { spec: {
       containers: Array<{
         args?: string[]
         env: Array<{ name: string; value?: string }>
         image: string
+        livenessProbe?: unknown
         name: string
+        readinessProbe?: unknown
         securityContext?: { runAsGroup?: number; runAsUser?: number }
         volumeMounts?: Array<{ mountPath: string; name: string; readOnly: boolean }>
       }>
@@ -89,11 +91,28 @@ test("builds namespace, secret, deployment, and service resources", () => {
     "9000",
   ])
   assert.equal(deployment.spec.template.spec.containers[1].name, "mcp-runtime-proxy")
+  assert.equal(deployment.spec.progressDeadlineSeconds, 120)
   assert.equal(
     deployment.spec.template.spec.containers[1].image,
     "ghcr.io/mlajkim/mcp-runtime-proxy:latest",
   )
   const proxyEnvironment = deployment.spec.template.spec.containers[1].env
+  assert.deepEqual(
+    proxyEnvironment.find(({ name }) => name === "MCP_READINESS_PATH"),
+    { name: "MCP_READINESS_PATH", value: "/mcp" },
+  )
+  assert.deepEqual(deployment.spec.template.spec.containers[1].livenessProbe, {
+    httpGet: { path: "/healthz", port: "proxy-http" },
+    failureThreshold: 3,
+    periodSeconds: 10,
+    timeoutSeconds: 2,
+  })
+  assert.deepEqual(deployment.spec.template.spec.containers[1].readinessProbe, {
+    httpGet: { path: "/readyz", port: "proxy-http" },
+    failureThreshold: 2,
+    periodSeconds: 5,
+    timeoutSeconds: 5,
+  })
   assert.deepEqual(
     proxyEnvironment.find(({ name }) => name === "ATHENZ_SERVICE_KEY_ID"),
     { name: "ATHENZ_SERVICE_KEY_ID", value: "idthw-hub-docs-mcp" },
