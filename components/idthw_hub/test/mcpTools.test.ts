@@ -6,14 +6,46 @@ import { listLiveMcpTools } from "../features/catalog/lib/mcpTools.ts"
 import type { McpServer } from "../features/catalog/types/catalog.ts"
 
 test("live tool discovery does not send an authorization header", async () => {
-  let authorization = "not-observed"
+  const observedRequests: Array<{ authorization: string; method: string; sessionId: string }> = []
   const upstream = createServer(async (request, response) => {
-    authorization = request.headers.authorization ?? ""
-    for await (const chunk of request) void chunk
+    if (request.method === "DELETE") {
+      observedRequests.push({
+        authorization: request.headers.authorization ?? "",
+        method: "DELETE",
+        sessionId: String(request.headers["mcp-session-id"] ?? ""),
+      })
+      response.writeHead(200).end()
+      return
+    }
+
+    let body = ""
+    for await (const chunk of request) body += chunk
+    const payload = JSON.parse(body) as { method: string; id?: number }
+    observedRequests.push({
+      authorization: request.headers.authorization ?? "",
+      method: payload.method,
+      sessionId: String(request.headers["mcp-session-id"] ?? ""),
+    })
+
+    if (payload.method === "initialize") {
+      response.setHeader("mcp-session-id", "test-session")
+      response.setHeader("content-type", "application/json")
+      response.end(JSON.stringify({
+        jsonrpc: "2.0",
+        id: payload.id,
+        result: { protocolVersion: "2025-06-18", capabilities: {}, serverInfo: { name: "test", version: "1" } },
+      }))
+      return
+    }
+    if (payload.method === "notifications/initialized") {
+      response.writeHead(202).end()
+      return
+    }
+
     response.setHeader("content-type", "application/json")
     response.end(JSON.stringify({
       jsonrpc: "2.0",
-      id: 1,
+      id: payload.id,
       result: { tools: [{ name: "get_k8s_docs" }] },
     }))
   }).listen(0, "127.0.0.1")
@@ -41,7 +73,19 @@ test("live tool discovery does not send an authorization header", async () => {
 
     const result = await listLiveMcpTools(server)
 
-    assert.equal(authorization, "")
+    assert.deepEqual(observedRequests.map(({ authorization }) => authorization), ["", "", "", ""])
+    assert.deepEqual(observedRequests.map(({ method }) => method), [
+      "initialize",
+      "notifications/initialized",
+      "tools/list",
+      "DELETE",
+    ])
+    assert.deepEqual(observedRequests.map(({ sessionId }) => sessionId), [
+      "",
+      "test-session",
+      "test-session",
+      "test-session",
+    ])
     assert.deepEqual(result.tools, [{ name: "get_k8s_docs" }])
     assert.equal(result.error, undefined)
   } finally {

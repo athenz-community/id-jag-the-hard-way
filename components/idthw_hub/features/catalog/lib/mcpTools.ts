@@ -2,11 +2,13 @@ import type { McpServer } from "@/features/catalog/types/catalog"
 import type { McpTool, McpToolsResult } from "@/features/catalog/types/tools"
 
 const DEFAULT_LOCAL_MCP_URL = process.env.MCP_HUB_LOCAL_MCP_URL ?? "http://127.0.0.1:24443/mcp"
+const MCP_PROTOCOL_VERSION = "2025-06-18"
 
 type JsonRpcToolsListResponse = {
   jsonrpc?: string
   id?: string | number
   result?: {
+    protocolVersion?: string
     tools?: McpTool[]
   }
   error?: {
@@ -16,22 +18,49 @@ type JsonRpcToolsListResponse = {
 
 export async function listLiveMcpTools(server: McpServer): Promise<McpToolsResult> {
   const endpoint = resolveMcpToolsEndpoint(server)
+  let sessionId = ""
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
+    const initializeResponse = await sendMcpRequest(endpoint, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: "idthw-hub", version: "1.0.0" },
       },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "tools/list",
-        params: {},
-      }),
     })
+    if (!initializeResponse.ok) {
+      return { endpoint, tools: [], error: `MCP initialize returned ${initializeResponse.status}` }
+    }
+
+    const initializePayload = await parseMcpJsonRpcResponse(initializeResponse)
+    if (initializePayload.error) {
+      return { endpoint, tools: [], error: initializePayload.error.message ?? "MCP initialize returned an error" }
+    }
+
+    sessionId = initializeResponse.headers.get("mcp-session-id")?.trim() ?? ""
+    const protocolVersion = initializePayload.result?.protocolVersion ?? MCP_PROTOCOL_VERSION
+    const initializedResponse = await sendMcpRequest(
+      endpoint,
+      {
+        jsonrpc: "2.0",
+        method: "notifications/initialized",
+      },
+      sessionId,
+      protocolVersion,
+    )
+    if (!initializedResponse.ok) {
+      return { endpoint, tools: [], error: `MCP initialized notification returned ${initializedResponse.status}` }
+    }
+
+    const response = await sendMcpRequest(
+      endpoint,
+      { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
+      sessionId,
+      protocolVersion,
+    )
 
     if (!response.ok) {
       return { endpoint, tools: [], error: `MCP server returned ${response.status}` }
@@ -46,6 +75,44 @@ export async function listLiveMcpTools(server: McpServer): Promise<McpToolsResul
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to call MCP tools/list"
     return { endpoint, tools: [], error: message }
+  } finally {
+    if (sessionId) await closeMcpSession(endpoint, sessionId)
+  }
+}
+
+async function sendMcpRequest(
+  endpoint: string,
+  payload: Record<string, unknown>,
+  sessionId = "",
+  protocolVersion = MCP_PROTOCOL_VERSION,
+) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json, text/event-stream",
+    "MCP-Protocol-Version": protocolVersion,
+  }
+  if (sessionId) headers["Mcp-Session-Id"] = sessionId
+
+  return fetch(endpoint, {
+    method: "POST",
+    cache: "no-store",
+    headers,
+    body: JSON.stringify(payload),
+  })
+}
+
+async function closeMcpSession(endpoint: string, sessionId: string) {
+  try {
+    await fetch(endpoint, {
+      method: "DELETE",
+      cache: "no-store",
+      headers: {
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        "Mcp-Session-Id": sessionId,
+      },
+    })
+  } catch {
+    // Session cleanup is best-effort and must not hide a successful tool listing.
   }
 }
 

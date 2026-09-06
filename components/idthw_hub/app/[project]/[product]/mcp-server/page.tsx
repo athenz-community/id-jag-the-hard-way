@@ -50,7 +50,7 @@ export default async function ProjectMcpServerRoute({
       </div>
       <CatalogFilters />
       <CatalogError error={catalog.error} />
-      <CatalogTable servers={projectServers} project={project} product={product} />
+      <CatalogTable servers={projectServers} project={project} product={product} editable />
       <CatalogPagination />
     </ConsoleTemplate>
   )

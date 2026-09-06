@@ -13,22 +13,32 @@ export function ConfigurationForm({
   cancelHref,
   sourceHref,
   confirmHref,
+  mode = "create",
 }: {
   project: string
   athenzServicesHref: string
   cancelHref: string
   sourceHref: string
   confirmHref: string
+  mode?: "create" | "edit"
 }) {
   const { draft, setDraft, resetDraft } = useMcpCreateDraft()
   const hubServiceDomain = `mcp-hub.mcps.${project}`
+  const isEditing = mode === "edit"
   const usesTemplate = draft.creationMethod === "template"
+  const usesTemplateValues = usesTemplate && !isEditing
   const requiresServiceAccount = draft.accessManagement === "hub"
-  const templateRequirementsReady = !usesTemplate || (
+  const templateRequirementsReady = !usesTemplateValues || (
     Boolean(draft.selectedTemplate)
     && draft.templateEnvironmentVariables.every((variable) => !variable.required || Boolean(variable.value))
   )
-  const canContinue = templateRequirementsReady && (!requiresServiceAccount || Boolean(draft.hubServiceAccountName))
+  const environmentVariablesReady = usesTemplateValues || draft.environmentVariables.every((variable) => {
+    if (!variable.key && !variable.value) return true
+    return Boolean(variable.key && (variable.value || (variable.secret && variable.hasExistingSecret)))
+  })
+  const canContinue = templateRequirementsReady
+    && environmentVariablesReady
+    && (!requiresServiceAccount || Boolean(draft.hubServiceAccountName))
   const [serviceAccounts, setServiceAccounts] = useState<string[]>([])
   const [serviceAccountError, setServiceAccountError] = useState("")
   const [serviceAccountsLoading, setServiceAccountsLoading] = useState(false)
@@ -53,7 +63,7 @@ export function ConfigurationForm({
 
       const services = payload.services as string[]
       setServiceAccounts(services)
-      setDraft((currentDraft) => services.includes(currentDraft.hubServiceAccountName)
+      setDraft((currentDraft) => isEditing || services.includes(currentDraft.hubServiceAccountName)
         ? currentDraft
         : { ...currentDraft, hubServiceAccountName: "" })
     } catch (error) {
@@ -61,7 +71,7 @@ export function ConfigurationForm({
     } finally {
       setServiceAccountsLoading(false)
     }
-  }, [project, setDraft])
+  }, [isEditing, project, setDraft])
 
   useEffect(() => {
     if (serviceAccountsLoaded.current) return
@@ -76,7 +86,15 @@ export function ConfigurationForm({
     setDraft((currentDraft) => ({
       ...currentDraft,
       environmentVariables: currentDraft.environmentVariables.map((variable) => (
-        variable.id === id ? { ...variable, ...update } : variable
+        variable.id === id
+          ? {
+              ...variable,
+              ...update,
+              hasExistingSecret: update.key !== undefined && update.key !== variable.key
+                ? false
+                : variable.hasExistingSecret,
+            }
+          : variable
       )),
     }))
   }
@@ -116,18 +134,33 @@ export function ConfigurationForm({
 
   return (
     <form className="mcp-create-form">
-      <McpServerIdentityFields />
+      <McpServerIdentityFields mcpKeyReadOnly={isEditing} />
+
+      {isEditing ? (
+        <div className="mcp-create-field">
+          <label htmlFor="mcp-description">Description</label>
+          <textarea
+            id="mcp-description"
+            className="filter-select"
+            rows={4}
+            maxLength={2000}
+            value={draft.description}
+            onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, description: event.target.value }))}
+          />
+        </div>
+      ) : null}
 
       <fieldset className="mcp-create-fieldset">
         <legend>Visibility <span aria-label="required">*</span></legend>
         <p className="mcp-create-field-copy">Visibility cannot be changed after the MCP server is created.</p>
         <div className="mcp-create-choice-list">
-          <label className="mcp-create-choice">
+          <label className={`mcp-create-choice ${isEditing ? "disabled" : ""}`}>
             <input
               name="visibility"
               type="radio"
               value="personal"
               checked={draft.visibility === "personal"}
+              disabled={isEditing}
               onChange={() => setDraft((currentDraft) => ({ ...currentDraft, visibility: "personal" }))}
             />
             <span>
@@ -135,13 +168,13 @@ export function ConfigurationForm({
               <small>Instance for personal use only. Accessible only by the creator.</small>
             </span>
           </label>
-          <label className={`mcp-create-choice ${usesTemplate ? "" : "disabled"}`}>
+          <label className={`mcp-create-choice ${usesTemplate && !isEditing ? "" : "disabled"}`}>
             <input
               name="visibility"
               type="radio"
               value="project"
               checked={draft.visibility === "project"}
-              disabled={!usesTemplate}
+              disabled={isEditing || !usesTemplate}
               onChange={() => setDraft((currentDraft) => ({ ...currentDraft, visibility: "project" }))}
             />
             <span>
@@ -150,7 +183,7 @@ export function ConfigurationForm({
             </span>
           </label>
         </div>
-        {!usesTemplate ? (
+        {!usesTemplate && !isEditing ? (
           <p className="mcp-create-notice">When creating an MCP server without a template, its visibility can only be set to Personal.</p>
         ) : null}
       </fieldset>
@@ -158,11 +191,13 @@ export function ConfigurationForm({
       <fieldset className="mcp-create-fieldset">
         <legend>Environment variables</legend>
         <p className="mcp-create-field-copy">
-          {usesTemplate
+          {usesTemplateValues
             ? "Provide the runtime values defined by the selected MCP template."
-            : "The entered values enable the MCP server to connect to its upstream APIs."}
+            : isEditing
+              ? "Update runtime values. Leave an existing secret value blank to keep it unchanged."
+              : "The entered values enable the MCP server to connect to its upstream APIs."}
         </p>
-        {usesTemplate ? (
+        {usesTemplateValues ? (
           draft.templateEnvironmentVariables.length > 0 ? (
             <div className="mcp-create-env-table-wrap mcp-template-server-env-table-wrap">
               <table className="mcp-create-env-table mcp-template-server-env-table">
@@ -227,6 +262,7 @@ export function ConfigurationForm({
                         <input
                           className="filter-select"
                           type={variable.secret ? "password" : "text"}
+                          placeholder={variable.secret && variable.hasExistingSecret ? "Leave blank to keep current value" : undefined}
                           aria-label={`Environment variable value ${index + 1}`}
                           value={variable.value}
                           onChange={(event) => updateEnvironmentVariable(variable.id, { value: event.target.value })}
@@ -355,7 +391,9 @@ export function ConfigurationForm({
                     ? "No service accounts found"
                     : "Select a service account"}
             </option>
-            {serviceAccounts.map((serviceAccount) => (
+            {(draft.hubServiceAccountName && !serviceAccounts.includes(draft.hubServiceAccountName)
+              ? [draft.hubServiceAccountName, ...serviceAccounts]
+              : serviceAccounts).map((serviceAccount) => (
               <option value={serviceAccount} key={serviceAccount}>{athenzServiceName(serviceAccount)}</option>
             ))}
           </select>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { validateMcpRegistration } from "../features/registration/lib/registrationInput.ts"
+import { validateMcpRegistration, validateMcpUpdate } from "../features/registration/lib/registrationInput.ts"
 
 const validPayload = {
   accessManagement: "hub",
@@ -132,5 +132,50 @@ test("keeps project visibility unavailable for direct setup", () => {
   }), {
     ok: false,
     error: "Direct setup visibility must be Personal",
+  })
+})
+
+test("preserves an existing secret when an update leaves its value blank", () => {
+  const existingResult = validateMcpRegistration(validPayload)
+  assert.equal(existingResult.ok, true)
+  if (!existingResult.ok) return
+
+  const result = validateMcpUpdate({
+    ...validPayload,
+    serverName: "Updated Docs MCP",
+    environmentVariables: [
+      { key: "API_TOKEN", secret: true, value: "" },
+      { key: "UPSTREAM_URL", secret: false, value: "https://example.test" },
+    ],
+  }, existingResult.input)
+  assert.equal(result.ok, true)
+  if (result.ok) {
+    assert.equal(result.input.environmentVariables[0].value, "")
+    assert.equal(result.input.environmentVariables[0].preserveExistingSecret, true)
+  }
+})
+
+test("requires a value for a new secret during update", () => {
+  const existingResult = validateMcpRegistration(validPayload)
+  assert.equal(existingResult.ok, true)
+  if (!existingResult.ok) return
+
+  assert.deepEqual(validateMcpUpdate({
+    ...validPayload,
+    environmentVariables: [{ key: "NEW_TOKEN", secret: true, value: "" }],
+  }, existingResult.input), {
+    ok: false,
+    error: "Environment variable 1 key and value must be provided together",
+  })
+})
+
+test("rejects identity changes during update", () => {
+  const existingResult = validateMcpRegistration(validPayload)
+  assert.equal(existingResult.ok, true)
+  if (!existingResult.ok) return
+
+  assert.deepEqual(validateMcpUpdate({ ...validPayload, mcpKeyName: "other-mcp" }, existingResult.input), {
+    ok: false,
+    error: "MCP server identity and creation settings cannot be changed",
   })
 })

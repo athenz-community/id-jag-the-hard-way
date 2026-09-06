@@ -3,7 +3,7 @@
 import { normalizeMcpKeyName } from "@/features/mcp-servers/lib/mcpKeyName"
 import { useMcpCreateDraft } from "../McpCreateDraftContext"
 
-export function McpServerIdentityFields() {
+export function McpServerIdentityFields({ mcpKeyReadOnly = false }: { mcpKeyReadOnly?: boolean }) {
   const { draft, setDraft } = useMcpCreateDraft()
 
   function updateServerName(nextServerName: string) {
@@ -46,14 +46,17 @@ export function McpServerIdentityFields() {
 
       <div className="mcp-create-field">
         <label htmlFor="mcp-key-name">MCP key name <span aria-label="required">*</span></label>
-        <p>Automatically follows the MCP server name using lowercase letters and replacing spaces with hyphens. Must be unique.</p>
+        <p>{mcpKeyReadOnly
+          ? "The MCP key identifies the deployed Kubernetes resources and cannot be changed."
+          : "Automatically follows the MCP server name using lowercase letters and replacing spaces with hyphens. Must be unique."}</p>
         <input
           id="mcp-key-name"
           className="filter-select"
           name="mcp-key-name"
           required
+          readOnly={mcpKeyReadOnly}
           value={draft.mcpKeyName}
-          onChange={(event) => updateMcpKeyName(event.target.value)}
+          onChange={mcpKeyReadOnly ? undefined : (event) => updateMcpKeyName(event.target.value)}
         />
         {draft.showMcpKeyWarning ? (
           <p className="mcp-create-field-warning" role="status">
