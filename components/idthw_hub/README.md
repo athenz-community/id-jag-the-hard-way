@@ -160,7 +160,7 @@ New Hub-managed servers also receive a workload identity lifecycle:
 - The immutable `<mcp-key>-athenz-bootstrap` Secret contains the generated private key and is mounted only in MCP Runtime Proxy.
 - The mutable `<mcp-key>-athenz-identity` Secret is writable only by a dedicated `<mcp-key>-runtime-proxy` Kubernetes service account and its resource-name-scoped Role.
 - Runtime Proxy obtains an X.509 service certificate from ZTS with key ID `idthw-hub-generated`, publishes the certificate and matching key to the identity Secret, and refreshes it every 24 hours. A failed scheduled refresh retries after five minutes while the last projected identity remains available.
-- The MCP container mounts the published identity Secret and Athenz CA read-only at `/var/run/athenz/service.cert.pem`, `/var/run/athenz/service.key.pem`, and `/var/run/athenz/ca.cert.pem`.
+- Runtime Proxy and the MCP container both mount the published identity Secret and Athenz CA read-only at `/var/run/athenz/service.cert.pem`, `/var/run/athenz/service.key.pem`, `/var/run/athenz/ca.crt`, and `/var/run/athenz/ca.cert.pem`.
 
 Because one fixed Athenz key ID identifies the generated key, the Hub rejects assigning the same Athenz service account to a second Hub-managed MCP server. Existing deployments created before this identity lifecycle continue using their legacy Runtime Proxy layout until they are recreated.
 

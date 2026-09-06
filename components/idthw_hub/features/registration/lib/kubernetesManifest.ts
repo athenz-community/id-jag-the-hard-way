@@ -135,7 +135,7 @@ export function buildMcpKubernetesResources(
     }
     containers.push(runtimeProxy)
 
-    const volumes: Record<string, unknown>[] = [{
+    const volumes: Record<string, unknown>[] = managedServiceIdentity ? [] : [{
       name: "athenz-ca",
       configMap: {
         name: MCP_RUNTIME_PROXY_CA_CONFIG_MAP,
@@ -157,7 +157,7 @@ export function buildMcpKubernetesResources(
         { name: "ATHENZ_ZTS_CA_PATH", value: "/var/run/athenz/ca.crt" },
         { name: "ATHENZ_ZTS_DNS_DOMAIN", value: "zts.athenz.cloud" },
         { name: "ATHENZ_BOOTSTRAP_PRIVATE_KEY_PATH", value: `/var/run/athenz-bootstrap/${SERVICE_PRIVATE_KEY_FILE}` },
-        { name: "ATHENZ_PUBLISHED_CERT_PATH", value: `/var/run/athenz-identity/${SERVICE_CERTIFICATE_FILE}` },
+        { name: "ATHENZ_PUBLISHED_CERT_PATH", value: `/var/run/athenz/${SERVICE_CERTIFICATE_FILE}` },
         { name: "ATHENZ_IDENTITY_REFRESH_SECONDS", value: "86400" },
         { name: "ATHENZ_IDENTITY_RETRY_SECONDS", value: "300" },
         { name: "KUBERNETES_IDENTITY_SECRET_NAME", value: identitySecretName },
@@ -171,9 +171,8 @@ export function buildMcpKubernetesResources(
         },
       ]
       runtimeProxy.volumeMounts = [
-        { name: "athenz-ca", mountPath: "/var/run/athenz", readOnly: true },
+        { name: "athenz-service-identity", mountPath: "/var/run/athenz", readOnly: true },
         { name: "athenz-bootstrap-key", mountPath: "/var/run/athenz-bootstrap", readOnly: true },
-        { name: "athenz-service-identity", mountPath: "/var/run/athenz-identity", readOnly: true },
         {
           name: "runtime-proxy-kube-api",
           mountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
@@ -211,7 +210,10 @@ export function buildMcpKubernetesResources(
           }, {
             configMap: {
               name: MCP_RUNTIME_PROXY_CA_CONFIG_MAP,
-              items: [{ key: "ca.crt", path: "ca.cert.pem" }],
+              items: [
+                { key: "ca.crt", path: "ca.crt" },
+                { key: "ca.crt", path: "ca.cert.pem" },
+              ],
             },
           }],
         },

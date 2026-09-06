@@ -103,21 +103,23 @@ test("builds namespace, secret, deployment, and service resources", () => {
   )
   assert.equal(deployment.spec.template.spec.containers[1].securityContext?.runAsUser, 1000)
   assert.equal(deployment.spec.template.spec.containers[1].securityContext?.runAsGroup, 1000)
-  assert.equal(deployment.spec.template.spec.volumes[0].name, "athenz-ca")
-  assert.equal(
-    deployment.spec.template.spec.volumes[0].configMap?.name,
-    "mcp-runtime-proxy-athenz-ca",
-  )
-
   assert.deepEqual(deployment.spec.template.spec.containers[0].volumeMounts, [{
     name: "athenz-service-identity",
     mountPath: "/var/run/athenz",
     readOnly: true,
   }])
+  assert.deepEqual(deployment.spec.template.spec.containers[1].volumeMounts?.[0], {
+    name: "athenz-service-identity",
+    mountPath: "/var/run/athenz",
+    readOnly: true,
+  })
+  assert.deepEqual(
+    proxyEnvironment.find(({ name }) => name === "ATHENZ_PUBLISHED_CERT_PATH"),
+    { name: "ATHENZ_PUBLISHED_CERT_PATH", value: "/var/run/athenz/service.cert.pem" },
+  )
   assert.deepEqual(
     deployment.spec.template.spec.volumes.map(({ name }) => name),
     [
-      "athenz-ca",
       "athenz-bootstrap-key",
       "athenz-service-identity",
       "runtime-proxy-kube-api",
@@ -129,7 +131,10 @@ test("builds namespace, secret, deployment, and service resources", () => {
   ))
   assert.deepEqual(identityVolume?.projected?.sources[1].configMap, {
     name: "mcp-runtime-proxy-athenz-ca",
-    items: [{ key: "ca.crt", path: "ca.cert.pem" }],
+    items: [
+      { key: "ca.crt", path: "ca.crt" },
+      { key: "ca.crt", path: "ca.cert.pem" },
+    ],
   })
 
   const service = resources.find(({ kind }) => kind === "Service") as {
