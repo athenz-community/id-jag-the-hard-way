@@ -47,9 +47,14 @@ test("builds namespace, secret, deployment, and service resources", () => {
         env: Array<{ name: string; value?: string }>
         image: string
         name: string
+        securityContext?: { runAsGroup?: number; runAsUser?: number }
         volumeMounts?: Array<{ mountPath: string; name: string; readOnly: boolean }>
       }>
-      volumes: Array<{ configMap?: { name: string }; name: string }>
+      volumes: Array<{
+        configMap?: { name: string }
+        name: string
+        projected?: { sources: Array<{ configMap?: { items: Array<{ key: string; path: string }>; name: string } }> }
+      }>
     } } }
   }
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/id"], "docs-mcp")
@@ -96,6 +101,8 @@ test("builds namespace, secret, deployment, and service resources", () => {
     proxyEnvironment.find(({ name }) => name === "KUBERNETES_IDENTITY_SECRET_NAME"),
     { name: "KUBERNETES_IDENTITY_SECRET_NAME", value: "docs-mcp-athenz-identity" },
   )
+  assert.equal(deployment.spec.template.spec.containers[1].securityContext?.runAsUser, 1000)
+  assert.equal(deployment.spec.template.spec.containers[1].securityContext?.runAsGroup, 1000)
   assert.equal(deployment.spec.template.spec.volumes[0].name, "athenz-ca")
   assert.equal(
     deployment.spec.template.spec.volumes[0].configMap?.name,
@@ -117,6 +124,13 @@ test("builds namespace, secret, deployment, and service resources", () => {
       "runtime-proxy-tmp",
     ],
   )
+  const identityVolume = deployment.spec.template.spec.volumes.find(({ name }) => (
+    name === "athenz-service-identity"
+  ))
+  assert.deepEqual(identityVolume?.projected?.sources[1].configMap, {
+    name: "mcp-runtime-proxy-athenz-ca",
+    items: [{ key: "ca.crt", path: "ca.cert.pem" }],
+  })
 
   const service = resources.find(({ kind }) => kind === "Service") as {
     spec: { ports: Array<{ targetPort: number }> }
