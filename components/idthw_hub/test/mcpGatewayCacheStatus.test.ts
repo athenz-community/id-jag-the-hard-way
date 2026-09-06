@@ -27,6 +27,7 @@ test("returns sanitized access-token and ID-JAG cache metadata", async (t) => {
         athenzAccessTokens: {
           expirySkewSeconds: 60,
           entries: [{
+            audiences: ["mcp-hub.mcps.k8s-docs-server"],
             scope: "mcp-hub.mcps.k8s-docs-server:role.accessor",
             cachedAt: "2026-09-06T05:06:51.293Z",
             expiresAt: "2026-09-06T06:48:47.000Z",
@@ -54,6 +55,13 @@ test("returns sanitized access-token and ID-JAG cache metadata", async (t) => {
   assert.equal(status.available, true)
   if (!status.available) return
   assert.equal(status.sessions[0].athenzIdJags.entryCount, 1)
+  assert.deepEqual(status.sessions[0].athenzAccessTokens.entries[0], {
+    audiences: ["mcp-hub.mcps.k8s-docs-server"],
+    scope: "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    cachedAt: "2026-09-06T05:06:51.293Z",
+    expiresAt: "2026-09-06T06:48:47.000Z",
+    status: "valid",
+  })
   assert.deepEqual(status.sessions[0].athenzIdJags.entries[0], {
     audiences: ["https://athenz-zts-server.athenz:4443/zts/v1"],
     scope: "mcp-hub.mcps.k8s-docs-server:role.accessor",

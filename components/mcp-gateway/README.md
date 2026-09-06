@@ -108,7 +108,7 @@ The registry response supplies `routeId`, `proxyUrl`, the optional core `accessA
 http://core-mcp-proxy.mcp-hub:8080
 ```
 
-The same bearer token protects `GET /internal/cache-status`. MCP Hub calls this endpoint through `MCP_HUB_GATEWAY_STATUS_URL` to aggregate the active OAuth users and their Athenz cache status. Each session includes separate Athenz access-token and ID-JAG cache summaries. ID-JAG entries expose only audiences, granted scope, cache time, expiry, and validity status. The response never contains ID tokens, ID-JAG values, Athenz access-token values, opaque session tokens, or hashes.
+The same bearer token protects `GET /internal/cache-status`. MCP Hub calls this endpoint through `MCP_HUB_GATEWAY_STATUS_URL` to aggregate the active OAuth users and their Athenz cache status. Each session includes separate Athenz access-token and ID-JAG cache summaries. Both entry types expose only audiences, granted scope, cache time, expiry, and validity status. The response never contains ID tokens, ID-JAG values, Athenz access-token values, opaque session tokens, or hashes.
 
 ## Local Run
 

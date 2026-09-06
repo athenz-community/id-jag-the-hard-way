@@ -121,7 +121,7 @@ describe("MCP Gateway", () => {
           username: string
           subject: string
           expiresAt: string
-          athenzAccessTokens: { entries: Array<{ scope: string }> }
+          athenzAccessTokens: { entries: Array<{ audiences: string[]; scope: string }> }
           athenzIdJags: { entries: Array<{ audiences: string[]; scope: string }> }
         }>
       }
@@ -129,6 +129,7 @@ describe("MCP Gateway", () => {
       assert.equal(body.sessions[0].username, "idjag-learner")
       assert.equal(body.sessions[0].subject, "keycloak-subject")
       assert.equal(body.sessions[0].expiresAt, new Date(expiresAt * 1000).toISOString())
+      assert.deepEqual(body.sessions[0].athenzAccessTokens.entries[0].audiences, ["api"])
       assert.equal(body.sessions[0].athenzAccessTokens.entries[0].scope, "api:role.docs-getter")
       assert.deepEqual(body.sessions[0].athenzIdJags.entries[0].audiences, [ATHENZ_ZTS_AUDIENCE])
       assert.equal(body.sessions[0].athenzIdJags.entries[0].scope, "api:role.docs-getter")
@@ -145,6 +146,7 @@ describe("MCP Gateway", () => {
         expiredEntryCount: 0,
         expirySkewSeconds: 60,
         entries: [{
+          audiences: ["api"],
           scope: "api:role.docs-getter",
           cachedAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 300_000).toISOString(),
@@ -604,6 +606,7 @@ describe("MCP Gateway", () => {
     assert.equal(forms[2].get("assertion"), idJag)
     const cacheStatus = manager.getCacheStatus(session)
     assert.equal(cacheStatus.entryCount, 1)
+    assert.deepEqual(cacheStatus.entries[0].audiences, ["api"])
     assert.equal(cacheStatus.entries[0].scope, "docs-getter mcp-accessor")
     assert.equal(JSON.stringify(cacheStatus).includes(idJag), false)
     const idJagCacheStatus = manager.getIdJagCacheStatus(session)

@@ -8,6 +8,7 @@ type GatewayAccessTokenCacheStatus = {
   expiredEntryCount: number
   expirySkewSeconds: number
   entries: Array<{
+    audiences: string[]
     scope: string
     cachedAt: string
     expiresAt: string
@@ -143,6 +144,7 @@ function sanitizeAccessTokenStatus(value: unknown, sessionIndex: number): Gatewa
     const entryField = `${field}.entries[${entryIndex}]`
     const entry = record(value, entryField)
     return {
+      audiences: stringArray(entry.audiences, `${entryField}.audiences`),
       scope: string(entry.scope, `${entryField}.scope`),
       cachedAt: string(entry.cachedAt, `${entryField}.cachedAt`),
       expiresAt: string(entry.expiresAt, `${entryField}.expiresAt`),
