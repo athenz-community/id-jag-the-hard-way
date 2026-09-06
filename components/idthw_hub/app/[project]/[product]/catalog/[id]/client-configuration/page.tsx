@@ -33,7 +33,12 @@ export default async function McpServerClientConfigurationRoute({
   const displayName = server.alias ?? server.name
   const mcpServerUrl = resolveMcpDisplayUrl(server)
   const [permissionReadiness, toolsResult] = await Promise.all([
-    fetchPermissionReadiness(server.routeId, session.user.username, server.accessScope),
+    fetchPermissionReadiness(
+      server.routeId,
+      session.user.username,
+      server.accessScope,
+      server.toolPermissionOverrides,
+    ),
     listLiveMcpTools(server),
   ])
 
@@ -46,7 +51,14 @@ export default async function McpServerClientConfigurationRoute({
       <JsonConfigurationSection
         serverName={server.routeId}
         mcpServerUrl={mcpServerUrl}
-        permissionCheck={<PermissionReadinessSection readiness={permissionReadiness} toolsResult={toolsResult} />}
+        permissionCheck={(
+          <PermissionReadinessSection
+            mcpKeyName={server.name}
+            project={server.namespace}
+            readiness={permissionReadiness}
+            toolsResult={toolsResult}
+          />
+        )}
       />
     </ConsoleTemplate>
   )

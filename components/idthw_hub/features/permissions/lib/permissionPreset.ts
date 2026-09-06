@@ -1,7 +1,9 @@
 import type {
+  ConfiguredPermissionRequirement,
   PermissionPreset,
   PermissionPresetGroup,
   PermissionRequirement,
+  ToolPermissionSettings,
 } from "../types/permissions"
 
 export const SIGNED_IN_USER_MEMBER = "<signed_in_user>"
@@ -16,6 +18,14 @@ export function parsePermissionPresetForServer(
   serverId: string,
   signedInPrincipal: string,
 ): PermissionPreset | undefined {
+  const settings = toolPermissionSettingsForServer(value, serverId)
+  return settings ? permissionPresetFromToolSettings(settings, serverId, signedInPrincipal) : undefined
+}
+
+export function toolPermissionSettingsForServer(
+  value: unknown,
+  serverId: string,
+): ToolPermissionSettings | undefined {
   const root = requireRecord(value, "permission preset")
   assertOnlyKeys(root, ["version", "servers"], "permission preset")
   if (root.version !== PERMISSION_PRESET_VERSION) {
@@ -32,32 +42,73 @@ export function parsePermissionPresetForServer(
 
   const server = requireRecord(configuredServer, `permission preset for ${serverId}`)
   assertOnlyKeys(server, ["tools"], `permission preset for ${serverId}`)
+  return parseToolPermissionSettings({ version: PERMISSION_PRESET_VERSION, tools: server.tools })
+}
 
-  const groups: PermissionPresetGroup[] = []
-  if (server.tools !== undefined) {
-    const tools = requireRecord(server.tools, `tool requirements for ${serverId}`)
-    for (const [toolName, configuredTool] of Object.entries(tools)) {
-      if (!toolName.trim()) throw new Error(`Tool name for ${serverId} must not be empty`)
-      const tool = requireRecord(configuredTool, `permission preset for tool ${toolName}`)
-      assertOnlyKeys(tool, ["requirements"], `permission preset for tool ${toolName}`)
-      groups.push({
-        kind: "tool",
-        label: `Tool: ${toolName}`,
-        requirements: parseRequirements(
-          tool.requirements,
-          `requirements for tool ${toolName}`,
-          signedInPrincipal,
-        ),
-        toolName,
-      })
+export function parseToolPermissionSettings(value: unknown): ToolPermissionSettings {
+  const root = requireRecord(value, "tool permission settings")
+  assertOnlyKeys(root, ["version", "tools"], "tool permission settings")
+  if (root.version !== PERMISSION_PRESET_VERSION) {
+    throw new Error(`Tool permission settings version must be ${PERMISSION_PRESET_VERSION}`)
+  }
+
+  const configuredTools = requireRecord(root.tools, "tool permission settings tools")
+  const tools: ToolPermissionSettings["tools"] = {}
+  for (const [toolName, configuredTool] of Object.entries(configuredTools)) {
+    if (!toolName.trim()) throw new Error("Tool permission settings contain an empty tool name")
+    const tool = requireRecord(configuredTool, `tool permission settings for ${toolName}`)
+    assertOnlyKeys(tool, ["requirements"], `tool permission settings for ${toolName}`)
+    tools[toolName] = {
+      requirements: parseConfiguredRequirements(
+        tool.requirements,
+        `requirements for tool ${toolName}`,
+      ),
     }
   }
 
-  if (groups.length === 0 || groups.every(({ requirements }) => requirements.length === 0)) {
-    throw new Error(`Permission preset for ${serverId} must define at least one requirement`)
+  if (Object.keys(tools).length === 0) {
+    throw new Error("Tool permission settings must define at least one tool")
+  }
+
+  return { version: PERMISSION_PRESET_VERSION, tools }
+}
+
+export function permissionPresetFromToolSettings(
+  settings: ToolPermissionSettings,
+  serverId: string,
+  signedInPrincipal: string,
+): PermissionPreset {
+  if (!ROUTE_ID_PATTERN.test(serverId)) {
+    throw new Error(`Invalid MCP server route ID ${JSON.stringify(serverId)}`)
+  }
+
+  const groups: PermissionPresetGroup[] = []
+  for (const [toolName, tool] of Object.entries(settings.tools)) {
+    groups.push({
+      kind: "tool",
+      label: `Tool: ${toolName}`,
+      requirements: resolveConfiguredRequirements(
+        tool.requirements,
+        `requirements for tool ${toolName}`,
+        signedInPrincipal,
+      ),
+      toolName,
+    })
   }
 
   return { groups, serverId }
+}
+
+export function mergeToolPermissionSettings(
+  base: ToolPermissionSettings | undefined,
+  overrides: ToolPermissionSettings | undefined,
+): ToolPermissionSettings | undefined {
+  if (!base) return overrides
+  if (!overrides) return base
+  return {
+    version: PERMISSION_PRESET_VERSION,
+    tools: { ...base.tools, ...overrides.tools },
+  }
 }
 
 export function parseAthenzRole(value: string) {
@@ -71,18 +122,26 @@ export function parseToolAccessScopesForServer(
   serverId: string,
   routeAccessScope?: string,
 ): Record<string, string> | undefined {
-  const preset = parsePermissionPresetForServer(value, serverId, "human.scope-resolver")
-  if (!preset) return undefined
+  const settings = toolPermissionSettingsForServer(value, serverId)
+  return settings ? toolAccessScopesFromSettings(settings, serverId, routeAccessScope) : undefined
+}
+
+export function toolAccessScopesFromSettings(
+  settings: ToolPermissionSettings,
+  serverId: string,
+  routeAccessScope?: string,
+): Record<string, string> {
+  const preset = permissionPresetFromToolSettings(settings, serverId, "human.scope-resolver")
   const routeRoles = parseAccessScope(routeAccessScope)
 
   return Object.fromEntries(preset.groups.map((group) => {
     const roles = group.requirements
       .filter(({ configuredMember }) => configuredMember === SIGNED_IN_USER_MEMBER)
       .map(({ role }) => role)
-    if (!group.toolName || roles.length === 0) {
-      throw new Error(`Tool ${group.toolName ?? group.label} must define a signed-in-user requirement`)
-    }
-    return [group.toolName, [...new Set([...roles, ...routeRoles])].sort().join(" ")]
+    if (!group.toolName) throw new Error(`Tool ${group.label} has no tool name`)
+    const scopes = [...new Set([...roles, ...routeRoles])].sort()
+    if (scopes.length === 0) throw new Error(`Tool ${group.toolName} has no signed-in-user or managed access scope`)
+    return [group.toolName, scopes.join(" ")]
   }))
 }
 
@@ -109,11 +168,13 @@ export function withManagedAccessRequirements(
       label: "Signed-in user can invoke this Athenz-protected MCP server",
       member: signedInPrincipal,
       role,
+      source: "managed",
     }, {
       configuredMember: gatewayPrincipal,
       label: "MCP Gateway can request protected MCP access",
       member: gatewayPrincipal,
       role: `${parsed.domain}:role.${parsed.role}-jag-exchanger`,
+      source: "managed",
     }]
   })
 
@@ -148,11 +209,10 @@ function mergeRequirements(current: PermissionRequirement[], added: PermissionRe
   return [...current, ...added.filter(({ member, role }) => !identities.has(`${member}\n${role}`))]
 }
 
-function parseRequirements(
+function parseConfiguredRequirements(
   value: unknown,
   location: string,
-  signedInPrincipal: string,
-): PermissionRequirement[] {
+): ConfiguredPermissionRequirement[] {
   if (!Array.isArray(value)) throw new Error(`${capitalize(location)} must be an array`)
 
   const seen = new Set<string>()
@@ -166,7 +226,7 @@ function parseRequirements(
     const label = requirement.label === undefined
       ? "Required role membership"
       : requireString(requirement.label, `${itemLocation}.label`)
-    const member = resolveMember(configuredMember, signedInPrincipal, itemLocation)
+    validateConfiguredMember(configuredMember, itemLocation)
     parseAthenzRole(role)
 
     const identity = `${configuredMember}\n${role}`
@@ -175,8 +235,34 @@ function parseRequirements(
     }
     seen.add(identity)
 
-    return { configuredMember, label, member, role }
+    return { label, member: configuredMember, role }
   })
+}
+
+function resolveConfiguredRequirements(
+  configured: ConfiguredPermissionRequirement[],
+  location: string,
+  signedInPrincipal: string,
+): PermissionRequirement[] {
+  return configured.map(({ label, member: configuredMember, role }, index) => ({
+    configuredMember,
+    label,
+    member: resolveMember(configuredMember, signedInPrincipal, `${location}[${index}]`),
+    role,
+    source: "tool",
+  }))
+}
+
+function validateConfiguredMember(configuredMember: string, location: string) {
+  if (configuredMember === SIGNED_IN_USER_MEMBER) return
+  if (configuredMember.includes("<") || configuredMember.includes(">")) {
+    throw new Error(
+      `Unknown or partial permission member placeholder ${JSON.stringify(configuredMember)} at ${location}`,
+    )
+  }
+  if (!ATHENZ_PRINCIPAL_PATTERN.test(configuredMember)) {
+    throw new Error(`Invalid Athenz principal ${JSON.stringify(configuredMember)} at ${location}`)
+  }
 }
 
 function resolveMember(configuredMember: string, signedInPrincipal: string, location: string) {
@@ -187,14 +273,7 @@ function resolveMember(configuredMember: string, signedInPrincipal: string, loca
     return signedInPrincipal
   }
 
-  if (configuredMember.includes("<") || configuredMember.includes(">")) {
-    throw new Error(
-      `Unknown or partial permission member placeholder ${JSON.stringify(configuredMember)} at ${location}`,
-    )
-  }
-  if (!ATHENZ_PRINCIPAL_PATTERN.test(configuredMember)) {
-    throw new Error(`Invalid Athenz principal ${JSON.stringify(configuredMember)} at ${location}`)
-  }
+  validateConfiguredMember(configuredMember, location)
   return configuredMember
 }
 

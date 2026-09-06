@@ -12,6 +12,11 @@ import {
   type McpKubernetesManifestInput,
 } from "../lib/kubernetesManifest.ts"
 import { normalizeMcpIconId } from "../../mcp-servers/lib/mcpIcons.ts"
+import { parseToolPermissionSettings } from "../../permissions/lib/permissionPreset.ts"
+import type {
+  ConfiguredPermissionRequirement,
+  ToolPermissionSettings,
+} from "../../permissions/types/permissions.ts"
 import { runtimeProxyResourceOptions } from "./mcpRuntimeProxy.ts"
 
 const ANNOTATION_ACCESS_MANAGEMENT = "mcp.idthw.dev/access-management"
@@ -24,6 +29,7 @@ const ANNOTATION_IAM_SERVICE_ACCOUNT = "mcp.idthw.dev/iam-service-account"
 const ANNOTATION_ID = "mcp.idthw.dev/id"
 const ANNOTATION_PATH = "mcp.idthw.dev/path"
 const ANNOTATION_TEMPLATE_KEY = "mcp.idthw.dev/template-key"
+const ANNOTATION_TOOL_PERMISSIONS = "mcp.idthw.dev/tool-permissions"
 const ANNOTATION_VISIBILITY = "mcp.idthw.dev/visibility"
 const LABEL_PART_OF = "app.kubernetes.io/part-of"
 const LABEL_PROJECT = "mcp.idthw.dev/project"
@@ -200,6 +206,54 @@ export async function updateMcpResources(
   }
 }
 
+export async function updateMcpToolPermissions(
+  project: string,
+  mcpKeyName: string,
+  toolName: string,
+  requirements: ConfiguredPermissionRequirement[],
+  runKubectl: KubectlRunner = runKubectlCommand,
+) {
+  const deployment = await readMcpDeployment(project, mcpKeyName, runKubectl)
+  configurationFromDeployment(deployment, project, mcpKeyName)
+  const current = storedToolPermissionSettings(deployment.metadata?.annotations?.[ANNOTATION_TOOL_PERMISSIONS])
+  const settings = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      ...current?.tools,
+      [toolName]: { requirements },
+    },
+  })
+  const serialized = JSON.stringify(settings)
+  if (Buffer.byteLength(serialized) > 128 * 1024) {
+    throw new Error("Tool permission settings exceed the Kubernetes annotation size limit")
+  }
+
+  const patchDirectory = await mkdtemp(join(tmpdir(), "idthw-mcp-permissions-patch-"))
+  try {
+    const patchPath = join(patchDirectory, "deployment-patch.json")
+    await writeFile(patchPath, JSON.stringify({
+      metadata: {
+        annotations: { [ANNOTATION_TOOL_PERMISSIONS]: serialized },
+      },
+    }), { encoding: "utf8", mode: 0o600 })
+    const args = [
+      "patch",
+      `deployment/${mcpKeyName}`,
+      "--namespace",
+      project,
+      "--type=merge",
+      "--patch-file",
+      patchPath,
+    ]
+    await runKubectl(kubectlArgs([...args, "--dry-run=server"]))
+    await runKubectl(kubectlArgs(args))
+  } finally {
+    await rm(patchDirectory, { recursive: true, force: true })
+  }
+
+  return settings
+}
+
 export async function deleteMcpResources(
   project: string,
   mcpKeyName: string,
@@ -364,6 +418,17 @@ async function readMcpDeployment(project: string, mcpKeyName: string, runKubectl
     return JSON.parse(result.stdout) as KubernetesDeployment
   } catch {
     throw new Error("MCP server deployment data is invalid")
+  }
+}
+
+function storedToolPermissionSettings(value: string | undefined): ToolPermissionSettings | undefined {
+  if (!value) return undefined
+  try {
+    return parseToolPermissionSettings(JSON.parse(value) as unknown)
+  } catch (error) {
+    throw new Error(
+      `Stored MCP tool permissions are invalid: ${error instanceof Error ? error.message : "invalid JSON"}`,
+    )
   }
 }
 

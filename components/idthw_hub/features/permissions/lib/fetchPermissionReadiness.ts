@@ -7,8 +7,11 @@ import path from "node:path"
 import { promisify } from "node:util"
 import { parse } from "yaml"
 import {
+  mergeToolPermissionSettings,
   parseAthenzRole,
-  parsePermissionPresetForServer,
+  parseToolPermissionSettings,
+  permissionPresetFromToolSettings,
+  toolPermissionSettingsForServer,
   withManagedAccessRequirements,
 } from "@/features/permissions/lib/permissionPreset"
 import type {
@@ -42,16 +45,20 @@ export async function fetchPermissionReadiness(
   serverId: string,
   username: string,
   routeAccessScope?: string,
+  toolPermissionOverrides?: unknown,
 ): Promise<PermissionReadiness | null> {
   let preset
   try {
     const configuredPreset = await readPermissionPresetConfigMap()
     const signedInPrincipal = signedInAthenzPrincipal(username)
-    preset = parsePermissionPresetForServer(
-      configuredPreset,
-      serverId,
-      signedInPrincipal,
-    )
+    const configuredSettings = toolPermissionSettingsForServer(configuredPreset, serverId)
+    const overrideSettings = toolPermissionOverrides === undefined
+      ? undefined
+      : parseToolPermissionSettings(toolPermissionOverrides)
+    const settings = mergeToolPermissionSettings(configuredSettings, overrideSettings)
+    preset = settings
+      ? permissionPresetFromToolSettings(settings, serverId, signedInPrincipal)
+      : undefined
     preset = withManagedAccessRequirements(
       preset,
       serverId,
