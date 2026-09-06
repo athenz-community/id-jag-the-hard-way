@@ -43,7 +43,7 @@ type EditableExchangeHelperRequirement = {
   label: string
   member: string
   memberType: "custom" | "gateway" | "mcp-service"
-  policy: EditableExchangePolicyRule
+  policies: EditableExchangePolicyRule[]
   role: string
 }
 
@@ -172,11 +172,11 @@ export function PermissionRequestDialog({
               exchangeHelperRequirements: requirement.helperRequirements.map((helper) => ({
                 label: helper.label.trim(),
                 member: helper.member.trim(),
-                policy: {
-                  action: helper.policy.action.trim(),
-                  effect: helper.policy.effect,
-                  resource: helper.policy.resource.trim(),
-                },
+                policies: helper.policies.map((policy) => ({
+                  action: policy.action.trim(),
+                  effect: policy.effect,
+                  resource: policy.resource.trim(),
+                })),
                 role: helper.role.trim(),
               })),
             }
@@ -195,11 +195,11 @@ export function PermissionRequestDialog({
       return
     }
     const invalidHelper = requirements.some((requirement) => requirement.exchangeHelperRequirements
-      ?.some(({ label, member, policy, role }) => (
-        !label || !member || !role || !policy?.action || !policy.resource
+      ?.some(({ label, member, policies, role }) => (
+        !label || !member || !role || policies?.some(({ action, resource }) => !action || !resource)
       )))
     if (invalidHelper) {
-      setSaveError("Complete the access description, member, role, policy action, and policy resource for every helper permission.")
+      setSaveError("Complete the access description, member, role, and any configured policy action and resource for every helper permission.")
       return
     }
 
@@ -675,9 +675,29 @@ function ExchangeHelperEditor({
       )),
     })
   }
-  const updateHelperPolicy = (helperIndex: number, values: Partial<EditableExchangePolicyRule>) => {
+  const updateHelperPolicy = (
+    helperIndex: number,
+    policyIndex: number,
+    values: Partial<EditableExchangePolicyRule>,
+  ) => {
     const helper = displayedHelperRequirements[helperIndex]
-    updateHelper(helperIndex, { policy: { ...helper.policy, ...values } })
+    updateHelper(helperIndex, {
+      policies: helper.policies.map((policy, index) => (
+        index === policyIndex ? { ...policy, ...values } : policy
+      )),
+    })
+  }
+  const removeHelperPolicy = (helperIndex: number, policyIndex: number) => {
+    const helper = displayedHelperRequirements[helperIndex]
+    updateHelper(helperIndex, {
+      policies: helper.policies.filter((_, index) => index !== policyIndex),
+    })
+  }
+  const addHelperPolicy = (helperIndex: number) => {
+    const helper = displayedHelperRequirements[helperIndex]
+    updateHelper(helperIndex, {
+      policies: [...helper.policies, emptyExchangePolicy()],
+    })
   }
   const removeHelper = (helperIndex: number) => {
     updateRequirement({
@@ -696,7 +716,7 @@ function ExchangeHelperEditor({
     <div className="permission-helper-settings">
       <div className="permission-helper-heading">
         <strong>Token-exchange helper permissions</strong>
-        <small>Each indented helper keeps its role membership and associated policy together.</small>
+        <small>Each indented helper keeps its role membership and optional exchange policy together.</small>
       </div>
       {!servicePrincipal ? (
         <p className="permission-helper-note">Helpers require a Hub-managed MCP IAM account.</p>
@@ -758,38 +778,58 @@ function ExchangeHelperEditor({
                   <Trash2 size={15} aria-hidden="true" />
                 </button>
               </div>
-              <div className="permission-helper-policy-row">
-                <span className="permission-helper-row-label">Policy</span>
-                <label className="permission-editor-field permission-helper-effect-field">
-                  <span>Effect</span>
-                  <select
-                    value={helper.policy.effect}
-                    onChange={(event) => updateHelperPolicy(helperIndex, {
-                      effect: event.target.value as EditableExchangePolicyRule["effect"],
-                    })}
+              {helper.policies.map((policy, policyIndex) => (
+                <div className="permission-helper-policy-row" key={policyIndex}>
+                  <span className="permission-helper-row-label">Policy</span>
+                  <label className="permission-editor-field permission-helper-effect-field">
+                    <span>Effect</span>
+                    <select
+                      value={policy.effect}
+                      onChange={(event) => updateHelperPolicy(helperIndex, policyIndex, {
+                        effect: event.target.value as EditableExchangePolicyRule["effect"],
+                      })}
+                    >
+                      <option value="ALLOW">Allow</option>
+                      <option value="DENY">Deny</option>
+                    </select>
+                  </label>
+                  <label className="permission-editor-field">
+                    <span>Action</span>
+                    <input
+                      required
+                      value={policy.action}
+                      placeholder="zts.jag_exchange"
+                      onChange={(event) => updateHelperPolicy(helperIndex, policyIndex, { action: event.target.value })}
+                    />
+                  </label>
+                  <label className="permission-editor-field permission-helper-resource-field">
+                    <span>Resource</span>
+                    <input
+                      required
+                      value={policy.resource}
+                      placeholder="domain:role.role-name"
+                      onChange={(event) => updateHelperPolicy(helperIndex, policyIndex, { resource: event.target.value })}
+                    />
+                  </label>
+                  <button
+                    className="permission-editor-remove"
+                    type="button"
+                    aria-label={`Remove policy ${policyIndex + 1} from helper ${helperIndex + 1}`}
+                    onClick={() => removeHelperPolicy(helperIndex, policyIndex)}
                   >
-                    <option value="ALLOW">Allow</option>
-                    <option value="DENY">Deny</option>
-                  </select>
-                </label>
-                <label className="permission-editor-field">
-                  <span>Action</span>
-                  <input
-                    required
-                    value={helper.policy.action}
-                    placeholder="zts.jag_exchange"
-                    onChange={(event) => updateHelperPolicy(helperIndex, { action: event.target.value })}
-                  />
-                </label>
-                <label className="permission-editor-field permission-helper-resource-field">
-                  <span>Resource</span>
-                  <input
-                    required
-                    value={helper.policy.resource}
-                    placeholder="domain:role.role-name"
-                    onChange={(event) => updateHelperPolicy(helperIndex, { resource: event.target.value })}
-                  />
-                </label>
+                    <Trash2 size={15} aria-hidden="true" />
+                  </button>
+                </div>
+              ))}
+              <div className="permission-helper-policy-actions">
+                <button
+                  className="permission-helper-policy-add"
+                  type="button"
+                  onClick={() => addHelperPolicy(helperIndex)}
+                >
+                  <Plus size={12} aria-hidden="true" />
+                  Add policy
+                </button>
               </div>
             </div>
           ))}
@@ -838,9 +878,13 @@ function previewExchangeHelperRequirements(
   if (!servicePrincipal || !sourceAudience) return []
   try {
     const targetRole = configuredRole(requirement.audience, requirement.role)
-    const policiesByRole = new Map(exchangePolicyRules(targetRole, sourceAudience).map((policy) => (
-      [policy.role, policy] as const
-    )))
+    const policiesByRole = new Map<string, EditableExchangePolicyRule[]>()
+    for (const policy of exchangePolicyRules(targetRole, sourceAudience)) {
+      policiesByRole.set(policy.role, [
+        ...(policiesByRole.get(policy.role) ?? []),
+        { action: policy.action, effect: policy.effect, resource: policy.resource },
+      ])
+    }
     return exchangeHelperRequirements(
       [{
         label: requirement.label || "Required role membership",
@@ -849,13 +893,10 @@ function previewExchangeHelperRequirements(
       }],
       servicePrincipal,
     ).map((helper) => {
-      const policy = policiesByRole.get(helper.role)
       return {
         ...helper,
         memberType: helperMemberType(helper.member, servicePrincipal),
-        policy: policy
-          ? { action: policy.action, effect: policy.effect, resource: policy.resource }
-          : emptyExchangePolicy(),
+        policies: policiesByRole.get(helper.role) ?? [],
       }
     })
   } catch {
@@ -878,21 +919,16 @@ function editableRequirements(
         || requirement.includeExchangeHelpers === false,
       helperRequirements: helperRequirements
         .filter((helper) => helper.toolRequirementIndex === toolRequirementIndex)
-        .map(({ exchangePolicy, label, member, role }) => {
-          const checkedPolicy = helperPolicies.find((policy) => (
+        .map(({ exchangePolicies, label, member, role }) => {
+          const checkedPolicies = helperPolicies.filter((policy) => (
             policy.toolRequirementIndex === toolRequirementIndex && policy.role === role
           ))
           return {
             label,
             member,
             memberType: helperMemberType(member, servicePrincipal),
-            policy: exchangePolicy ?? (checkedPolicy
-              ? {
-                  action: checkedPolicy.action,
-                  effect: checkedPolicy.effect,
-                  resource: checkedPolicy.resource,
-                }
-              : emptyExchangePolicy()),
+            policies: (checkedPolicies.length > 0 ? checkedPolicies : exchangePolicies ?? [])
+              .map(({ action, effect, resource }) => ({ action, effect, resource })),
             role,
           }
         }),
@@ -939,7 +975,7 @@ function emptyHelperRequirement(): EditableExchangeHelperRequirement {
     label: "",
     member: "",
     memberType: "custom",
-    policy: emptyExchangePolicy(),
+    policies: [emptyExchangePolicy()],
     role: "",
   }
 }

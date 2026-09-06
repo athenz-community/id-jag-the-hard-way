@@ -5,7 +5,7 @@ import { ContainerArgumentsField } from "@/features/registration/components/Cont
 import { useMcpTemplateDraft } from "./McpTemplateDraftContext"
 
 const DEFAULT_MCP_IMAGES = [
-  "ghcr.io/mlajkim/mcp:latest",
+  "ghcr.io/mlajkim/idthw-demo-api-mcp:latest",
   "ghcr.io/sooperset/mcp-atlassian:latest",
 ]
 

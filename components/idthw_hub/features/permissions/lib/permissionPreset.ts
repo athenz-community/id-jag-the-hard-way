@@ -160,21 +160,24 @@ export function permissionPresetFromToolSettings(
           `exchange helpers for ${location}[${helperIndex}]`,
           signedInPrincipal,
         ),
-        ...(configuredHelper.policy ? { exchangePolicy: configuredHelper.policy } : {}),
+        ...(configuredHelper.policies === undefined ? {} : {
+          exchangePolicies: configuredHelper.policies,
+          exchangePoliciesCustomized: true,
+        }),
         source: "helper",
         toolRequirementIndex,
       }))
       return [directRequirement, ...helperRequirements]
     })
     const policies: PermissionPolicyRequirement[] = requirements.flatMap((requirement) => (
-      requirement.source === "helper" && requirement.exchangePolicy
-        ? [{
-            ...requirement.exchangePolicy,
+      requirement.source === "helper"
+        ? (requirement.exchangePolicies ?? []).map((policy) => ({
+            ...policy,
             label: "Configured exchange policy",
             role: requirement.role,
             source: "helper" as const,
             toolRequirementIndex: requirement.toolRequirementIndex,
-          }]
+          }))
         : []
     ))
     groups.push({
@@ -252,9 +255,14 @@ export function withExpectedExchangePolicies(
       const seen = new Set(policies.map(({ action, effect, resource, role }) => (
         `${effect}\n${action}\n${role}\n${resource}`
       )))
-      const customizedHelperPolicyRoles = new Set(policies
-        .filter(({ source }) => source === "helper")
-        .map(({ role, toolRequirementIndex }) => `${toolRequirementIndex ?? ""}\n${role}`))
+      const customizedHelperPolicyRoles = new Set([
+        ...policies
+          .filter(({ source }) => source === "helper")
+          .map(({ role, toolRequirementIndex }) => `${toolRequirementIndex ?? ""}\n${role}`),
+        ...group.requirements
+          .filter(({ exchangePoliciesCustomized, source }) => source === "helper" && exchangePoliciesCustomized)
+          .map(({ role, toolRequirementIndex }) => `${toolRequirementIndex ?? ""}\n${role}`),
+      ])
       const sourceExchangeRole = group.requirements.find(({ role, source }) => (
         source === "managed" && role.endsWith(":role.accessor-source-exchanger")
       ))?.role
@@ -515,7 +523,7 @@ function parseConfiguredExchangeHelperRequirements(
   return value.map((configuredRequirement, index) => {
     const itemLocation = `${location}[${index}]`
     const requirement = requireRecord(configuredRequirement, itemLocation)
-    assertOnlyKeys(requirement, ["label", "member", "policy", "role"], itemLocation)
+    assertOnlyKeys(requirement, ["label", "member", "policies", "policy", "role"], itemLocation)
     const member = requireString(requirement.member, `${itemLocation}.member`)
     const role = requireString(requirement.role, `${itemLocation}.role`)
     const label = requirement.label === undefined
@@ -526,14 +534,34 @@ function parseConfiguredExchangeHelperRequirements(
       throw new Error(`Exchange helper requirements at ${location} must use static service principals`)
     }
     parseAthenzRole(role)
-    const policy = requirement.policy === undefined
-      ? undefined
-      : parseConfiguredExchangePolicy(requirement.policy, `${itemLocation}.policy`)
+    if (requirement.policy !== undefined && requirement.policies !== undefined) {
+      throw new Error(`${capitalize(itemLocation)} cannot define both policy and policies`)
+    }
+    const policies = requirement.policy !== undefined
+      ? [parseConfiguredExchangePolicy(requirement.policy, `${itemLocation}.policy`)]
+      : requirement.policies === undefined
+        ? undefined
+        : parseConfiguredExchangePolicies(requirement.policies, `${itemLocation}.policies`)
 
     const identity = `${member}\n${role}`
     if (seen.has(identity)) throw new Error(`Duplicate exchange helper requirement for ${member} in ${role}`)
     seen.add(identity)
-    return { label, member, ...(policy ? { policy } : {}), role }
+    return { label, member, ...(policies === undefined ? {} : { policies }), role }
+  })
+}
+
+function parseConfiguredExchangePolicies(
+  value: unknown,
+  location: string,
+): ConfiguredExchangePolicyRule[] {
+  if (!Array.isArray(value)) throw new Error(`${capitalize(location)} must be an array`)
+  const seen = new Set<string>()
+  return value.map((policy, index) => {
+    const parsed = parseConfiguredExchangePolicy(policy, `${location}[${index}]`)
+    const identity = `${parsed.effect}\n${parsed.action}\n${parsed.resource}`
+    if (seen.has(identity)) throw new Error(`Duplicate exchange policy at ${location}[${index}]`)
+    seen.add(identity)
+    return parsed
   })
 }
 

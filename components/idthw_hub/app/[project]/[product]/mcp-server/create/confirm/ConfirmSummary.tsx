@@ -230,36 +230,32 @@ export function ConfirmSummary({
               <div><dt>MCP template name</dt><dd>{valueOrFallback(selectedTemplate?.name ?? "")}</dd></div>
               <div><dt>Template key</dt><dd>{valueOrFallback(draft.selectedTemplateKey)}</dd></div>
             </>
-          ) : (
-            <>
-              <div><dt>Source</dt><dd>Container registry</dd></div>
-              {isEditing && usesTemplate ? (
-                <div><dt>Template key</dt><dd>{valueOrFallback(draft.selectedTemplateKey)}</dd></div>
-              ) : null}
-              <div><dt>Container image URL</dt><dd>{valueOrFallback(runtime.image)}</dd></div>
-              <div><dt>Target port</dt><dd>{valueOrFallback(runtime.port)}</dd></div>
-              <div><dt>Protocol</dt><dd>Streamable HTTP</dd></div>
-              <div>
-                <dt>Additional settings</dt>
-                <dd>
-                  <dl className="mcp-confirm-nested-list">
-                    <div><dt>Path</dt><dd>{valueOrFallback(runtime.path)}</dd></div>
-                    <div><dt>Container command</dt><dd>{valueOrFallback(runtime.command)}</dd></div>
-                    <div>
-                      <dt>Container arguments</dt>
-                      <dd>
-                        {containerArguments.length > 0 ? (
-                          <ol className="mcp-confirm-argument-list">
-                            {containerArguments.map((argument, index) => <li key={`${index}-${argument}`}>{argument}</li>)}
-                          </ol>
-                        ) : "Not provided"}
-                      </dd>
-                    </div>
-                  </dl>
-                </dd>
-              </div>
-            </>
-          )}
+          ) : isEditing && usesTemplate ? (
+            <div><dt>Template key</dt><dd>{valueOrFallback(draft.selectedTemplateKey)}</dd></div>
+          ) : null}
+          <div><dt>Source</dt><dd>Container registry</dd></div>
+          <div><dt>Container image URL</dt><dd>{valueOrFallback(runtime.image)}</dd></div>
+          <div><dt>Target port</dt><dd>{valueOrFallback(runtime.port)}</dd></div>
+          <div><dt>Protocol</dt><dd>Streamable HTTP</dd></div>
+          <div>
+            <dt>Additional settings</dt>
+            <dd>
+              <dl className="mcp-confirm-nested-list">
+                <div><dt>Path</dt><dd>{valueOrFallback(runtime.path)}</dd></div>
+                <div><dt>Container command</dt><dd>{valueOrFallback(runtime.command)}</dd></div>
+                <div>
+                  <dt>Container arguments</dt>
+                  <dd>
+                    {containerArguments.length > 0 ? (
+                      <ol className="mcp-confirm-argument-list">
+                        {containerArguments.map((argument, index) => <li key={`${index}-${argument}`}>{argument}</li>)}
+                      </ol>
+                    ) : "Not provided"}
+                  </dd>
+                </div>
+              </dl>
+            </dd>
+          </div>
         </dl>
       </section>
 
