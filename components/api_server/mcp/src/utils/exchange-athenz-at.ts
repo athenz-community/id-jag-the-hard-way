@@ -14,9 +14,18 @@ const CERT_PATH = process.env.ATHENZ_CERT_PATH || path.join(CERT_DIR, "api-mcp.c
 const KEY_PATH = process.env.ATHENZ_KEY_PATH || path.join(CERT_DIR, "api-mcp.key");
 const CA_PATH = process.env.ATHENZ_CA_PATH || path.join(CERT_DIR, "ca.crt");
 
-const cert = fs.readFileSync(CERT_PATH);
-const key = fs.readFileSync(KEY_PATH);
-const ca = fs.readFileSync(CA_PATH);
+export async function loadAthenzTlsCredentials(
+  certPath = CERT_PATH,
+  keyPath = KEY_PATH,
+  caPath = CA_PATH,
+) {
+  const [cert, key, ca] = await Promise.all([
+    fs.promises.readFile(certPath),
+    fs.promises.readFile(keyPath),
+    fs.promises.readFile(caPath),
+  ]);
+  return { cert, key, ca };
+}
 
 export async function exchangeAthenzAT(req: Request, scope: string): Promise<string> {
   const audience = scope.split(":role.")[0]
@@ -28,6 +37,7 @@ export async function exchangeAthenzAT(req: Request, scope: string): Promise<str
 
   const tokenDisplay = DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN ? `${receivedToken} (⚠️ Visible because DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN=${DANGEROUSLY_SHOW_RAW_ACCESS_TOKEN})` : receivedToken.substring(0, 16) + "..."
   console.log(`[INFO] [Token Exchange] Initiating for scope: "${scope}" using ${CERT_PATH} cert, token: ${tokenDisplay}`);
+  const { cert, key, ca } = await loadAthenzTlsCredentials();
 
   return new Promise((resolve, reject) => {
     const params = new URLSearchParams({
