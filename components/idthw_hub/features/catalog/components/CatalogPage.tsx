@@ -6,6 +6,7 @@ import {
   Filter,
   Home,
   MoreHorizontal,
+  Pencil,
   Search,
 } from "lucide-react"
 import Link from "next/link"
@@ -95,7 +96,17 @@ export function CatalogError({ error }: { error?: string }) {
   )
 }
 
-export function CatalogTable({ servers, project, product }: { servers: McpServer[]; project: string; product: string }) {
+export function CatalogTable({
+  servers,
+  project,
+  product,
+  editable = false,
+}: {
+  servers: McpServer[]
+  project: string
+  product: string
+  editable?: boolean
+}) {
   return (
     <div className="catalog-table-wrap">
       <table className="catalog-table">
@@ -142,9 +153,25 @@ export function CatalogTable({ servers, project, product }: { servers: McpServer
                 <td>{server.project}</td>
                 <td>{server.totalToolCalls}</td>
                 <td>
-                  <button className="table-action" aria-label={`Open actions for ${server.name}`} type="button" disabled>
-                    <MoreHorizontal size={16} aria-hidden="true" />
-                  </button>
+                  {editable ? (
+                    <Link
+                      className="table-action"
+                      href={consoleHref({
+                        project,
+                        product,
+                        section: "mcp-server",
+                        suffix: `${encodeURIComponent(server.name)}/edit`,
+                      })}
+                      aria-label={`Edit ${server.alias ?? server.name}`}
+                      title={`Edit ${server.alias ?? server.name}`}
+                    >
+                      <Pencil size={16} aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <button className="table-action" aria-label={`Open actions for ${server.name}`} type="button" disabled>
+                      <MoreHorizontal size={16} aria-hidden="true" />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))

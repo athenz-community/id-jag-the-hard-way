@@ -92,6 +92,54 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
   }
 }
 
+export function validateMcpUpdate(
+  payload: unknown,
+  existing: McpKubernetesManifestInput,
+): ValidationResult {
+  if (!isRecord(payload) || !Array.isArray(payload.environmentVariables)) {
+    return invalid("Invalid MCP server update request")
+  }
+
+  const existingSecrets = new Set(
+    existing.environmentVariables
+      .filter(({ secret }) => secret)
+      .map(({ key }) => key),
+  )
+  const preservedSecretKeys = new Set<string>()
+  const environmentVariables = payload.environmentVariables.map((variable) => {
+    if (!isRecord(variable)) return variable
+    const key = trimmedString(variable.key)
+    if (key && variable.secret === true && variable.value === "" && existingSecrets.has(key)) {
+      preservedSecretKeys.add(key)
+      return { ...variable, value: "__preserve_existing_secret__" }
+    }
+    return variable
+  })
+  const validation = validateMcpRegistration({ ...payload, environmentVariables })
+  if (!validation.ok) return validation
+
+  const input = validation.input
+  if (
+    input.project !== existing.project
+    || input.mcpKeyName !== existing.mcpKeyName
+    || input.creationMethod !== existing.creationMethod
+    || input.visibility !== existing.visibility
+    || input.templateKey !== existing.templateKey
+  ) {
+    return invalid("MCP server identity and creation settings cannot be changed")
+  }
+
+  return {
+    ok: true,
+    input: {
+      ...input,
+      environmentVariables: input.environmentVariables.map((variable) => preservedSecretKeys.has(variable.key)
+        ? { ...variable, value: "", preserveExistingSecret: true }
+        : variable),
+    },
+  }
+}
+
 function validateContainerArguments(payload: Record<string, unknown>):
   | { ok: true; arguments: string[] }
   | { ok: false; error: string } {

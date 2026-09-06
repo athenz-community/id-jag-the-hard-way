@@ -6,10 +6,46 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { athenzServiceName } from "@/features/registration/lib/athenzServices"
 import { buildMcpKubernetesManifest } from "@/features/registration/lib/kubernetesManifest"
-import { useMcpCreateDraft } from "../McpCreateDraftContext"
+import { type McpCreateDraft, useMcpCreateDraft } from "../McpCreateDraftContext"
 
 function valueOrFallback(value: string) {
   return value || "Not provided"
+}
+
+function normalizedArguments(draft: McpCreateDraft) {
+  return draft.containerArguments.map(({ value }) => value.trim()).filter(Boolean)
+}
+
+function formattedEnvironmentVariables(draft: McpCreateDraft) {
+  return draft.environmentVariables
+    .filter(({ key, value, hasExistingSecret }) => key || value || hasExistingSecret)
+    .map((variable) => {
+      const value = variable.secret
+        ? variable.value
+          ? "New secret value provided"
+          : variable.hasExistingSecret ? "Stored secret value (unchanged)" : "Not provided"
+        : valueOrFallback(variable.value)
+      return `${variable.key || "Missing key"}\nSecret: ${variable.secret ? "Yes" : "No"}\nValue: ${value}`
+    })
+    .join("\n\n")
+}
+
+function changedServerFields(before: McpCreateDraft, after: McpCreateDraft) {
+  const fields = [
+    ["Container image URL", before.image, after.image],
+    ["Target port", before.port, after.port],
+    ["Path", before.path, after.path],
+    ["Container command", before.command, after.command],
+    ["Container arguments", normalizedArguments(before).join("\n"), normalizedArguments(after).join("\n")],
+    ["MCP server name", before.serverName, after.serverName],
+    ["Description", before.description, after.description],
+    ["Environment variables", formattedEnvironmentVariables(before), formattedEnvironmentVariables(after)],
+    ["Access management", before.accessManagement, after.accessManagement],
+    ["IAM service account", before.hubServiceAccountName, after.hubServiceAccountName],
+  ]
+  return fields
+    .filter(([, beforeValue, afterValue]) => beforeValue !== afterValue)
+    .map(([field, beforeValue, afterValue]) => ({ field, beforeValue, afterValue }))
 }
 
 export function ConfirmSummary({
@@ -18,20 +54,25 @@ export function ConfirmSummary({
   successHref,
   sourceHref,
   configurationHref,
+  mode = "create",
+  originalMcpKeyName,
 }: {
   project: string
   cancelHref: string
   successHref: string
   sourceHref: string
   configurationHref: string
+  mode?: "create" | "edit"
+  originalMcpKeyName?: string
 }) {
-  const { draft, resetDraft } = useMcpCreateDraft()
+  const { draft, initialDraft, resetDraft } = useMcpCreateDraft()
   const router = useRouter()
   const [createError, setCreateError] = useState("")
   const [isCreating, setIsCreating] = useState(false)
+  const isEditing = mode === "edit"
   const usesTemplate = draft.creationMethod === "template"
   const selectedTemplate = draft.selectedTemplate
-  const runtime = usesTemplate && selectedTemplate
+  const runtime = !isEditing && usesTemplate && selectedTemplate
     ? {
         arguments: selectedTemplate.arguments,
         command: selectedTemplate.command,
@@ -43,14 +84,25 @@ export function ConfirmSummary({
     : {
         arguments: draft.containerArguments.map(({ value }) => value).filter(Boolean),
         command: draft.command,
-        description: "",
+        description: draft.description,
         image: draft.image,
         path: draft.path,
         port: draft.port,
       }
-  const environmentVariables = usesTemplate ? draft.templateEnvironmentVariables : draft.environmentVariables
-  const configuredEnvironmentVariables = environmentVariables.filter(({ key, value }) => key || value)
+  const environmentVariables = !isEditing && usesTemplate ? draft.templateEnvironmentVariables : draft.environmentVariables
+  const configuredEnvironmentVariables = environmentVariables.filter((variable) => (
+    variable.key
+    || variable.value
+    || ("hasExistingSecret" in variable && variable.hasExistingSecret)
+  ))
   const containerArguments = runtime.arguments.map((argument) => argument.trim()).filter(Boolean)
+  const changes = changedServerFields(initialDraft, draft)
+  const manifestEnvironmentVariables = environmentVariables.map((variable) => ({
+    ...variable,
+    value: variable.secret && !variable.value && "hasExistingSecret" in variable && variable.hasExistingSecret
+      ? "<preserve-existing-secret>"
+      : variable.value,
+  }))
   const kubernetesManifest = buildMcpKubernetesManifest({
     project,
     accessManagement: draft.accessManagement,
@@ -58,7 +110,7 @@ export function ConfirmSummary({
     command: runtime.command,
     creationMethod: draft.creationMethod,
     description: runtime.description,
-    environmentVariables,
+    environmentVariables: manifestEnvironmentVariables,
     image: runtime.image,
     mcpKeyName: draft.mcpKeyName,
     path: runtime.path,
@@ -69,13 +121,16 @@ export function ConfirmSummary({
     visibility: draft.visibility,
   })
 
-  async function createMcpServer() {
+  async function saveMcpServer() {
     setCreateError("")
     setIsCreating(true)
 
     try {
-      const response = await fetch("/api/mcp-servers", {
-        method: "POST",
+      const endpoint = isEditing
+        ? `/api/mcp-servers/${encodeURIComponent(originalMcpKeyName ?? draft.mcpKeyName)}?project=${encodeURIComponent(project)}`
+        : "/api/mcp-servers"
+      const response = await fetch(endpoint, {
+        method: isEditing ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           accessManagement: draft.accessManagement,
@@ -97,20 +152,53 @@ export function ConfirmSummary({
       })
       const payload = await response.json() as { error?: unknown }
       if (!response.ok) {
-        throw new Error(typeof payload.error === "string" ? payload.error : "Unable to create MCP server")
+        throw new Error(typeof payload.error === "string"
+          ? payload.error
+          : `Unable to ${isEditing ? "update" : "create"} MCP server`)
       }
 
       resetDraft()
       router.replace(successHref)
       router.refresh()
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "Unable to create MCP server")
+      setCreateError(error instanceof Error ? error.message : `Unable to ${isEditing ? "update" : "create"} MCP server`)
       setIsCreating(false)
     }
   }
 
   return (
     <div className="mcp-create-form">
+      {isEditing ? (
+        <section className="mcp-confirm-section">
+          <div className="mcp-confirm-heading">
+            <h2>Changes</h2>
+          </div>
+          {changes.length > 0 ? (
+            <>
+              <p className="mcp-confirm-manifest-copy">Only fields changed from the deployed MCP server are shown.</p>
+              <div className="mcp-template-change-table-wrap">
+                <table className="mcp-template-change-table">
+                  <thead>
+                    <tr><th>Field</th><th>Before</th><th>After</th></tr>
+                  </thead>
+                  <tbody>
+                    {changes.map(({ field, beforeValue, afterValue }) => (
+                      <tr key={field}>
+                        <th scope="row">{field}</th>
+                        <td><div className="mcp-template-change-value before">{valueOrFallback(beforeValue)}</div></td>
+                        <td><div className="mcp-template-change-value after">{valueOrFallback(afterValue)}</div></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <p className="mcp-confirm-manifest-copy">No changes have been made to this MCP server.</p>
+          )}
+        </section>
+      ) : null}
+
       <section className="mcp-confirm-section">
         <div className="mcp-confirm-heading">
           <h2>Source</h2>
@@ -118,7 +206,7 @@ export function ConfirmSummary({
         </div>
         <dl className="mcp-confirm-list">
           <div><dt>Creation method</dt><dd>{usesTemplate ? "MCP template" : "Direct setup"}</dd></div>
-          {usesTemplate ? (
+          {!isEditing && usesTemplate ? (
             <>
               <div><dt>MCP template name</dt><dd>{valueOrFallback(selectedTemplate?.name ?? "")}</dd></div>
               <div><dt>Template key</dt><dd>{valueOrFallback(draft.selectedTemplateKey)}</dd></div>
@@ -126,6 +214,9 @@ export function ConfirmSummary({
           ) : (
             <>
               <div><dt>Source</dt><dd>Container registry</dd></div>
+              {isEditing && usesTemplate ? (
+                <div><dt>Template key</dt><dd>{valueOrFallback(draft.selectedTemplateKey)}</dd></div>
+              ) : null}
               <div><dt>Container image URL</dt><dd>{valueOrFallback(runtime.image)}</dd></div>
               <div><dt>Target port</dt><dd>{valueOrFallback(runtime.port)}</dd></div>
               <div><dt>Protocol</dt><dd>Streamable HTTP</dd></div>
@@ -160,6 +251,7 @@ export function ConfirmSummary({
         </div>
         <dl className="mcp-confirm-list">
           <div><dt>Name</dt><dd>{valueOrFallback(draft.serverName)}</dd></div>
+          {isEditing ? <div><dt>Description</dt><dd>{valueOrFallback(draft.description)}</dd></div> : null}
           <div><dt>MCP key name</dt><dd>{valueOrFallback(draft.mcpKeyName)}</dd></div>
           <div><dt>Visibility</dt><dd>{draft.visibility === "project" ? "Project" : "Personal"}</dd></div>
           <div>
@@ -193,7 +285,7 @@ export function ConfirmSummary({
           <h2>Kubernetes manifest</h2>
         </div>
         <p className="mcp-confirm-manifest-copy">
-          Preview of the Kubernetes resources the Hub will create. Secret values are redacted.
+          Preview of the Kubernetes resources the Hub will {isEditing ? "update" : "create"}. Secret values are redacted.
         </p>
         <pre className="mcp-confirm-manifest"><code>{kubernetesManifest}</code></pre>
       </section>
@@ -208,11 +300,13 @@ export function ConfirmSummary({
         <button
           className="button mcp-create-primary"
           type="button"
-          disabled={isCreating}
+          disabled={isCreating || (isEditing && changes.length === 0)}
           aria-busy={isCreating}
-          onClick={() => void createMcpServer()}
+          onClick={() => void saveMcpServer()}
         >
-          {isCreating ? "Creating..." : "Create"}
+          {isCreating
+            ? (isEditing ? "Updating..." : "Creating...")
+            : (isEditing ? "Update" : "Create")}
         </button>
       </div>
     </div>

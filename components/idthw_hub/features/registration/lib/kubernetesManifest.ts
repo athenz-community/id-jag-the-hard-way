@@ -7,6 +7,7 @@ export type McpEnvironmentVariable = {
   key: string
   value: string
   secret: boolean
+  preserveExistingSecret?: boolean
 }
 
 export type McpKubernetesManifestInput = {
