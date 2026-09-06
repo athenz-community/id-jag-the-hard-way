@@ -3,6 +3,7 @@ import Link from "next/link"
 import type { ReactNode } from "react"
 import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import { ConsoleTemplate } from "@/components/templates/ConsoleTemplate"
+import { listMcpIconOptions } from "@/features/mcp-servers/lib/mcpIcons"
 import { ConfirmSummary } from "../../create/confirm/ConfirmSummary"
 import { ConfigurationForm } from "../../create/configuration/ConfigurationForm"
 import { McpTemplateCreateSteps, type McpTemplateStep } from "../../create/McpTemplateCreateSteps"
@@ -24,6 +25,9 @@ export async function EditMcpTemplatePage({
   const configurationHref = consoleHref({ project, product, section: "mcp-template", suffix: `${editSuffix}/configuration` })
   const referenceHref = consoleHref({ project, product, section: "mcp-template", suffix: `${editSuffix}/reference` })
   const confirmHref = consoleHref({ project, product, section: "mcp-template", suffix: `${editSuffix}/confirm` })
+  const iconOptions = activeStep === "configuration" || activeStep === "confirm"
+    ? await listMcpIconOptions()
+    : []
 
   let form: ReactNode
   if (activeStep === "source") {
@@ -34,6 +38,7 @@ export async function EditMcpTemplatePage({
         cancelHref={templateHref}
         sourceHref={sourceHref}
         referenceHref={referenceHref}
+        iconOptions={iconOptions}
         templateKeyReadOnly
       />
     )
@@ -57,6 +62,7 @@ export async function EditMcpTemplatePage({
         referenceHref={referenceHref}
         mode="edit"
         originalTemplateKey={templateKey}
+        iconOptions={iconOptions}
       />
     )
   }

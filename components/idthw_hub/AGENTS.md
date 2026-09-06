@@ -51,6 +51,7 @@ Registration is a real product goal. Users/providers should eventually be able t
 - `<signed_in_user>` is the only supported dynamic permission-preset member. It must occupy the complete `member` value. Unknown or partial placeholders are configuration errors and must never be skipped in a way that could produce a false ready state.
 - Most navigation and not-yet-implemented controls are disabled so missing surfaces are obvious.
 - Public images live in `public/icons/` and are referenced as `/icons/<file>`.
+- Selectable MCP server and template icons live in `public/mcp_icons/`. Resources store only the image filename ID in `mcp.idthw.dev/icon`; missing or unknown IDs fall back to name initials. A selected template icon is the default for servers created from that template.
 - For the first real-data slice, prefer reading Kubernetes Deployments/Services with MCP Hub labels and annotations over adding a database.
 
 ## Recommended PR Order

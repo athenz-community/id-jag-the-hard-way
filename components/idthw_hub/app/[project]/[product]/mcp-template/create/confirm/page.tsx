@@ -3,6 +3,7 @@ import Link from "next/link"
 import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import { ConsoleTemplate } from "@/components/templates/ConsoleTemplate"
 import { requireHubSession } from "@/features/auth/lib/session"
+import { listMcpIconOptions } from "@/features/mcp-servers/lib/mcpIcons"
 import { McpTemplateCreateSteps } from "../McpTemplateCreateSteps"
 import { ConfirmSummary } from "./ConfirmSummary"
 
@@ -15,6 +16,7 @@ export default async function ConfirmMcpTemplateRoute({
 }) {
   await requireHubSession()
   const { project, product } = await params
+  const iconOptions = await listMcpIconOptions()
   const catalogHref = consoleHref({ project, product, section: "catalog" })
   const templateHref = consoleHref({ project, product, section: "mcp-template" })
   const createHref = consoleHref({ project, product, section: "mcp-template", suffix: "create" })
@@ -52,6 +54,7 @@ export default async function ConfirmMcpTemplateRoute({
           sourceHref={createHref}
           configurationHref={configurationHref}
           referenceHref={referenceHref}
+          iconOptions={iconOptions}
         />
       </div>
     </ConsoleTemplate>

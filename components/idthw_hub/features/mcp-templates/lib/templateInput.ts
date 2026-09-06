@@ -2,6 +2,7 @@ import type {
   McpTemplateEnvironmentVariable,
   McpTemplateInput,
 } from "../types.ts"
+import { isValidMcpIconId } from "../../mcp-servers/lib/mcpIcons.ts"
 
 const DNS_LABEL_PATTERN = /^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/
 const ENVIRONMENT_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -16,6 +17,7 @@ export function validateMcpTemplate(payload: unknown): ValidationResult {
   const project = trimmedString(payload.project)
   const name = trimmedString(payload.name)
   const templateKey = trimmedString(payload.templateKey)
+  const iconId = trimmedString(payload.iconId ?? "")
   const image = trimmedString(payload.image)
   const port = trimmedString(payload.port)
   const path = trimmedString(payload.path)
@@ -31,6 +33,9 @@ export function validateMcpTemplate(payload: unknown): ValidationResult {
     return invalid("Template key name must be a lowercase Kubernetes DNS name")
   }
   if (!name || name.length > 128 || /[\r\n\t]/.test(name)) return invalid("Template name is invalid")
+  if (iconId === null || (iconId && !isValidMcpIconId(iconId))) {
+    return invalid("MCP icon ID is invalid")
+  }
   if (!image || image.length > 512 || /\s/.test(image)) return invalid("Container image URL is invalid")
 
   const numericPort = Number(port)
@@ -58,6 +63,7 @@ export function validateMcpTemplate(payload: unknown): ValidationResult {
       description,
       documentation,
       environmentVariables: environmentVariables.variables,
+      iconId,
       image,
       name,
       path,

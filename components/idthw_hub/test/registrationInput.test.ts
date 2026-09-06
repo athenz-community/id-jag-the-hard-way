@@ -10,6 +10,7 @@ const validPayload = {
     { key: "API_TOKEN", secret: true, value: "test-value" },
     { key: "UPSTREAM_URL", secret: false, value: "https://example.test" },
   ],
+  iconId: "google-drive.png",
   image: "ghcr.io/example/mcp:latest",
   mcpKeyName: "docs-mcp",
   path: "/mcp",
@@ -24,8 +25,23 @@ test("accepts a valid MCP registration", () => {
   assert.equal(result.ok, true)
   if (result.ok) {
     assert.equal(result.input.mcpKeyName, "docs-mcp")
+    assert.equal(result.input.iconId, "google-drive.png")
     assert.deepEqual(result.input.arguments, ["--transport", "streamable-http"])
   }
+})
+
+test("allows initials and rejects unsafe MCP icon IDs", () => {
+  const initials = validateMcpRegistration({ ...validPayload, iconId: "" })
+  assert.equal(initials.ok, true)
+
+  assert.deepEqual(validateMcpRegistration({ ...validPayload, iconId: "../secret.png" }), {
+    ok: false,
+    error: "MCP icon ID is invalid",
+  })
+  assert.deepEqual(validateMcpRegistration({ ...validPayload, iconId: "notes.svg" }), {
+    ok: false,
+    error: "MCP icon ID is invalid",
+  })
 })
 
 test("accepts a legacy singular container argument", () => {

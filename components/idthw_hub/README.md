@@ -343,17 +343,19 @@ The current catalog does not display transport yet, but future detail pages shou
 
 ### `mcp.idthw.dev/icon`
 
-Optional icon path served by the Next app.
+Optional image file ID selected during MCP server or MCP template creation/editing. Server Deployments and template Secrets both use this annotation; templates also keep the ID in `template.json`.
 
 ```yaml
-mcp.idthw.dev/icon: "/icons/confluence.png"
+mcp.idthw.dev/icon: "confluence.png"
 ```
 
 Public icon files belong under:
 
 ```text
-public/icons/
+public/mcp_icons/
 ```
+
+The Hub lists supported image files from that directory. If the annotation is absent, invalid, or references a file that no longer exists, server and template lists fall back to initials derived from the resource name. A template icon becomes the default when creating a server from that template, and users can still choose another icon. Legacy `/icons/<file>` and `/mcp_icons/<file>` annotation values are normalized to the file ID when an existing server is edited.
 
 ## Name vs Alias
 

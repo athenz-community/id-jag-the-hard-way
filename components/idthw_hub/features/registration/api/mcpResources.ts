@@ -11,6 +11,7 @@ import {
   type McpEnvironmentVariable,
   type McpKubernetesManifestInput,
 } from "../lib/kubernetesManifest.ts"
+import { normalizeMcpIconId } from "../../mcp-servers/lib/mcpIcons.ts"
 import { runtimeProxyResourceOptions } from "./mcpRuntimeProxy.ts"
 
 const ANNOTATION_ACCESS_MANAGEMENT = "mcp.idthw.dev/access-management"
@@ -18,6 +19,7 @@ const ANNOTATION_ACCESS_SCOPE = "mcp.idthw.dev/access-scope"
 const ANNOTATION_ALIAS = "mcp.idthw.dev/alias"
 const ANNOTATION_CREATION_METHOD = "mcp.idthw.dev/creation-method"
 const ANNOTATION_DESCRIPTION = "mcp.idthw.dev/description"
+const ANNOTATION_ICON = "mcp.idthw.dev/icon"
 const ANNOTATION_IAM_SERVICE_ACCOUNT = "mcp.idthw.dev/iam-service-account"
 const ANNOTATION_ID = "mcp.idthw.dev/id"
 const ANNOTATION_PATH = "mcp.idthw.dev/path"
@@ -119,6 +121,7 @@ export function configurationFromDeployment(
     creationMethod,
     description: annotations[ANNOTATION_DESCRIPTION] ?? "",
     environmentVariables,
+    iconId: normalizeMcpIconId(annotations[ANNOTATION_ICON]),
     image: container.image,
     mcpKeyName,
     path: annotations[ANNOTATION_PATH] ?? "/mcp",
@@ -264,6 +267,7 @@ export function buildMcpResourceUpdate(
   const optionalAnnotations = [
     ANNOTATION_ACCESS_SCOPE,
     ANNOTATION_DESCRIPTION,
+    ANNOTATION_ICON,
     ANNOTATION_IAM_SERVICE_ACCOUNT,
     ANNOTATION_TEMPLATE_KEY,
   ]

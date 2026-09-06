@@ -14,6 +14,7 @@ const input = {
     { key: "API_TOKEN", secret: true, value: "test-secret-value" },
     { key: "UPSTREAM_URL", secret: false, value: "https://example.test" },
   ],
+  iconId: "slack.png",
   image: "ghcr.io/example/mcp:latest",
   mcpKeyName: "docs-mcp",
   path: "/mcp",

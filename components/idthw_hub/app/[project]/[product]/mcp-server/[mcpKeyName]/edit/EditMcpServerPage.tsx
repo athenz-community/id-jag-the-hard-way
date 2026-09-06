@@ -3,6 +3,7 @@ import Link from "next/link"
 import type { ReactNode } from "react"
 import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import { ConsoleTemplate } from "@/components/templates/ConsoleTemplate"
+import { listMcpIconOptions } from "@/features/mcp-servers/lib/mcpIcons"
 import { McpCreateSteps } from "../../create/McpCreateSteps"
 import { ConfigurationForm } from "../../create/configuration/ConfigurationForm"
 import { ConfirmSummary } from "../../create/confirm/ConfirmSummary"
@@ -27,6 +28,9 @@ export async function EditMcpServerPage({
   const hubServiceDomain = `mcp-hub.mcps.${project}`
   const athenzUiUrl = (process.env.MCP_HUB_ATHENZ_UI_URL ?? "http://localhost:3000").replace(/\/+$/, "")
   const athenzServicesHref = `${athenzUiUrl}/domain/${encodeURIComponent(hubServiceDomain)}/service`
+  const iconOptions = activeStep === "configuration" || activeStep === "confirm"
+    ? await listMcpIconOptions()
+    : []
 
   let form: ReactNode
   if (activeStep === "source") {
@@ -39,6 +43,7 @@ export async function EditMcpServerPage({
         cancelHref={mcpServerHref}
         sourceHref={sourceHref}
         confirmHref={confirmHref}
+        iconOptions={iconOptions}
         mode="edit"
       />
     )
@@ -52,6 +57,7 @@ export async function EditMcpServerPage({
         configurationHref={configurationHref}
         mode="edit"
         originalMcpKeyName={mcpKeyName}
+        iconOptions={iconOptions}
       />
     )
   }

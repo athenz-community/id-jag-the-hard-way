@@ -4,6 +4,8 @@ import { Pencil } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { McpIconPreview } from "@/features/mcp-servers/components/McpIconPicker"
+import type { McpIconOption } from "@/features/mcp-servers/lib/mcpIcons"
 import { buildMcpTemplateManifest } from "@/features/mcp-templates/lib/kubernetesTemplate"
 import { type McpTemplateDraft, useMcpTemplateDraft } from "../McpTemplateDraftContext"
 
@@ -36,6 +38,7 @@ function changedTemplateFields(before: McpTemplateDraft, after: McpTemplateDraft
     ["Container command", before.command, after.command],
     ["Container arguments", normalizedArguments(before).join("\n"), normalizedArguments(after).join("\n")],
     ["Template name", before.name, after.name],
+    ["Icon", before.iconId, after.iconId],
     ["Environment variables", formattedEnvironmentVariables(before), formattedEnvironmentVariables(after)],
     ["Documentation", before.documentation, after.documentation],
     ["Description", before.description, after.description],
@@ -54,6 +57,7 @@ export function ConfirmSummary({
   referenceHref,
   mode = "create",
   originalTemplateKey,
+  iconOptions,
 }: {
   project: string
   cancelHref: string
@@ -63,6 +67,7 @@ export function ConfirmSummary({
   referenceHref: string
   mode?: "create" | "edit"
   originalTemplateKey?: string
+  iconOptions: McpIconOption[]
 }) {
   const { draft, initialDraft, resetDraft } = useMcpTemplateDraft()
   const router = useRouter()
@@ -85,6 +90,7 @@ export function ConfirmSummary({
       secret: variable.secret,
       defaultValue: variable.secret ? "" : variable.defaultValue,
     })),
+    iconId: draft.iconId,
     image: draft.image,
     name: draft.name,
     path: draft.path,
@@ -145,8 +151,20 @@ export function ConfirmSummary({
                     {changes.map(({ field, beforeValue, afterValue }) => (
                       <tr key={field}>
                         <th scope="row">{field}</th>
-                        <td><div className="mcp-template-change-value before">{valueOrFallback(beforeValue)}</div></td>
-                        <td><div className="mcp-template-change-value after">{valueOrFallback(afterValue)}</div></td>
+                        <td>
+                          <div className="mcp-template-change-value before">
+                            {field === "Icon"
+                              ? <McpIconPreview iconOptions={iconOptions} name={initialDraft.name} value={beforeValue} />
+                              : valueOrFallback(beforeValue)}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="mcp-template-change-value after">
+                            {field === "Icon"
+                              ? <McpIconPreview iconOptions={iconOptions} name={draft.name} value={afterValue} />
+                              : valueOrFallback(afterValue)}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -199,6 +217,10 @@ export function ConfirmSummary({
         <dl className="mcp-confirm-list">
           <div><dt>Template name</dt><dd>{valueOrFallback(draft.name)}</dd></div>
           <div><dt>Template key name</dt><dd>{valueOrFallback(draft.templateKey)}</dd></div>
+          <div>
+            <dt>Icon</dt>
+            <dd><McpIconPreview iconOptions={iconOptions} name={draft.name} value={draft.iconId} /></dd>
+          </div>
           <div>
             <dt>Environment variables</dt>
             <dd>

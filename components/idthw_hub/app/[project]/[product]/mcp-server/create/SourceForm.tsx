@@ -44,6 +44,7 @@ export function SourceForm({
         if (currentDraft.selectedTemplateKey !== templateKey) return currentDraft
         return {
           ...currentDraft,
+          iconId: template.iconId,
           selectedTemplate: template,
           templateEnvironmentVariables: template.environmentVariables.map((variable, index) => ({
             id: index + 1,
@@ -58,7 +59,7 @@ export function SourceForm({
     } catch (error) {
       setTemplateError(error instanceof Error ? error.message : "Unable to load MCP template")
       setDraft((currentDraft) => currentDraft.selectedTemplateKey === templateKey
-        ? { ...currentDraft, selectedTemplateKey: "", selectedTemplate: null, templateEnvironmentVariables: [] }
+        ? { ...currentDraft, iconId: "", selectedTemplateKey: "", selectedTemplate: null, templateEnvironmentVariables: [] }
         : currentDraft)
     } finally {
       setTemplateLoading(false)
@@ -77,6 +78,7 @@ export function SourceForm({
   function selectTemplate(templateKey: string) {
     setDraft((currentDraft) => ({
       ...currentDraft,
+      iconId: "",
       selectedTemplateKey: templateKey,
       selectedTemplate: null,
       templateEnvironmentVariables: [],

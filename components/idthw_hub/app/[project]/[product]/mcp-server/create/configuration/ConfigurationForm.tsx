@@ -3,6 +3,8 @@
 import { ExternalLink, Plus, RefreshCw, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { McpIconPicker } from "@/features/mcp-servers/components/McpIconPicker"
+import type { McpIconOption } from "@/features/mcp-servers/lib/mcpIcons"
 import { athenzServiceName } from "@/features/registration/lib/athenzServices"
 import { useMcpCreateDraft } from "../McpCreateDraftContext"
 import { McpServerIdentityFields } from "./McpServerIdentityFields"
@@ -13,6 +15,7 @@ export function ConfigurationForm({
   cancelHref,
   sourceHref,
   confirmHref,
+  iconOptions,
   mode = "create",
 }: {
   project: string
@@ -20,6 +23,7 @@ export function ConfigurationForm({
   cancelHref: string
   sourceHref: string
   confirmHref: string
+  iconOptions: McpIconOption[]
   mode?: "create" | "edit"
 }) {
   const { draft, setDraft, resetDraft } = useMcpCreateDraft()
@@ -149,6 +153,14 @@ export function ConfigurationForm({
           />
         </div>
       ) : null}
+
+      <McpIconPicker
+        iconOptions={iconOptions}
+        name={draft.serverName}
+        onChange={(iconId) => setDraft((currentDraft) => ({ ...currentDraft, iconId }))}
+        resourceKind="MCP server"
+        value={draft.iconId}
+      />
 
       <fieldset className="mcp-create-fieldset">
         <legend>Visibility <span aria-label="required">*</span></legend>
