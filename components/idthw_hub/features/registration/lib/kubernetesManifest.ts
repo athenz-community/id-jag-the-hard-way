@@ -19,6 +19,7 @@ export type McpKubernetesManifestInput = {
   creationMethod: "direct" | "template"
   description: string
   environmentVariables: McpEnvironmentVariable[]
+  iconId: string
   image: string
   mcpKeyName: string
   path: string
@@ -72,6 +73,7 @@ export function buildMcpKubernetesResources(
     "mcp.idthw.dev/visibility": input.visibility,
   }
   if (input.description) annotations["mcp.idthw.dev/description"] = input.description
+  if (input.iconId) annotations["mcp.idthw.dev/icon"] = input.iconId
   if (input.creationMethod === "template" && input.templateKey) {
     annotations["mcp.idthw.dev/template-key"] = input.templateKey
   }

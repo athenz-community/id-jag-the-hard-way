@@ -34,11 +34,26 @@ export function buildMcpTemplateSecret(input: McpTemplateInput) {
       },
       annotations: {
         "mcp.idthw.dev/template-name": input.name,
+        ...(input.iconId ? { "mcp.idthw.dev/icon": input.iconId } : {}),
       },
     },
     type: "Opaque",
     stringData: {
       [TEMPLATE_DATA_KEY]: JSON.stringify(buildStoredMcpTemplate(input), null, 2),
+    },
+  }
+}
+
+export function buildMcpTemplatePatch(input: McpTemplateInput) {
+  const secret = buildMcpTemplateSecret(input)
+  return {
+    ...secret,
+    metadata: {
+      ...secret.metadata,
+      annotations: {
+        ...secret.metadata.annotations,
+        "mcp.idthw.dev/icon": input.iconId || null,
+      },
     },
   }
 }

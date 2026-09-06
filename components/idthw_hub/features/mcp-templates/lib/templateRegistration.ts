@@ -70,6 +70,7 @@ export function resolveMcpTemplateRegistration(
       creationMethod: "template",
       description: template.description,
       environmentVariables,
+      iconId: payload.iconId === undefined ? template.iconId : payload.iconId,
       image: template.image,
       path: template.path,
       port: template.port,

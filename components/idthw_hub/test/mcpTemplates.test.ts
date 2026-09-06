@@ -12,6 +12,7 @@ import {
   updateMcpTemplate,
 } from "../features/mcp-templates/api/kubernetesTemplates.ts"
 import {
+  buildMcpTemplatePatch,
   buildMcpTemplateSecret,
   buildStoredMcpTemplate,
 } from "../features/mcp-templates/lib/kubernetesTemplate.ts"
@@ -40,6 +41,7 @@ const validPayload = {
       defaultValue: "",
     },
   ],
+  iconId: "confluence.png",
   image: "ghcr.io/sooperset/mcp-atlassian:latest",
   name: "Confluence MCP",
   path: "/mcp",
@@ -88,11 +90,12 @@ test("stores non-secret defaults but omits secret defaults", () => {
       : variable),
   } as McpTemplateInput
   const resource = buildMcpTemplateSecret(unsafeInput) as {
-    metadata: { name: string; namespace: string }
+    metadata: { annotations: Record<string, string>; name: string; namespace: string }
     stringData: { "template.json": string }
   }
   assert.equal(resource.metadata.name, "mcp-template-confluence-mcp")
   assert.equal(resource.metadata.namespace, "mcp-hub")
+  assert.equal(resource.metadata.annotations["mcp.idthw.dev/icon"], "confluence.png")
   assert.doesNotMatch(resource.stringData["template.json"], /must-never-be-stored/)
   assert.match(resource.stringData["template.json"], /example\.atlassian\.net/)
   assert.deepEqual(JSON.parse(resource.stringData["template.json"]).arguments, validPayload.arguments)
@@ -110,6 +113,21 @@ test("rejects a default value for a secret template variable", () => {
     ok: false,
     error: "Secret environment variable 1 cannot have a default value",
   })
+})
+
+test("accepts initials and rejects unsafe MCP icon IDs", () => {
+  const initials = validateMcpTemplate({ ...validPayload, iconId: "" })
+  assert.equal(initials.ok, true)
+
+  assert.deepEqual(validateMcpTemplate({ ...validPayload, iconId: "../secret.png" }), {
+    ok: false,
+    error: "MCP icon ID is invalid",
+  })
+})
+
+test("explicitly removes the template icon annotation in an update patch", () => {
+  const patch = buildMcpTemplatePatch({ ...validInput(), iconId: "" })
+  assert.equal(patch.metadata.annotations["mcp.idthw.dev/icon"], null)
 })
 
 test("creates the template Secret without overwriting an existing key", async () => {
@@ -193,13 +211,13 @@ test("lists template metadata without reading Secret data", async () => {
   const runner: KubectlRunner = async (args) => {
     assert.equal(args.some((arg) => arg.includes("template.json")), false)
     return {
-      stdout: "confluence-mcp\tConfluence MCP\napi-mcp\tAPI MCP\n",
+      stdout: "confluence-mcp\tConfluence MCP\tconfluence.png\napi-mcp\tAPI MCP\t\n",
       stderr: "",
     }
   }
   assert.deepEqual(await listMcpTemplates("k8s-docs-server", runner), [
-    { key: "api-mcp", name: "API MCP", project: "k8s-docs-server", visibility: "Project" },
-    { key: "confluence-mcp", name: "Confluence MCP", project: "k8s-docs-server", visibility: "Project" },
+    { iconId: "", key: "api-mcp", name: "API MCP", project: "k8s-docs-server", visibility: "Project" },
+    { iconId: "confluence.png", key: "confluence-mcp", name: "Confluence MCP", project: "k8s-docs-server", visibility: "Project" },
   ])
 })
 
@@ -220,6 +238,7 @@ test("loads one project template from its Kubernetes Secret", async () => {
 
   const template = await getMcpTemplate("k8s-docs-server", "confluence-mcp", runner)
   assert.equal(template.image, validPayload.image)
+  assert.equal(template.iconId, "confluence.png")
   assert.deepEqual(template.arguments, validPayload.arguments)
   assert.equal(template.environmentVariables[1].secret, true)
   assert.equal("defaultValue" in template.environmentVariables[1], false)
@@ -254,6 +273,7 @@ test("resolves template runtime fields and secret flags from the Kubernetes temp
   assert.equal(result.ok, true)
   if (!result.ok) return
   assert.equal(result.payload.image, validPayload.image)
+  assert.equal(result.payload.iconId, "confluence.png")
   assert.deepEqual(result.payload.arguments, validPayload.arguments)
   assert.deepEqual(result.payload.environmentVariables, [
     { key: "CONFLUENCE_URL", value: "https://example.atlassian.net/wiki", secret: false },

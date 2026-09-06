@@ -11,8 +11,9 @@ import type {
   McpTemplateInput,
   McpTemplateSummary,
 } from "../types.ts"
-import { buildMcpTemplateSecret } from "../lib/kubernetesTemplate.ts"
+import { buildMcpTemplatePatch, buildMcpTemplateSecret } from "../lib/kubernetesTemplate.ts"
 import { validateMcpTemplate } from "../lib/templateInput.ts"
+import { normalizeMcpIconId } from "../../mcp-servers/lib/mcpIcons.ts"
 
 const TEMPLATE_NAMESPACE = "mcp-hub"
 const TEMPLATE_PREFIX = "mcp-template-"
@@ -56,7 +57,7 @@ export async function updateMcpTemplate(
   const resourceName = `${TEMPLATE_PREFIX}${input.templateKey}`
   await getMcpTemplate(input.project, input.templateKey, runKubectl)
 
-  const manifest = JSON.stringify(buildMcpTemplateSecret(input))
+  const manifest = JSON.stringify(buildMcpTemplatePatch(input))
   const patchDirectory = await mkdtemp(join(tmpdir(), "idthw-mcp-template-patch-"))
   const patchPath = join(patchDirectory, "patch.json")
   try {
@@ -108,14 +109,20 @@ export async function listMcpTemplates(
     "--selector",
     `${TEMPLATE_RESOURCE_LABEL},mcp.idthw.dev/project=${project}`,
     "-o",
-    "jsonpath={range .items[*]}{.metadata.labels.mcp\\.idthw\\.dev/template-key}{\"\\t\"}{.metadata.annotations.mcp\\.idthw\\.dev/template-name}{\"\\n\"}{end}",
+    "jsonpath={range .items[*]}{.metadata.labels.mcp\\.idthw\\.dev/template-key}{\"\\t\"}{.metadata.annotations.mcp\\.idthw\\.dev/template-name}{\"\\t\"}{.metadata.annotations.mcp\\.idthw\\.dev/icon}{\"\\n\"}{end}",
   ]))
 
   return result.stdout
     .split("\n")
     .map((line) => line.split("\t"))
-    .filter((fields) => fields.length === 2 && fields[0] && fields[1])
-    .map(([key, name]) => ({ key, name, project, visibility: "Project" as const }))
+    .filter((fields) => fields.length === 3 && fields[0] && fields[1])
+    .map(([key, name, iconId]) => ({
+      iconId: normalizeMcpIconId(iconId),
+      key,
+      name,
+      project,
+      visibility: "Project" as const,
+    }))
     .sort((left, right) => left.name.localeCompare(right.name))
 }
 

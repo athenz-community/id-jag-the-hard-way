@@ -10,6 +10,7 @@ export type McpTemplateInput = {
   project: string
   name: string
   templateKey: string
+  iconId: string
   image: string
   port: string
   path: string
@@ -25,6 +26,7 @@ export type McpTemplateInput = {
 export type McpTemplateSummary = {
   key: string
   name: string
+  iconId: string
   project: string
   visibility: "Project"
 }

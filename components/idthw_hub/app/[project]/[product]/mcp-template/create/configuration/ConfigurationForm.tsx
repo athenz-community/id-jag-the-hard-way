@@ -2,6 +2,8 @@
 
 import { Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
+import { McpIconPicker } from "@/features/mcp-servers/components/McpIconPicker"
+import type { McpIconOption } from "@/features/mcp-servers/lib/mcpIcons"
 import { useMcpTemplateDraft } from "../McpTemplateDraftContext"
 import { McpTemplateIdentityFields } from "./McpTemplateIdentityFields"
 
@@ -9,11 +11,13 @@ export function ConfigurationForm({
   cancelHref,
   sourceHref,
   referenceHref,
+  iconOptions,
   templateKeyReadOnly = false,
 }: {
   cancelHref: string
   sourceHref: string
   referenceHref: string
+  iconOptions: McpIconOption[]
   templateKeyReadOnly?: boolean
 }) {
   const { draft, setDraft, resetDraft } = useMcpTemplateDraft()
@@ -67,6 +71,14 @@ export function ConfigurationForm({
   return (
     <form className="mcp-create-form">
       <McpTemplateIdentityFields templateKeyReadOnly={templateKeyReadOnly} />
+
+      <McpIconPicker
+        iconOptions={iconOptions}
+        name={draft.name}
+        onChange={(iconId) => setDraft((currentDraft) => ({ ...currentDraft, iconId }))}
+        resourceKind="MCP template"
+        value={draft.iconId}
+      />
 
       <fieldset className="mcp-create-fieldset">
         <legend>Environment variables</legend>

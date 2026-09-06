@@ -4,6 +4,8 @@ import { Pencil } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { McpIconPreview } from "@/features/mcp-servers/components/McpIconPicker"
+import type { McpIconOption } from "@/features/mcp-servers/lib/mcpIcons"
 import { athenzServiceName } from "@/features/registration/lib/athenzServices"
 import { buildMcpKubernetesManifest } from "@/features/registration/lib/kubernetesManifest"
 import { type McpCreateDraft, useMcpCreateDraft } from "../McpCreateDraftContext"
@@ -39,6 +41,7 @@ function changedServerFields(before: McpCreateDraft, after: McpCreateDraft) {
     ["Container arguments", normalizedArguments(before).join("\n"), normalizedArguments(after).join("\n")],
     ["MCP server name", before.serverName, after.serverName],
     ["Description", before.description, after.description],
+    ["Icon", before.iconId, after.iconId],
     ["Environment variables", formattedEnvironmentVariables(before), formattedEnvironmentVariables(after)],
     ["Access management", before.accessManagement, after.accessManagement],
     ["IAM service account", before.hubServiceAccountName, after.hubServiceAccountName],
@@ -56,6 +59,7 @@ export function ConfirmSummary({
   configurationHref,
   mode = "create",
   originalMcpKeyName,
+  iconOptions,
 }: {
   project: string
   cancelHref: string
@@ -64,6 +68,7 @@ export function ConfirmSummary({
   configurationHref: string
   mode?: "create" | "edit"
   originalMcpKeyName?: string
+  iconOptions: McpIconOption[]
 }) {
   const { draft, initialDraft, resetDraft } = useMcpCreateDraft()
   const router = useRouter()
@@ -111,6 +116,7 @@ export function ConfirmSummary({
     creationMethod: draft.creationMethod,
     description: runtime.description,
     environmentVariables: manifestEnvironmentVariables,
+    iconId: draft.iconId,
     image: runtime.image,
     mcpKeyName: draft.mcpKeyName,
     path: runtime.path,
@@ -139,6 +145,7 @@ export function ConfirmSummary({
           creationMethod: draft.creationMethod,
           description: runtime.description,
           environmentVariables: environmentVariables.map(({ key, value, secret }) => ({ key, value, secret })),
+          iconId: draft.iconId,
           image: runtime.image,
           mcpKeyName: draft.mcpKeyName,
           path: runtime.path,
@@ -185,8 +192,20 @@ export function ConfirmSummary({
                     {changes.map(({ field, beforeValue, afterValue }) => (
                       <tr key={field}>
                         <th scope="row">{field}</th>
-                        <td><div className="mcp-template-change-value before">{valueOrFallback(beforeValue)}</div></td>
-                        <td><div className="mcp-template-change-value after">{valueOrFallback(afterValue)}</div></td>
+                        <td>
+                          <div className="mcp-template-change-value before">
+                            {field === "Icon"
+                              ? <McpIconPreview iconOptions={iconOptions} name={initialDraft.serverName} value={beforeValue} />
+                              : valueOrFallback(beforeValue)}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="mcp-template-change-value after">
+                            {field === "Icon"
+                              ? <McpIconPreview iconOptions={iconOptions} name={draft.serverName} value={afterValue} />
+                              : valueOrFallback(afterValue)}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -253,6 +272,10 @@ export function ConfirmSummary({
           <div><dt>Name</dt><dd>{valueOrFallback(draft.serverName)}</dd></div>
           {isEditing ? <div><dt>Description</dt><dd>{valueOrFallback(draft.description)}</dd></div> : null}
           <div><dt>MCP key name</dt><dd>{valueOrFallback(draft.mcpKeyName)}</dd></div>
+          <div>
+            <dt>Icon</dt>
+            <dd><McpIconPreview iconOptions={iconOptions} name={draft.serverName} value={draft.iconId} /></dd>
+          </div>
           <div><dt>Visibility</dt><dd>{draft.visibility === "project" ? "Project" : "Personal"}</dd></div>
           <div>
             <dt>Environment variables</dt>

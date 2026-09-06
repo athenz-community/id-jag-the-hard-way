@@ -1,4 +1,5 @@
 import type { McpEnvironmentVariable, McpKubernetesManifestInput } from "./kubernetesManifest"
+import { isValidMcpIconId } from "../../mcp-servers/lib/mcpIcons.ts"
 
 const DNS_LABEL_PATTERN = /^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/
 const ENVIRONMENT_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -21,6 +22,7 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
   const serviceAccount = trimmedString(payload.serviceAccount)
   const creationMethod = payload.creationMethod ?? "direct"
   const description = trimmedString(payload.description ?? "")
+  const iconId = trimmedString(payload.iconId ?? "")
   const templateKey = trimmedString(payload.templateKey ?? "")
   const visibility = payload.visibility ?? "personal"
 
@@ -46,6 +48,9 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
     return invalid("Creation method is invalid")
   }
   if (description === null || description.length > 2000) return invalid("Description is invalid")
+  if (iconId === null || (iconId && !isValidMcpIconId(iconId))) {
+    return invalid("MCP icon ID is invalid")
+  }
   if (templateKey === null) return invalid("MCP template key is invalid")
   if (creationMethod === "template" && (!templateKey || !DNS_LABEL_PATTERN.test(templateKey))) {
     return invalid("MCP template key is invalid")
@@ -79,6 +84,7 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
       creationMethod,
       description,
       environmentVariables: environmentVariables.variables,
+      iconId,
       image,
       mcpKeyName,
       path,

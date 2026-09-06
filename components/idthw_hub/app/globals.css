@@ -611,6 +611,61 @@ input:disabled {
   line-height: 20px;
 }
 
+.mcp-icon-choice-list {
+  width: min(100%, 900px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mcp-icon-choice {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 7px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.mcp-icon-choice:has(input:checked) {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue);
+}
+
+.mcp-icon-preview {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #ffffff;
+}
+
+.mcp-icon-preview img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.mcp-icon-initials {
+  background: #f1f3f5;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.mcp-create-fieldset > .mcp-create-field-warning {
+  margin: 10px 0 0;
+  color: #a35b00;
+  font-size: 13px;
+  font-weight: 750;
+}
+
 .mcp-create-field {
   width: min(75%, 780px);
   display: grid;

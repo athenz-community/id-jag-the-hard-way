@@ -13,6 +13,7 @@ export type McpTemplateEnvironmentVariableDraft = {
 }
 
 export type McpTemplateDraft = {
+  iconId: string
   image: string
   port: string
   path: string
@@ -29,6 +30,7 @@ export type McpTemplateDraft = {
 }
 
 const INITIAL_DRAFT: McpTemplateDraft = {
+  iconId: "",
   image: "",
   port: "8080",
   path: "/mcp",
@@ -48,6 +50,7 @@ const INITIAL_DRAFT: McpTemplateDraft = {
 
 function draftFromTemplate(template: McpTemplateInput): McpTemplateDraft {
   return {
+    iconId: template.iconId,
     image: template.image,
     port: template.port,
     path: template.path,

@@ -24,6 +24,7 @@ const deployment = {
       "mcp.idthw.dev/visibility": "project",
       "mcp.idthw.dev/template-key": "docs-template",
       "mcp.idthw.dev/description": "Documentation tools",
+      "mcp.idthw.dev/icon": "/icons/confluence.png",
       "mcp.idthw.dev/iam-service-account": "mcp-hub.mcps.k8s-docs-server.runtime",
     },
   },
@@ -58,6 +59,7 @@ test("loads editable deployment fields without loading secret values", () => {
   assert.equal(configuration.port, "9000")
   assert.equal(configuration.creationMethod, "template")
   assert.equal(configuration.templateKey, "docs-template")
+  assert.equal(configuration.iconId, "confluence.png")
   assert.deepEqual(configuration.environmentVariables[0], {
     key: "API_TOKEN",
     value: "",
@@ -97,7 +99,18 @@ test("builds deployment and service patches while preserving existing secret ref
     patch.metadata.annotations["mcp.idthw.dev/access-scope"],
     "mcp-hub.mcps.k8s-docs-server:role.accessor",
   )
+  assert.equal(patch.metadata.annotations["mcp.idthw.dev/icon"], "confluence.png")
   assert.equal(patch.spec.template.spec.volumes?.[0].name, "athenz-ca")
+})
+
+test("removes the icon annotation when switching back to name initials", () => {
+  const existing = configurationFromDeployment(deployment, "k8s-docs-server", "docs-mcp")
+  const update = buildMcpResourceUpdate({ ...existing, iconId: "" }, deployment)
+  assert.equal(
+    (update.deploymentPatch as { metadata: { annotations: Record<string, string | null> } })
+      .metadata.annotations["mcp.idthw.dev/icon"],
+    null,
+  )
 })
 
 test("removes managed proxy trust and scope when switching to server-managed access", () => {

@@ -2,6 +2,11 @@ import { execFile } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import https from "node:https"
 import { promisify } from "node:util"
+import {
+  listMcpIconOptions,
+  resolveMcpIconSrc,
+  type McpIconOption,
+} from "../../mcp-servers/lib/mcpIcons.ts"
 import type { McpServer } from "../types/catalog"
 
 const execFileAsync = promisify(execFile)
@@ -34,9 +39,12 @@ type Deployment = {
 }
 
 export async function listMcpServersFromKubernetes(): Promise<McpServer[]> {
-  const deployments = await readDeployments()
+  const [deployments, iconOptions] = await Promise.all([
+    readDeployments(),
+    listMcpIconOptions(),
+  ])
   const servers = deployments
-    .map(deploymentToMcpServer)
+    .map((deployment) => deploymentToMcpServer(deployment, iconOptions))
     .filter((server): server is McpServer => server !== null)
     .sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name))
   assertUniqueRouteIds(servers)
@@ -88,7 +96,10 @@ async function readDeploymentsFromKubectl(): Promise<Deployment[]> {
   return response.items ?? []
 }
 
-function deploymentToMcpServer(deployment: Deployment): McpServer | null {
+function deploymentToMcpServer(
+  deployment: Deployment,
+  iconOptions: McpIconOption[],
+): McpServer | null {
   const metadata = deployment.metadata ?? {}
   const labels = metadata.labels ?? {}
   const annotations = metadata.annotations ?? {}
@@ -114,7 +125,7 @@ function deploymentToMcpServer(deployment: Deployment): McpServer | null {
     proxyUrl: coreProxyUrl(routeId),
     accessScope: annotations[ANNOTATION_ACCESS_SCOPE]?.trim() || undefined,
     totalToolCalls: "N/A",
-    iconSrc: annotations[ANNOTATION_ICON] ?? iconForServer(displayName),
+    iconSrc: resolveMcpIconSrc(annotations[ANNOTATION_ICON], iconOptions),
     logoText: initialsFor(displayName),
     logoBg: "#ffffff",
     logoFg: "#111111",
@@ -155,13 +166,6 @@ function initialsFor(name: string): string {
     .join("")
     .slice(0, 2)
     .toUpperCase()
-}
-
-function iconForServer(name: string): string | undefined {
-  const normalizedName = name.toLowerCase()
-  if (normalizedName.includes("confluence")) return "/icons/confluence.png"
-  if (normalizedName.includes("athenz")) return "/icons/athenz.png"
-  return undefined
 }
 
 function httpsGetJson<T>({

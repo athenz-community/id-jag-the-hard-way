@@ -13,6 +13,7 @@ const input = {
     { key: "OTHER_SECRET", secret: true, value: "another-secret" },
     { key: "UPSTREAM_URL", secret: false, value: "https://example.test" },
   ],
+  iconId: "confluence.png",
   image: "ghcr.io/example/mcp:latest",
   mcpKeyName: "docs-mcp",
   path: "/mcp",
@@ -43,6 +44,7 @@ test("builds namespace, secret, deployment, and service resources", () => {
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/id"], "docs-mcp")
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/creation-method"], "direct")
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/visibility"], "personal")
+  assert.equal(deployment.metadata.annotations["mcp.idthw.dev/icon"], "confluence.png")
   assert.equal(
     deployment.metadata.annotations["mcp.idthw.dev/access-scope"],
     "mcp-hub.mcps.k8s-docs-server:role.accessor",
@@ -117,6 +119,12 @@ test("routes server-managed access directly to the MCP container", () => {
   assert.equal(deployment.spec.template.spec.containers.length, 1)
   assert.equal(deployment.spec.template.spec.volumes, undefined)
   assert.equal(service.spec.ports[0].targetPort, 8080)
+})
+
+test("omits the icon annotation when name initials are selected", () => {
+  const resources = buildMcpKubernetesResources({ ...input, iconId: "" })
+  const deployment = resources[2] as { metadata: { annotations: Record<string, string> } }
+  assert.equal(deployment.metadata.annotations["mcp.idthw.dev/icon"], undefined)
 })
 
 test("uses a configured runtime proxy image for actual local deployment", () => {

@@ -2,9 +2,11 @@ import { ChevronRight, ChevronsUpDown, Home, Plus } from "lucide-react"
 import Link from "next/link"
 import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import { ResourceActionMenu } from "@/components/molecules/ResourceActionMenu"
+import { McpResourceLogo } from "@/components/atoms/ServerLogo"
 import { ConsoleTemplate } from "@/components/templates/ConsoleTemplate"
 import { requireHubSession } from "@/features/auth/lib/session"
 import { CatalogFilters, CatalogPagination } from "@/features/catalog/components/CatalogPage"
+import { listMcpIconOptions, resolveMcpIconSrc } from "@/features/mcp-servers/lib/mcpIcons"
 import { fetchMcpTemplates } from "@/features/mcp-templates/lib/fetchTemplates"
 
 export const dynamic = "force-dynamic"
@@ -17,7 +19,10 @@ export default async function McpTemplateRoute({
 }) {
   await requireHubSession()
   const { project, product } = await params
-  const response = await fetchMcpTemplates(project)
+  const [response, iconOptions] = await Promise.all([
+    fetchMcpTemplates(project),
+    listMcpIconOptions(),
+  ])
   const catalogHref = consoleHref({ project, product, section: "catalog" })
   const templateHref = consoleHref({ project, product, section: "mcp-template" })
   const createHref = consoleHref({ project, product, section: "mcp-template", suffix: "create" })
@@ -62,7 +67,15 @@ export default async function McpTemplateRoute({
           <tbody>
             {response.templates.length > 0 ? response.templates.map((template) => (
               <tr key={template.key}>
-                <td>{template.name}</td>
+                <td>
+                  <div className="server-cell">
+                    <McpResourceLogo
+                      iconSrc={resolveMcpIconSrc(template.iconId, iconOptions)}
+                      logoText={templateInitials(template.name)}
+                    />
+                    <span>{template.name}</span>
+                  </div>
+                </td>
                 <td><code>{template.key}</code></td>
                 <td>Container registry</td>
                 <td>{template.visibility}</td>
@@ -90,4 +103,13 @@ export default async function McpTemplateRoute({
       <CatalogPagination />
     </ConsoleTemplate>
   )
+}
+
+function templateInitials(name: string) {
+  return name
+    .split(/[-_\s]+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
 }

@@ -30,6 +30,7 @@ export type McpCreateDraft = {
   containerArguments: Array<{ id: number; value: string }>
   serverName: string
   description: string
+  iconId: string
   mcpKeyName: string
   mcpKeyWasCustomized: boolean
   showMcpKeyWarning: boolean
@@ -53,6 +54,7 @@ const INITIAL_DRAFT: McpCreateDraft = {
   containerArguments: [{ id: 1, value: "" }],
   serverName: "",
   description: "",
+  iconId: "",
   mcpKeyName: "",
   mcpKeyWasCustomized: false,
   showMcpKeyWarning: false,
@@ -79,6 +81,7 @@ function draftFromServer(server: McpServerConfiguration): McpCreateDraft {
       : [{ id: 1, value: "" }],
     serverName: server.serverName,
     description: server.description,
+    iconId: server.iconId,
     mcpKeyName: server.mcpKeyName,
     mcpKeyWasCustomized: true,
     showMcpKeyWarning: false,
