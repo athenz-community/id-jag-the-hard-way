@@ -4,6 +4,7 @@ const RUNTIME_PROXY_IMAGE = "ghcr.io/mlajkim/mcp-runtime-proxy:latest"
 const RUNTIME_PROXY_PORT = 8082
 const SERVICE_CERTIFICATE_FILE = "service.cert.pem"
 const SERVICE_PRIVATE_KEY_FILE = "service.key.pem"
+const ACCESS_TOKEN_FILE_DIRECTORY = "/var/run/idthw-access-tokens"
 
 export const MCP_RUNTIME_PROXY_CA_CONFIG_MAP = "mcp-runtime-proxy-athenz-ca"
 export const MCP_MANAGED_IDENTITY_ANNOTATION = "mcp.idthw.dev/managed-identity-secret"
@@ -143,11 +144,18 @@ export function buildMcpKubernetesResources(
       },
     }]
     if (managedServiceIdentity) {
-      container.volumeMounts = [{
-        name: "athenz-service-identity",
-        mountPath: "/var/run/athenz",
-        readOnly: true,
-      }]
+      container.volumeMounts = [
+        {
+          name: "athenz-service-identity",
+          mountPath: "/var/run/athenz",
+          readOnly: true,
+        },
+        {
+          name: "downstream-access-tokens",
+          mountPath: ACCESS_TOKEN_FILE_DIRECTORY,
+          readOnly: true,
+        },
+      ]
       runtimeProxy.env = [
         ...(runtimeProxy.env as Array<Record<string, unknown>>),
         { name: "ATHENZ_SERVICE_DOMAIN", value: expectedAudience },
@@ -160,6 +168,15 @@ export function buildMcpKubernetesResources(
         { name: "ATHENZ_PUBLISHED_CERT_PATH", value: `/var/run/athenz/${SERVICE_CERTIFICATE_FILE}` },
         { name: "ATHENZ_IDENTITY_REFRESH_SECONDS", value: "86400" },
         { name: "ATHENZ_IDENTITY_RETRY_SECONDS", value: "300" },
+        { name: "ATHENZ_TOKEN_FILE_EXCHANGE_ENABLED", value: "true" },
+        {
+          name: "ATHENZ_TOKEN_EXCHANGE_URL",
+          value: "https://athenz-zts-server.athenz:4443/zts/v1/oauth2/token",
+        },
+        { name: "ATHENZ_TOKEN_EXCHANGE_CERT_PATH", value: "/var/run/athenz/service.cert.pem" },
+        { name: "ATHENZ_TOKEN_EXCHANGE_KEY_PATH", value: "/var/run/athenz/service.key.pem" },
+        { name: "ATHENZ_TOKEN_EXCHANGE_CA_PATH", value: "/var/run/athenz/ca.crt" },
+        { name: "ATHENZ_TOKEN_FILE_DIR", value: ACCESS_TOKEN_FILE_DIRECTORY },
         { name: "KUBERNETES_IDENTITY_SECRET_NAME", value: identitySecretName },
         {
           name: "POD_NAME",
@@ -179,6 +196,7 @@ export function buildMcpKubernetesResources(
           readOnly: true,
         },
         { name: "runtime-proxy-tmp", mountPath: "/tmp" },
+        { name: "downstream-access-tokens", mountPath: ACCESS_TOKEN_FILE_DIRECTORY },
       ]
       runtimeProxy.securityContext = {
         allowPrivilegeEscalation: false,
@@ -189,6 +207,10 @@ export function buildMcpKubernetesResources(
         runAsUser: 1000,
       }
       podSpec.automountServiceAccountToken = false
+      podSpec.securityContext = {
+        fsGroup: 1000,
+        fsGroupChangePolicy: "OnRootMismatch",
+      }
       podSpec.serviceAccountName = runtimeProxyServiceAccountName
       volumes.push({
         name: "athenz-bootstrap-key",
@@ -236,6 +258,9 @@ export function buildMcpKubernetesResources(
         },
       }, {
         name: "runtime-proxy-tmp",
+        emptyDir: {},
+      }, {
+        name: "downstream-access-tokens",
         emptyDir: {},
       })
     }

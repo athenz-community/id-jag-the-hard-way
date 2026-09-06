@@ -20,6 +20,8 @@ export type ProtectedRouterDependencies = {
   upstreamResponseTimeoutMs: number
 }
 
+export const MCP_DOWNSTREAM_SCOPE_HEADER = "x-idthw-mcp-downstream-scope"
+
 const defaultDependencies: ProtectedRouterDependencies = {
   accessScope: MCP_GATEWAY_ACCESS_SCOPE,
   getAccessToken: (session, scope) => athenzAccessTokenManager.getAccessToken(session, scope),
@@ -69,16 +71,20 @@ export function createProtectedRouter(overrides: Partial<ProtectedRouterDependen
 
     try {
       const route = await dependencies.resolveRoute(serverId)
-      const accessToken = isPublicMcpDiscoveryRequest(request)
+      const publicRequest = isPublicMcpDiscoveryRequest(request)
+      const accessScope = publicRequest
         ? undefined
-        : await dependencies.getAccessToken(
-          session,
-          accessScopeForRequest(request, route, dependencies.accessScope),
-        )
+        : accessScopeForRequest(request, route, dependencies.accessScope)
+      const accessToken = accessScope
+        ? await dependencies.getAccessToken(session, accessScope)
+        : undefined
       await proxyToCore({
         request,
         response,
         accessToken,
+        downstreamScope: accessScope
+          ? downstreamScopeForRequest(request, route, accessScope, dependencies.accessScope)
+          : undefined,
         serverId,
         proxyUrl: route.proxyUrl,
         responseTimeoutMs: dependencies.upstreamResponseTimeoutMs,
@@ -148,6 +154,30 @@ function accessScopeForRequest(request: Request, route: ResolvedMcpRoute, fallba
   return toolScope
 }
 
+function downstreamScopeForRequest(
+  request: Request,
+  route: ResolvedMcpRoute,
+  selectedScope: string,
+  fallbackScope: string,
+) {
+  if (
+    request.method !== "POST"
+    || !request.body
+    || typeof request.body !== "object"
+    || Array.isArray(request.body)
+    || (request.body as { method?: unknown }).method !== "tools/call"
+    || !route.toolScopes
+  ) return undefined
+
+  const routeScopes = new Set(scopeValues(route.accessScope ?? fallbackScope))
+  const downstreamScopes = scopeValues(selectedScope).filter((scope) => !routeScopes.has(scope))
+  return downstreamScopes.length > 0 ? downstreamScopes.join(" ") : undefined
+}
+
+function scopeValues(scope: string) {
+  return [...new Set(scope.trim().split(/\s+/).filter(Boolean))].sort()
+}
+
 class InvalidToolCallError extends Error {}
 
 class ToolScopeNotConfiguredError extends Error {
@@ -168,6 +198,7 @@ async function proxyToCore({
   request,
   response,
   accessToken,
+  downstreamScope,
   serverId,
   proxyUrl,
   responseTimeoutMs,
@@ -175,12 +206,13 @@ async function proxyToCore({
   request: Request
   response: Response
   accessToken?: string
+  downstreamScope?: string
   serverId: string
   proxyUrl: string
   responseTimeoutMs: number
 }) {
   const upstreamUrl = buildProxyUrl(proxyUrl, request.originalUrl, serverId)
-  const headers = forwardedRequestHeaders(request, accessToken)
+  const headers = forwardedRequestHeaders(request, accessToken, downstreamScope)
   const body = requestBody(request)
   const upstreamResponse = await fetchUntilResponse(upstreamUrl, {
     method: request.method,
@@ -240,15 +272,22 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade",
 ])
 
-function forwardedRequestHeaders(request: Request, accessToken?: string) {
+function forwardedRequestHeaders(request: Request, accessToken?: string, downstreamScope?: string) {
   const headers = new Headers()
   for (const [key, value] of Object.entries(request.headers)) {
-    if (!value || HOP_BY_HOP_HEADERS.has(key.toLowerCase()) || key.toLowerCase() === "host" || key.toLowerCase() === "authorization") {
+    if (
+      !value
+      || HOP_BY_HOP_HEADERS.has(key.toLowerCase())
+      || key.toLowerCase() === "host"
+      || key.toLowerCase() === "authorization"
+      || key.toLowerCase() === MCP_DOWNSTREAM_SCOPE_HEADER
+    ) {
       continue
     }
     headers.set(key, Array.isArray(value) ? value.join(", ") : value)
   }
   if (accessToken) headers.set("authorization", `Bearer ${accessToken}`)
+  if (downstreamScope) headers.set(MCP_DOWNSTREAM_SCOPE_HEADER, downstreamScope)
   return headers
 }
 

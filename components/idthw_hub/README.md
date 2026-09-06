@@ -161,10 +161,13 @@ New Hub-managed servers also receive a workload identity lifecycle:
 - The mutable `<mcp-key>-athenz-identity` Secret is writable only by a dedicated `<mcp-key>-runtime-proxy` Kubernetes service account and its resource-name-scoped Role.
 - Runtime Proxy obtains an X.509 service certificate from ZTS with key ID `idthw-hub-generated`, publishes the certificate and matching key to the identity Secret, and refreshes it every 24 hours. A failed scheduled refresh retries after five minutes while the last projected identity remains available.
 - Runtime Proxy and the MCP container both mount the published identity Secret and Athenz CA read-only at `/var/run/athenz/service.cert.pem`, `/var/run/athenz/service.key.pem`, `/var/run/athenz/ca.crt`, and `/var/run/athenz/ca.cert.pem`.
+- A pod-local `emptyDir` is mounted read/write in Runtime Proxy and read-only in the MCP container at `/var/run/idthw-access-tokens`. For a configured custom tool scope, Runtime Proxy uses the managed service identity to exchange the verified incoming token, writes the result to a unique `<tool>/<request-id>.jwt` file, injects that path into MCP request `_meta`, and removes it after the response. The MCP implementation must read that request-scoped file immediately before its protected downstream call.
 
 Because one fixed Athenz key ID identifies the generated key, the Hub rejects assigning the same Athenz service account to a second Hub-managed MCP server. Existing deployments created before this identity lifecycle continue using their legacy Runtime Proxy layout until they are recreated.
 
 Custom per-tool requirements can be supplied by `config/permission-presets.yaml` or overridden from the permission dialog. Their signed-in-user roles are combined with the shared accessor role for that exact tool call, and the readiness UI checks both the custom and managed memberships.
+
+`components/idthw-demo-api-mcp` is the tutorial consumer for this contract. Its published image is `ghcr.io/mlajkim/idthw-demo-api-mcp:latest`; it exposes the three K8s Docs tools without handling service keys or performing token exchange itself.
 
 When a server returns five or more tools, the client-configuration page collapses the permission rows by default behind **Expand tools** so the configuration in step 2 remains visible without a long initial scroll. Servers with fewer than five tools keep their rows expanded.
 

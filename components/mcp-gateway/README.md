@@ -22,7 +22,7 @@ The gateway:
 7. Checks the access-token cache first, then an ID-JAG cache indexed by the token's actual `aud` and `scp`/`scope` claims, with usability bounded by its actual `exp`. It uses the stored ID token only when no usable ID-JAG covers the requested scope.
 8. Rejects partial grants for the current request but retains them under their actual granted scope, so they can satisfy a later narrower request.
 9. Requests fresh browser authentication with HTTP 401 when neither a cached credential nor a fresh ID token can complete the exchange.
-10. Strips the opaque session bearer before forwarding. Public discovery is forwarded without authorization; protected methods receive the Athenz bearer.
+10. Strips the opaque session bearer before forwarding. Public discovery is forwarded without authorization; protected methods receive the Athenz bearer. For a mapped tool, it also passes only the custom scope outside the route-level MCP accessor scope to Runtime Proxy in the trusted internal `x-idthw-mcp-downstream-scope` header; client-supplied values are discarded.
 11. Supports an explicit browser sign-out flow that invalidates the opaque Gateway session and redirects a one-use logout ticket to Keycloak without exposing the stored ID token to the broker.
 
 Kubernetes remains the underlying registration source. MCP Hub's API is the registry contract consumed by the gateway.

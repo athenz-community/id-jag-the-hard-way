@@ -105,6 +105,50 @@ test("builds deployment and service patches while preserving existing secret ref
   assert.equal(patch.spec.template.spec.volumes?.[0].name, "athenz-ca")
 })
 
+test("adds request-scoped token delivery to an existing managed-identity deployment", () => {
+  const managedDeployment = {
+    ...deployment,
+    metadata: {
+      ...deployment.metadata,
+      annotations: {
+        ...deployment.metadata.annotations,
+        "mcp.idthw.dev/managed-identity-secret": "docs-mcp-athenz-identity",
+      },
+    },
+  }
+  const existing = configurationFromDeployment(managedDeployment, "k8s-docs-server", "docs-mcp")
+  const update = buildMcpResourceUpdate(existing, managedDeployment)
+  const podSpec = (update.deploymentPatch as {
+    spec: { template: { spec: {
+      containers: Array<{
+        env?: Array<{ name: string; value?: string }>
+        name: string
+        volumeMounts?: Array<{ mountPath: string; name: string; readOnly?: boolean }>
+      }>
+      securityContext?: { fsGroup: number }
+      volumes?: Array<{ name: string }>
+    } } }
+  }).spec.template.spec
+  const main = podSpec.containers.find(({ name }) => name === "docs-mcp")
+  const proxy = podSpec.containers.find(({ name }) => name === "mcp-runtime-proxy")
+
+  assert.deepEqual(main?.volumeMounts?.find(({ name }) => name === "downstream-access-tokens"), {
+    name: "downstream-access-tokens",
+    mountPath: "/var/run/idthw-access-tokens",
+    readOnly: true,
+  })
+  assert.deepEqual(proxy?.volumeMounts?.find(({ name }) => name === "downstream-access-tokens"), {
+    name: "downstream-access-tokens",
+    mountPath: "/var/run/idthw-access-tokens",
+  })
+  assert.deepEqual(proxy?.env?.find(({ name }) => name === "ATHENZ_TOKEN_FILE_EXCHANGE_ENABLED"), {
+    name: "ATHENZ_TOKEN_FILE_EXCHANGE_ENABLED",
+    value: "true",
+  })
+  assert.equal(podSpec.securityContext?.fsGroup, 1000)
+  assert.equal(podSpec.volumes?.some(({ name }) => name === "downstream-access-tokens"), true)
+})
+
 test("removes the icon annotation when switching back to name initials", () => {
   const existing = configurationFromDeployment(deployment, "k8s-docs-server", "docs-mcp")
   const update = buildMcpResourceUpdate({ ...existing, iconId: "" }, deployment)
@@ -124,11 +168,12 @@ test("removes managed proxy trust and scope when switching to server-managed acc
   }, deployment)
   const patch = update.deploymentPatch as {
     metadata: { annotations: Record<string, string | null> }
-    spec: { template: { spec: { containers: Array<{ name: string }>; volumes: null } } }
+    spec: { template: { spec: { containers: Array<{ name: string }>; securityContext: null; volumes: null } } }
   }
 
   assert.equal(patch.metadata.annotations["mcp.idthw.dev/access-scope"], null)
   assert.deepEqual(patch.spec.template.spec.containers.map(({ name }) => name), ["docs-mcp"])
+  assert.equal(patch.spec.template.spec.securityContext, null)
   assert.equal(patch.spec.template.spec.volumes, null)
 })
 

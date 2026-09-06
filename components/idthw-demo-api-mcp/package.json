@@ -1,0 +1,14 @@
+{
+  "name": "idthw-demo-api-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-strip-types ./src/index.ts",
+    "check": "node --experimental-strip-types --check ./src/index.ts && node --experimental-strip-types --check ./src/server.ts && node --experimental-strip-types --check ./src/tokenFile.ts",
+    "test": "node --experimental-strip-types --test test/**/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
