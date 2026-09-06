@@ -38,6 +38,7 @@ export function McpServerIdentityFields({ mcpKeyReadOnly = false }: { mcpKeyRead
           id="mcp-name"
           className="filter-select"
           name="name"
+          autoComplete="off"
           required
           value={draft.serverName}
           onChange={(event) => updateServerName(event.target.value)}
@@ -53,6 +54,7 @@ export function McpServerIdentityFields({ mcpKeyReadOnly = false }: { mcpKeyRead
           id="mcp-key-name"
           className="filter-select"
           name="mcp-key-name"
+          autoComplete="off"
           required
           readOnly={mcpKeyReadOnly}
           value={draft.mcpKeyName}

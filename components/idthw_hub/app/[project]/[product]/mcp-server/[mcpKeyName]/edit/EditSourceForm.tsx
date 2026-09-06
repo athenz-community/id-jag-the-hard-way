@@ -23,7 +23,7 @@ export function EditSourceForm({
   )
 
   return (
-    <form className="mcp-create-form">
+    <form className="mcp-create-form" autoComplete="off">
       <fieldset className="mcp-create-fieldset">
         <legend>Creation method</legend>
         <p className="mcp-create-field-copy">The creation method cannot be changed after deployment.</p>
