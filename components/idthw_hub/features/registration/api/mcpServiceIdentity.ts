@@ -5,8 +5,7 @@ import {
   type ZmsRequest,
 } from "./mcpManagedAccess.ts"
 import { managedMcpAccessDomain } from "../lib/kubernetesManifest.ts"
-
-export const MCP_GENERATED_SERVICE_KEY_ID = "idthw-hub-generated"
+import { mcpServiceKeyId } from "../lib/mcpServiceKeyId.ts"
 
 const CERTIFICATE_PROVIDER_POLICY = "zts_instance_launch_provider"
 const CERTIFICATE_PROVIDER_ROLE = "zts_instance_launch_provider"
@@ -37,6 +36,7 @@ export function generateMcpServiceIdentity(): GeneratedMcpServiceIdentity {
 export async function registerMcpServicePublicKey(
   project: string,
   serviceAccount: string,
+  mcpKeyName: string,
   publicKeyYBase64: string,
   configuredRequest?: ZmsRequest,
 ) {
@@ -46,23 +46,24 @@ export async function registerMcpServicePublicKey(
 
   const domain = managedMcpAccessDomain(project)
   const serviceName = serviceNameInDomain(serviceAccount, domain)
+  const keyId = mcpServiceKeyId(mcpKeyName)
   const keyPath = [
     "/domain",
     encodeURIComponent(domain),
     "service",
     encodeURIComponent(serviceName),
     "publickey",
-    encodeURIComponent(MCP_GENERATED_SERVICE_KEY_ID),
+    encodeURIComponent(keyId),
   ].join("/")
   const requestZms = configuredRequest ?? await createZmsRequest()
   const current = await requestZms("GET", keyPath)
-  if (current.status === 200 && publicKeyMatches(current.body, publicKeyYBase64)) return false
+  if (current.status === 200 && publicKeyMatches(current.body, keyId, publicKeyYBase64)) return false
   if (current.status !== 200 && current.status !== 404) {
     throw new Error(`ZMS returned HTTP ${current.status || "unknown"} while checking the generated MCP service key`)
   }
 
   const updated = await requestZms("PUT", keyPath, {
-    id: MCP_GENERATED_SERVICE_KEY_ID,
+    id: keyId,
     key: publicKeyYBase64,
   })
   if (updated.status < 200 || updated.status >= 300) {
@@ -70,7 +71,7 @@ export async function registerMcpServicePublicKey(
   }
 
   const verified = await requestZms("GET", keyPath)
-  if (verified.status !== 200 || !publicKeyMatches(verified.body, publicKeyYBase64)) {
+  if (verified.status !== 200 || !publicKeyMatches(verified.body, keyId, publicKeyYBase64)) {
     throw new Error("Unable to verify the generated MCP service key")
   }
   return true
@@ -99,14 +100,14 @@ export async function ensureMcpServiceCertificateProvider(
   return true
 }
 
-function publicKeyMatches(body: string, expectedKey: string) {
+function publicKeyMatches(body: string, expectedKeyId: string, expectedKey: string) {
   try {
     const value = JSON.parse(body) as unknown
     return Boolean(
       value
       && typeof value === "object"
       && !Array.isArray(value)
-      && (value as Record<string, unknown>).id === MCP_GENERATED_SERVICE_KEY_ID
+      && (value as Record<string, unknown>).id === expectedKeyId
       && (value as Record<string, unknown>).key === expectedKey,
     )
   } catch {

@@ -2,12 +2,13 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import {
   ensureMcpServiceCertificateProvider,
-  MCP_GENERATED_SERVICE_KEY_ID,
   registerMcpServicePublicKey,
 } from "../features/registration/api/mcpServiceIdentity.ts"
+import { mcpServiceKeyId } from "../features/registration/lib/mcpServiceKeyId.ts"
 import type { ZmsRequest } from "../features/registration/api/mcpManagedAccess.ts"
 
 const publicKey = "dGVzdC1wdWJsaWMta2V5"
+const keyId = mcpServiceKeyId("docs-mcp")
 
 test("registers and verifies the Hub-generated service public key", async () => {
   const calls: Array<{ body?: unknown; method: string; path: string }> = []
@@ -19,20 +20,21 @@ test("registers and verifies the Hub-generated service public key", async () => 
       return { body: "", status: 204 }
     }
     return registered
-      ? { body: JSON.stringify({ id: MCP_GENERATED_SERVICE_KEY_ID, key: publicKey }), status: 200 }
+      ? { body: JSON.stringify({ id: keyId, key: publicKey }), status: 200 }
       : { body: "", status: 404 }
   }
 
   assert.equal(await registerMcpServicePublicKey(
     "k8s-docs-server",
     "mcp-hub.mcps.k8s-docs-server.runtime",
+    "docs-mcp",
     publicKey,
     request,
   ), true)
   assert.deepEqual(calls[1], {
-    body: { id: MCP_GENERATED_SERVICE_KEY_ID, key: publicKey },
+    body: { id: keyId, key: publicKey },
     method: "PUT",
-    path: "/domain/mcp-hub.mcps.k8s-docs-server/service/runtime/publickey/idthw-hub-generated",
+    path: "/domain/mcp-hub.mcps.k8s-docs-server/service/runtime/publickey/idthw-hub-docs-mcp",
   })
 })
 
@@ -41,7 +43,7 @@ test("does not rewrite an already matching service public key", async () => {
   const request: ZmsRequest = async (method) => {
     methods.push(method)
     return {
-      body: JSON.stringify({ id: MCP_GENERATED_SERVICE_KEY_ID, key: publicKey }),
+      body: JSON.stringify({ id: keyId, key: publicKey }),
       status: 200,
     }
   }
@@ -49,6 +51,7 @@ test("does not rewrite an already matching service public key", async () => {
   assert.equal(await registerMcpServicePublicKey(
     "k8s-docs-server",
     "mcp-hub.mcps.k8s-docs-server.runtime",
+    "docs-mcp",
     publicKey,
     request,
   ), false)

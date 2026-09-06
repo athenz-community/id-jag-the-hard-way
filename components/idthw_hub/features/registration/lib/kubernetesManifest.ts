@@ -1,4 +1,5 @@
 import { stringify } from "yaml"
+import { mcpServiceKeyId } from "./mcpServiceKeyId.ts"
 
 const RUNTIME_PROXY_IMAGE = "ghcr.io/mlajkim/mcp-runtime-proxy:latest"
 const RUNTIME_PROXY_PORT = 8082
@@ -39,6 +40,7 @@ export type McpKubernetesResourceOptions = {
   generatedServicePrivateKey?: string
   includeSecretValues?: boolean
   managedServiceIdentity?: boolean
+  managedServiceKeyId?: string
   runtimeProxyImage?: string
   runtimeProxyImagePullPolicy?: "Always" | "IfNotPresent" | "Never"
 }
@@ -70,6 +72,7 @@ export function buildMcpKubernetesResources(
   const identitySecretName = `${name}-athenz-identity`
   const runtimeProxyServiceAccountName = `${name}-runtime-proxy`
   const runtimeProxyRoleName = `${name}-runtime-proxy-identity`
+  const managedServiceKeyId = options.managedServiceKeyId ?? mcpServiceKeyId(name)
   const appLabels = {
     "app.kubernetes.io/name": name,
     "app.kubernetes.io/part-of": "mcp-hub",
@@ -160,7 +163,7 @@ export function buildMcpKubernetesResources(
         ...(runtimeProxy.env as Array<Record<string, unknown>>),
         { name: "ATHENZ_SERVICE_DOMAIN", value: expectedAudience },
         { name: "ATHENZ_SERVICE_NAME", value: serviceName },
-        { name: "ATHENZ_SERVICE_KEY_ID", value: "idthw-hub-generated" },
+        { name: "ATHENZ_SERVICE_KEY_ID", value: managedServiceKeyId },
         { name: "ATHENZ_ZTS_URL", value: "https://athenz-zts-server.athenz:4443/zts/v1" },
         { name: "ATHENZ_ZTS_CA_PATH", value: "/var/run/athenz/ca.crt" },
         { name: "ATHENZ_ZTS_DNS_DOMAIN", value: "zts.athenz.cloud" },

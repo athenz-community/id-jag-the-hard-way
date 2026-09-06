@@ -92,7 +92,7 @@ test("builds namespace, secret, deployment, and service resources", () => {
   const proxyEnvironment = deployment.spec.template.spec.containers[1].env
   assert.deepEqual(
     proxyEnvironment.find(({ name }) => name === "ATHENZ_SERVICE_KEY_ID"),
-    { name: "ATHENZ_SERVICE_KEY_ID", value: "idthw-hub-generated" },
+    { name: "ATHENZ_SERVICE_KEY_ID", value: "idthw-hub-docs-mcp" },
   )
   assert.deepEqual(
     proxyEnvironment.find(({ name }) => name === "ATHENZ_IDENTITY_REFRESH_SECONDS"),

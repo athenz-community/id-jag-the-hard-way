@@ -36,19 +36,12 @@ export async function createMcpResources(
     "--selector",
     "app.kubernetes.io/part-of=mcp-hub",
     "-o",
-    "custom-columns=ROUTE_ID:.metadata.annotations.mcp\\.idthw\\.dev/id,NAME:.metadata.name,PROJECT_LABEL:.metadata.labels.mcp\\.idthw\\.dev/project,PROJECT_ANNOTATION:.metadata.annotations.mcp\\.idthw\\.dev/project,SERVICE_ACCOUNT:.metadata.annotations.mcp\\.idthw\\.dev/iam-service-account",
+    "custom-columns=ROUTE_ID:.metadata.annotations.mcp\\.idthw\\.dev/id,NAME:.metadata.name,PROJECT_LABEL:.metadata.labels.mcp\\.idthw\\.dev/project,PROJECT_ANNOTATION:.metadata.annotations.mcp\\.idthw\\.dev/project",
     "--no-headers",
   ]))
   if (hasRouteId(registeredRoutes.stdout, input.mcpKeyName)) {
     throw new McpResourceConflictError("An MCP server with this key already exists")
   }
-  if (
-    input.accessManagement === "hub"
-    && hasServiceAccount(registeredRoutes.stdout, input.serviceAccount)
-  ) {
-    throw new McpResourceConflictError("The IAM service account is already assigned to another MCP server")
-  }
-
   const namespaceResult = await runKubectl(kubectlArgs([
     "get",
     "namespace",
@@ -111,16 +104,5 @@ function hasRouteId(output: string, expectedRouteId: string) {
     if (projectLabel === "<none>" && projectAnnotation === "<none>") return false
     const routeId = configuredRouteId === "<none>" ? deploymentName : configuredRouteId
     return routeId === expectedRouteId
-  })
-}
-
-function hasServiceAccount(output: string, expectedServiceAccount: string) {
-  return output.split("\n").some((line) => {
-    const values = line.trim().split(/\s+/)
-    const projectLabel = values[2]
-    const projectAnnotation = values[3]
-    const serviceAccount = values[4]
-    if (projectLabel === "<none>" && projectAnnotation === "<none>") return false
-    return serviceAccount === expectedServiceAccount
   })
 }

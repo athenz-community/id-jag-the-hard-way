@@ -29,7 +29,7 @@ For a configured downstream tool scope, Gateway also sends the selected scope in
 
 The forwarded `tools/call` receives the path in `params._meta["mcp.idthw.dev/access-token-file"]`. The MCP container mounts this directory read-only and must reread the file immediately before the downstream request. Runtime Proxy removes the file after the MCP response ends. Per-request paths prevent concurrent users of the same tool from overwriting each other's delegated tokens. The initial implementation accepts downstream scopes from exactly one Athenz domain per tool call.
 
-For new Hub-managed servers, Runtime Proxy also manages the selected Athenz service identity. Its bootstrap private-key Secret is mounted only in this container. On startup, the proxy uses `zts-svccert` and the registered `idthw-hub-generated` key to obtain a service certificate, verifies that the certificate matches the private key, and publishes both into a separate Kubernetes Secret. Runtime Proxy and the MCP container both mount that published identity read-only as `/var/run/athenz/service.cert.pem` and `/var/run/athenz/service.key.pem`. The proxy refreshes the identity every 24 hours and retries a failed scheduled refresh after five minutes without deleting the last good identity.
+For new Hub-managed servers, Runtime Proxy also manages the selected Athenz service identity. Its bootstrap private-key Secret is mounted only in this container. On startup, the proxy uses `zts-svccert` and the per-server key ID supplied by MCP Hub to obtain a service certificate, verifies that the certificate matches the private key, and publishes both into a separate Kubernetes Secret. Runtime Proxy and the MCP container both mount that published identity read-only as `/var/run/athenz/service.cert.pem` and `/var/run/athenz/service.key.pem`. The proxy refreshes the identity every 24 hours and retries a failed scheduled refresh after five minutes without deleting the last good identity.
 
 ## Configuration
 
@@ -45,7 +45,7 @@ For new Hub-managed servers, Runtime Proxy also manages the selected Athenz serv
 | `ATHENZ_JWKS_ALLOW_INSECURE_HTTP` | `false` | Allows an HTTP JWKS endpoint for local tests only |
 | `ATHENZ_SERVICE_DOMAIN` | Unset | Enables identity refresh and names the selected Athenz service domain |
 | `ATHENZ_SERVICE_NAME` | Unset | Selected Athenz service name; required with `ATHENZ_SERVICE_DOMAIN` |
-| `ATHENZ_SERVICE_KEY_ID` | `idthw-hub-generated` | Registered Athenz service public-key ID |
+| `ATHENZ_SERVICE_KEY_ID` | `idthw-hub-generated` | Registered Athenz service public-key ID; Hub-managed servers explicitly set their per-server ID |
 | `ATHENZ_ZTS_URL` | `https://athenz-zts-server.athenz:4443/zts/v1` | ZTS service-certificate endpoint |
 | `ATHENZ_ZTS_CA_PATH` | `/var/run/athenz/ca.crt` | CA used for service-certificate issuance |
 | `ATHENZ_ZTS_DNS_DOMAIN` | `zts.athenz.cloud` | DNS suffix requested in the service certificate |

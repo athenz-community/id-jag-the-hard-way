@@ -117,16 +117,22 @@ test("does not provision managed access when the server key conflicts", async ()
   assert.equal(provisioned, false)
 })
 
-test("rejects reusing a generated-key service account for another MCP server", async () => {
-  const runner: KubectlRunner = async (args) => ({
-    stdout: args.includes("--all-namespaces")
-      ? "other-mcp other-mcp k8s-docs-server <none> mcp-hub.mcps.k8s-docs-server.runtime\n"
-      : "",
-    stderr: "",
-  })
+test("allows a service account to be shared by servers with distinct generated key IDs", async () => {
+  const calls: string[][] = []
+  const runner: KubectlRunner = async (args) => {
+    calls.push(args)
+    return {
+      stdout: args.includes("--all-namespaces")
+        ? "other-mcp other-mcp k8s-docs-server <none>\n"
+        : args.includes("namespace")
+          ? "namespace/k8s-docs-server\n"
+          : "",
+      stderr: "",
+    }
+  }
 
-  await assert.rejects(
-    createMcpResources(input, runner),
-    /IAM service account is already assigned/,
-  )
+  await createMcpResources(input, runner, {
+    generateServiceIdentity: () => generatedIdentity,
+  })
+  assert.equal(calls.some((args) => args.includes("-f")), true)
 })

@@ -294,6 +294,7 @@ export function buildMcpResourceUpdate(
     managedServiceIdentity: Boolean(
       currentDeployment.metadata?.annotations?.[MCP_MANAGED_IDENTITY_ANNOTATION],
     ),
+    managedServiceKeyId: managedServiceKeyIdFromDeployment(currentDeployment),
   })
   const desiredDeployment = resources.find(({ kind }) => kind === "Deployment") as Record<string, unknown> | undefined
   const desiredService = resources.find(({ kind }) => kind === "Service") as Record<string, unknown> | undefined
@@ -382,6 +383,17 @@ export function buildMcpResourceUpdate(
         .map(({ key, value }) => [key, value]),
     ),
   }
+}
+
+function managedServiceKeyIdFromDeployment(deployment: KubernetesDeployment) {
+  if (!deployment.metadata?.annotations?.[MCP_MANAGED_IDENTITY_ANNOTATION]) return undefined
+  const runtimeProxy = deployment.spec?.template?.spec?.containers?.find(({ name }) => name === "mcp-runtime-proxy")
+  const keyId = runtimeProxy?.env?.find(({ name }) => name === "ATHENZ_SERVICE_KEY_ID")?.value
+  if (keyId === undefined) return "idthw-hub-generated"
+  if (typeof keyId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(keyId)) {
+    throw new Error("MCP Runtime Proxy has an invalid Athenz service key ID")
+  }
+  return keyId
 }
 
 async function prepareSecretOperation(
