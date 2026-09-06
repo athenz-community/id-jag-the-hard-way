@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { McpTemplateDetailResponse, McpTemplateSummary } from "@/features/mcp-templates/types"
 import { ContainerArgumentsField } from "@/features/registration/components/ContainerArgumentsField"
 import { ContainerImageField } from "./ContainerImageField"
@@ -11,18 +11,21 @@ export function SourceForm({
   project,
   templates,
   templateListError,
+  initialTemplateKey,
   cancelHref,
   configurationHref,
 }: {
   project: string
   templates: McpTemplateSummary[]
   templateListError?: string
+  initialTemplateKey?: string
   cancelHref: string
   configurationHref: string
 }) {
   const { draft, setDraft, resetDraft } = useMcpCreateDraft()
   const [templateError, setTemplateError] = useState(templateListError ?? "")
   const [templateLoading, setTemplateLoading] = useState(false)
+  const initializedFromTemplateAction = useRef(false)
   const usesTemplate = draft.creationMethod === "template"
   const canContinue = !usesTemplate || Boolean(draft.selectedTemplate)
 
@@ -65,6 +68,21 @@ export function SourceForm({
       setTemplateLoading(false)
     }
   }, [project, setDraft])
+
+  useEffect(() => {
+    if (initializedFromTemplateAction.current || !initialTemplateKey) return
+    initializedFromTemplateAction.current = true
+
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      creationMethod: "template",
+      iconId: "",
+      selectedTemplateKey: initialTemplateKey,
+      selectedTemplate: null,
+      templateEnvironmentVariables: [],
+    }))
+    void loadTemplate(initialTemplateKey)
+  }, [initialTemplateKey, loadTemplate, setDraft])
 
   function selectCreationMethod(creationMethod: "direct" | "template") {
     setTemplateError(templateListError ?? "")

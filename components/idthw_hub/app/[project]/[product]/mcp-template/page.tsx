@@ -84,6 +84,12 @@ export default async function McpTemplateRoute({
                   <ResourceActionMenu
                     resourceKind="MCP template"
                     resourceName={template.name}
+                    createServerHref={`${consoleHref({
+                      project,
+                      product,
+                      section: "mcp-server",
+                      suffix: "create",
+                    })}?templateKey=${encodeURIComponent(template.key)}`}
                     editHref={consoleHref({
                       project,
                       product,

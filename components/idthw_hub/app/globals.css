@@ -1295,7 +1295,7 @@ input:disabled {
 .resource-action-menu-panel {
   position: fixed;
   z-index: 80;
-  width: 150px;
+  width: 184px;
   overflow: hidden;
   border: 1px solid #dfe4eb;
   border-radius: 6px;
