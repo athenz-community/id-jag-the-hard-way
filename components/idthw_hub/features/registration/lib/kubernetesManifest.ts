@@ -186,6 +186,8 @@ export function buildMcpKubernetesResources(
         capabilities: { drop: ["ALL"] },
         readOnlyRootFilesystem: true,
         runAsNonRoot: true,
+        runAsGroup: 1000,
+        runAsUser: 1000,
       }
       podSpec.automountServiceAccountToken = false
       podSpec.serviceAccountName = runtimeProxyServiceAccountName
@@ -197,12 +199,21 @@ export function buildMcpKubernetesResources(
         },
       }, {
         name: "athenz-service-identity",
-        secret: {
-          secretName: identitySecretName,
-          items: [
-            { key: SERVICE_CERTIFICATE_FILE, path: SERVICE_CERTIFICATE_FILE },
-            { key: SERVICE_PRIVATE_KEY_FILE, path: SERVICE_PRIVATE_KEY_FILE },
-          ],
+        projected: {
+          sources: [{
+            secret: {
+              name: identitySecretName,
+              items: [
+                { key: SERVICE_CERTIFICATE_FILE, path: SERVICE_CERTIFICATE_FILE },
+                { key: SERVICE_PRIVATE_KEY_FILE, path: SERVICE_PRIVATE_KEY_FILE },
+              ],
+            },
+          }, {
+            configMap: {
+              name: MCP_RUNTIME_PROXY_CA_CONFIG_MAP,
+              items: [{ key: "ca.crt", path: "ca.cert.pem" }],
+            },
+          }],
         },
       }, {
         name: "runtime-proxy-kube-api",
