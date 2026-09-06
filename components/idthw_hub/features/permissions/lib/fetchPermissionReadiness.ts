@@ -9,6 +9,7 @@ import { parse } from "yaml"
 import {
   parseAthenzRole,
   parsePermissionPresetForServer,
+  withManagedAccessRequirements,
 } from "@/features/permissions/lib/permissionPreset"
 import type {
   PermissionCheckStatus,
@@ -40,14 +41,23 @@ type ZmsCredentials = {
 export async function fetchPermissionReadiness(
   serverId: string,
   username: string,
+  routeAccessScope?: string,
 ): Promise<PermissionReadiness | null> {
   let preset
   try {
     const configuredPreset = await readPermissionPresetConfigMap()
+    const signedInPrincipal = signedInAthenzPrincipal(username)
     preset = parsePermissionPresetForServer(
       configuredPreset,
       serverId,
-      signedInAthenzPrincipal(username),
+      signedInPrincipal,
+    )
+    preset = withManagedAccessRequirements(
+      preset,
+      serverId,
+      routeAccessScope,
+      signedInPrincipal,
+      process.env.MCP_HUB_GATEWAY_PRINCIPAL ?? "mcp-hub.mcp-gateway",
     )
   } catch (error) {
     return {

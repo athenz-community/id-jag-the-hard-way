@@ -33,7 +33,7 @@ export default async function McpServerClientConfigurationRoute({
   const displayName = server.alias ?? server.name
   const mcpServerUrl = resolveMcpDisplayUrl(server)
   const [permissionReadiness, toolsResult] = await Promise.all([
-    fetchPermissionReadiness(server.routeId, session.user.username),
+    fetchPermissionReadiness(server.routeId, session.user.username, server.accessScope),
     listLiveMcpTools(server),
   ])
 

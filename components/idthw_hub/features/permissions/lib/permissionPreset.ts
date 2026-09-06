@@ -69,9 +69,11 @@ export function parseAthenzRole(value: string) {
 export function parseToolAccessScopesForServer(
   value: unknown,
   serverId: string,
+  routeAccessScope?: string,
 ): Record<string, string> | undefined {
   const preset = parsePermissionPresetForServer(value, serverId, "human.scope-resolver")
   if (!preset) return undefined
+  const routeRoles = parseAccessScope(routeAccessScope)
 
   return Object.fromEntries(preset.groups.map((group) => {
     const roles = group.requirements
@@ -80,8 +82,70 @@ export function parseToolAccessScopesForServer(
     if (!group.toolName || roles.length === 0) {
       throw new Error(`Tool ${group.toolName ?? group.label} must define a signed-in-user requirement`)
     }
-    return [group.toolName, [...new Set(roles)].sort().join(" ")]
+    return [group.toolName, [...new Set([...roles, ...routeRoles])].sort().join(" ")]
   }))
+}
+
+export function withManagedAccessRequirements(
+  preset: PermissionPreset | undefined,
+  serverId: string,
+  routeAccessScope: string | undefined,
+  signedInPrincipal: string,
+  gatewayPrincipal = "mcp-hub.mcp-gateway",
+): PermissionPreset | undefined {
+  const roles = parseAccessScope(routeAccessScope)
+  if (roles.length === 0) return preset
+  if (!ATHENZ_PRINCIPAL_PATTERN.test(signedInPrincipal)) {
+    throw new Error(`Signed-in user resolved to invalid Athenz principal ${JSON.stringify(signedInPrincipal)}`)
+  }
+  if (!ATHENZ_PRINCIPAL_PATTERN.test(gatewayPrincipal)) {
+    throw new Error(`MCP Gateway resolved to invalid Athenz principal ${JSON.stringify(gatewayPrincipal)}`)
+  }
+
+  const requirements: PermissionRequirement[] = roles.flatMap((role) => {
+    const parsed = parseAthenzRole(role)
+    return [{
+      configuredMember: SIGNED_IN_USER_MEMBER,
+      label: "Signed-in user can invoke this Athenz-protected MCP server",
+      member: signedInPrincipal,
+      role,
+    }, {
+      configuredMember: gatewayPrincipal,
+      label: "MCP Gateway can request protected MCP access",
+      member: gatewayPrincipal,
+      role: `${parsed.domain}:role.${parsed.role}-jag-exchanger`,
+    }]
+  })
+
+  if (!preset) {
+    return {
+      serverId,
+      groups: [{
+        kind: "tool",
+        label: "Athenz-protected MCP access",
+        requirements,
+      }],
+    }
+  }
+
+  return {
+    ...preset,
+    groups: preset.groups.map((group) => ({
+      ...group,
+      requirements: mergeRequirements(group.requirements, requirements),
+    })),
+  }
+}
+
+function parseAccessScope(value: string | undefined) {
+  const roles = [...new Set(value?.trim().split(/\s+/).filter(Boolean) ?? [])]
+  for (const role of roles) parseAthenzRole(role)
+  return roles
+}
+
+function mergeRequirements(current: PermissionRequirement[], added: PermissionRequirement[]) {
+  const identities = new Set(current.map(({ member, role }) => `${member}\n${role}`))
+  return [...current, ...added.filter(({ member, role }) => !identities.has(`${member}\n${role}`))]
 }
 
 function parseRequirements(

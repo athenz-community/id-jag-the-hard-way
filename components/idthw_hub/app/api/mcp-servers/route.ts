@@ -9,6 +9,7 @@ import {
   createMcpResources,
   McpResourceConflictError,
 } from "@/features/registration/api/createMcpResources"
+import { ensureMcpManagedAccess } from "@/features/registration/api/mcpManagedAccess"
 import { validateMcpRegistration } from "@/features/registration/lib/registrationInput"
 import {
   getMcpTemplate,
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     ])
     const registryServers = servers.map((server) => ({
       ...server,
-      toolScopes: parseToolAccessScopesForServer(permissionPreset, server.routeId),
+      toolScopes: parseToolAccessScopesForServer(permissionPreset, server.routeId, server.accessScope),
     }))
     return NextResponse.json<CatalogResponse>(
       { servers: registryServers },
@@ -64,12 +65,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const session = await auth()
-  if (!session?.user) {
+  if (!session?.user?.username) {
     return NextResponse.json(
       { error: "Authentication required" },
       { status: 401, headers: NO_STORE_HEADERS },
     )
   }
+  const username = session.user.username
 
   let payload: unknown
   try {
@@ -129,7 +131,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await createMcpResources(validation.input)
+    await createMcpResources(validation.input, undefined, {
+      beforeCreate: validation.input.accessManagement === "hub"
+        ? () => ensureMcpManagedAccess(
+            validation.input.project,
+            username,
+            validation.input.serviceAccount,
+          ).then(() => undefined)
+        : undefined,
+    })
     return NextResponse.json(
       {
         server: {
@@ -147,8 +157,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const detail = error instanceof Error ? error.message.trim().replace(/\s+/g, " ").slice(0, 300) : ""
+    console.error("Unable to create MCP server", {
+      project: validation.input.project,
+      mcpKeyName: validation.input.mcpKeyName,
+      detail,
+    })
     return NextResponse.json(
-      { error: "Unable to create MCP server resources" },
+      { error: detail ? `Unable to create MCP server: ${detail}` : "Unable to create MCP server" },
       { status: 500, headers: NO_STORE_HEADERS },
     )
   }

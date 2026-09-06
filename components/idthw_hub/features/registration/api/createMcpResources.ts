@@ -14,9 +14,14 @@ export type { KubectlRunner } from "../../kubernetes/api/kubectl.ts"
 
 export class McpResourceConflictError extends Error {}
 
+type CreateMcpResourceOptions = {
+  beforeCreate?: () => Promise<void>
+}
+
 export async function createMcpResources(
   input: McpKubernetesManifestInput,
   runKubectl: KubectlRunner = runKubectlCommand,
+  options: CreateMcpResourceOptions = {},
 ) {
   const registeredRoutes = await runKubectl(kubectlArgs([
     "get",
@@ -70,6 +75,7 @@ export async function createMcpResources(
 
   try {
     await runKubectl(kubectlArgs(["create", "--dry-run=server", "-f", "-"]), manifest)
+    await options.beforeCreate?.()
     await runKubectl(kubectlArgs(["create", "-f", "-"]), manifest)
   } catch (error) {
     if (isKubectlAlreadyExists(error)) {

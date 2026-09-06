@@ -102,7 +102,7 @@ kubectl -n mcp-hub create secret generic mcp-hub-registry \
   | kubectl apply -f -
 ```
 
-The registry response supplies `routeId`, `proxyUrl`, the optional route fallback `accessScope`, and optional `toolScopes` keyed by MCP tool name. MCP Hub derives `toolScopes` from each tool's `<signed_in_user>` permission requirements. For Kubernetes, configure MCP Hub's `MCP_HUB_CORE_PROXY_URL` as:
+The registry response supplies `routeId`, `proxyUrl`, the optional shared route `accessScope`, and optional `toolScopes` keyed by MCP tool name. For a Hub-managed server, MCP Hub publishes `mcp-hub.mcps.<project>:role.accessor` as the shared scope. When custom tool requirements exist, MCP Hub combines that shared role with each tool's `<signed_in_user>` roles in `toolScopes`. For Kubernetes, configure MCP Hub's `MCP_HUB_CORE_PROXY_URL` as:
 
 ```text
 http://core-mcp-proxy.mcp-hub:8080

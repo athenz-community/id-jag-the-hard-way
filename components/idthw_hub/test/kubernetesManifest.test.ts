@@ -41,6 +41,10 @@ test("builds namespace, secret, deployment, and service resources", () => {
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/creation-method"], "direct")
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/visibility"], "personal")
   assert.equal(
+    deployment.metadata.annotations["mcp.idthw.dev/access-scope"],
+    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+  )
+  assert.equal(
     deployment.metadata.annotations["mcp.idthw.dev/iam-service-account"],
     "mcp-hub.mcps.k8s-docs-server.runtime",
   )
