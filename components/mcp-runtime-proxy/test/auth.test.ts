@@ -22,11 +22,25 @@ const publicJwk = {
 test("accepts a signed, unexpired Athenz access token for the required audience and scope", async () => {
   const verifier = verifierForTest()
 
-  await verifier.verify(`Bearer ${accessToken({
+  const verification = await verifier.verify(`Bearer ${accessToken({
     aud: AUDIENCE,
+    client_id: "mcp-hub.mcp-gateway",
     exp: NOW / 1000 + 300,
     scp: ["accessor"],
+    sub: "mcp-hub.mcp-gateway",
+    uid: "idjag-learner",
   })}`)
+
+  assert.deepEqual(verification, {
+    audiences: [AUDIENCE],
+    clientId: "mcp-hub.mcp-gateway",
+    expiresAt: new Date(NOW + 300_000).toISOString(),
+    expiresInSeconds: 300,
+    keyId: "zts-test-key",
+    scopes: ["accessor"],
+    subject: "mcp-hub.mcp-gateway",
+    userId: "idjag-learner",
+  })
 })
 
 test("accepts a fully-qualified managed scope in a multi-audience token", async () => {

@@ -151,6 +151,53 @@ test("requires a valid access token for protected MCP calls", async (t) => {
   assert.equal(upstreamAuthorization, "Bearer signed-athenz-token")
 })
 
+test("logs safe verified access-token metadata without logging the raw token", async (t) => {
+  const logs: Array<{ event: string; fields: Record<string, unknown>; level: string }> = []
+  const logger = {
+    error: (event: string, fields: Record<string, unknown> = {}) => logs.push({ event, fields, level: "error" }),
+    info: (event: string, fields: Record<string, unknown> = {}) => logs.push({ event, fields, level: "info" }),
+    warn: (event: string, fields: Record<string, unknown> = {}) => logs.push({ event, fields, level: "warn" }),
+  }
+  const upstream = http.createServer((_request, response) => response.end("ok"))
+  const upstreamPort = await listen(upstream)
+  t.after(() => close(upstream))
+  const proxy = createRuntimeProxyServer(
+    new URL(`http://127.0.0.1:${upstreamPort}`),
+    {
+      verify: async () => ({
+        audiences: ["mcp-hub.mcps.k8s-docs-server"],
+        clientId: "mcp-hub.mcp-gateway",
+        expiresAt: "2026-09-06T06:48:47.000Z",
+        expiresInSeconds: 3600,
+        keyId: "zts-key-1",
+        scopes: ["mcp-hub.mcps.k8s-docs-server:role.accessor"],
+        subject: "mcp-hub.mcp-gateway",
+        userId: "idjag-learner",
+      }),
+    },
+    logger,
+  )
+  const proxyPort = await listen(proxy)
+  t.after(() => close(proxy))
+
+  const response = await fetch(`http://127.0.0.1:${proxyPort}/mcp`, {
+    method: "POST",
+    headers: { authorization: "Bearer signed-athenz-token", "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read" } }),
+  })
+  assert.equal(await response.text(), "ok")
+
+  assert.deepEqual(logs.map(({ event }) => event), [
+    "request_received",
+    "access_token_verified",
+    "request_completed",
+  ])
+  const verified = logs.find(({ event }) => event === "access_token_verified")
+  assert.equal(verified?.fields.userId, "idjag-learner")
+  assert.deepEqual(verified?.fields.scopes, ["mcp-hub.mcps.k8s-docs-server:role.accessor"])
+  assert.equal(JSON.stringify(logs).includes("signed-athenz-token"), false)
+})
+
 test("returns forbidden when the token lacks the required scope", async (t) => {
   const proxy = createRuntimeProxyServer(new URL("http://127.0.0.1:1"), {
     verify: async () => {
