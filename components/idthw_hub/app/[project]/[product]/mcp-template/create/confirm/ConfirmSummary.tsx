@@ -5,10 +5,44 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { buildMcpTemplateManifest } from "@/features/mcp-templates/lib/kubernetesTemplate"
-import { useMcpTemplateDraft } from "../McpTemplateDraftContext"
+import { type McpTemplateDraft, useMcpTemplateDraft } from "../McpTemplateDraftContext"
 
 function valueOrFallback(value: string) {
   return value || "Not provided"
+}
+
+function normalizedArguments(draft: McpTemplateDraft) {
+  return draft.containerArguments.map(({ value }) => value.trim()).filter(Boolean)
+}
+
+function formattedEnvironmentVariables(draft: McpTemplateDraft) {
+  return draft.environmentVariables
+    .filter(({ key, description, defaultValue }) => key || description || defaultValue)
+    .map((variable) => [
+      variable.key || "Missing key",
+      `Secret: ${variable.secret ? "Yes" : "No"}`,
+      `Required: ${variable.required ? "Yes" : "No"}`,
+      `Description: ${valueOrFallback(variable.description)}`,
+      `Default value: ${variable.secret ? "Provided during server creation" : valueOrFallback(variable.defaultValue)}`,
+    ].join("\n"))
+    .join("\n\n")
+}
+
+function changedTemplateFields(before: McpTemplateDraft, after: McpTemplateDraft) {
+  const fields = [
+    ["Container image URL", before.image, after.image],
+    ["Target port", before.port, after.port],
+    ["Path", before.path, after.path],
+    ["Container command", before.command, after.command],
+    ["Container arguments", normalizedArguments(before).join("\n"), normalizedArguments(after).join("\n")],
+    ["Template name", before.name, after.name],
+    ["Environment variables", formattedEnvironmentVariables(before), formattedEnvironmentVariables(after)],
+    ["Documentation", before.documentation, after.documentation],
+    ["Description", before.description, after.description],
+  ]
+  return fields
+    .filter(([, beforeValue, afterValue]) => beforeValue !== afterValue)
+    .map(([field, beforeValue, afterValue]) => ({ field, beforeValue, afterValue }))
 }
 
 export function ConfirmSummary({
@@ -18,6 +52,8 @@ export function ConfirmSummary({
   sourceHref,
   configurationHref,
   referenceHref,
+  mode = "create",
+  originalTemplateKey,
 }: {
   project: string
   cancelHref: string
@@ -25,15 +61,18 @@ export function ConfirmSummary({
   sourceHref: string
   configurationHref: string
   referenceHref: string
+  mode?: "create" | "edit"
+  originalTemplateKey?: string
 }) {
-  const { draft, resetDraft } = useMcpTemplateDraft()
+  const { draft, initialDraft, resetDraft } = useMcpTemplateDraft()
   const router = useRouter()
   const [createError, setCreateError] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const configuredEnvironmentVariables = draft.environmentVariables.filter(({ key, description, defaultValue }) => (
     key || description || defaultValue
   ))
-  const containerArguments = draft.containerArguments.map(({ value }) => value.trim()).filter(Boolean)
+  const containerArguments = normalizedArguments(draft)
+  const changes = changedTemplateFields(initialDraft, draft)
   const templateInput = {
     arguments: containerArguments,
     command: draft.command,
@@ -57,32 +96,69 @@ export function ConfirmSummary({
   }
   const kubernetesManifest = buildMcpTemplateManifest(templateInput)
 
-  async function createMcpTemplate() {
+  async function saveMcpTemplate() {
     setCreateError("")
     setIsCreating(true)
 
     try {
-      const response = await fetch("/api/mcp-templates", {
-        method: "POST",
+      const isEditing = mode === "edit"
+      const endpoint = isEditing
+        ? `/api/mcp-templates/${encodeURIComponent(originalTemplateKey ?? draft.templateKey)}?project=${encodeURIComponent(project)}`
+        : "/api/mcp-templates"
+      const response = await fetch(endpoint, {
+        method: isEditing ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(templateInput),
       })
       const payload = await response.json() as { error?: unknown }
       if (!response.ok) {
-        throw new Error(typeof payload.error === "string" ? payload.error : "Unable to create MCP template")
+        throw new Error(typeof payload.error === "string"
+          ? payload.error
+          : `Unable to ${isEditing ? "update" : "create"} MCP template`)
       }
 
       resetDraft()
       router.replace(successHref)
       router.refresh()
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "Unable to create MCP template")
+      setCreateError(error instanceof Error ? error.message : `Unable to ${mode === "edit" ? "update" : "create"} MCP template`)
       setIsCreating(false)
     }
   }
 
   return (
     <div className="mcp-create-form">
+      {mode === "edit" ? (
+        <section className="mcp-confirm-section">
+          <div className="mcp-confirm-heading">
+            <h2>Changes</h2>
+          </div>
+          {changes.length > 0 ? (
+            <>
+              <p className="mcp-confirm-manifest-copy">Only fields changed from the stored template are shown.</p>
+              <div className="mcp-template-change-table-wrap">
+                <table className="mcp-template-change-table">
+                  <thead>
+                    <tr><th>Field</th><th>Before</th><th>After</th></tr>
+                  </thead>
+                  <tbody>
+                    {changes.map(({ field, beforeValue, afterValue }) => (
+                      <tr key={field}>
+                        <th scope="row">{field}</th>
+                        <td><div className="mcp-template-change-value before">{valueOrFallback(beforeValue)}</div></td>
+                        <td><div className="mcp-template-change-value after">{valueOrFallback(afterValue)}</div></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <p className="mcp-confirm-manifest-copy">No changes have been made to this template.</p>
+          )}
+        </section>
+      ) : null}
+
       <section className="mcp-confirm-section">
         <div className="mcp-confirm-heading">
           <h2>Source</h2>
@@ -166,7 +242,7 @@ export function ConfirmSummary({
           <h2>Kubernetes manifest</h2>
         </div>
         <p className="mcp-confirm-manifest-copy">
-          Preview of the Kubernetes Secret the Hub will create. Secret environment values are not stored in the template.
+          Preview of the Kubernetes Secret the Hub will {mode === "edit" ? "update" : "create"}. Secret environment values are not stored in the template.
         </p>
         <pre className="mcp-confirm-manifest"><code>{kubernetesManifest}</code></pre>
       </section>
@@ -179,11 +255,13 @@ export function ConfirmSummary({
         <button
           className="button mcp-create-primary"
           type="button"
-          disabled={isCreating}
+          disabled={isCreating || (mode === "edit" && changes.length === 0)}
           aria-busy={isCreating}
-          onClick={() => void createMcpTemplate()}
+          onClick={() => void saveMcpTemplate()}
         >
-          {isCreating ? "Creating..." : "Create"}
+          {isCreating
+            ? (mode === "edit" ? "Updating..." : "Creating...")
+            : (mode === "edit" ? "Update" : "Create")}
         </button>
       </div>
     </div>

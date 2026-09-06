@@ -3,10 +3,14 @@
 import { normalizeMcpKeyName } from "@/features/mcp-servers/lib/mcpKeyName"
 import { useMcpTemplateDraft } from "../McpTemplateDraftContext"
 
-export function McpTemplateIdentityFields() {
+export function McpTemplateIdentityFields({ templateKeyReadOnly = false }: { templateKeyReadOnly?: boolean }) {
   const { draft, setDraft } = useMcpTemplateDraft()
 
   function updateTemplateName(nextName: string) {
+    if (templateKeyReadOnly) {
+      setDraft((currentDraft) => ({ ...currentDraft, name: nextName }))
+      return
+    }
     setDraft((currentDraft) => {
       const resetCustomization = nextName.length === 0
       return {
@@ -46,12 +50,15 @@ export function McpTemplateIdentityFields() {
 
       <div className="mcp-create-field">
         <label htmlFor="template-key">Template key name <span aria-label="required">*</span></label>
-        <p>Automatically follows the template name using lowercase letters and replacing spaces with hyphens. Must be unique.</p>
+        <p>{templateKeyReadOnly
+          ? "Template key names identify their Kubernetes Secret and cannot be changed."
+          : "Automatically follows the template name using lowercase letters and replacing spaces with hyphens. Must be unique."}</p>
         <input
           id="template-key"
-          className="filter-select"
+          className={`filter-select${templateKeyReadOnly ? " mcp-template-key-readonly" : ""}`}
           name="template-key"
           required
+          readOnly={templateKeyReadOnly}
           value={draft.templateKey}
           onChange={(event) => updateTemplateKey(event.target.value)}
         />

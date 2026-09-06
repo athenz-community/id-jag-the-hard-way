@@ -1,9 +1,9 @@
 import { Check } from "lucide-react"
 import Link from "next/link"
 
-type CreateStep = "source" | "configuration" | "reference" | "confirm"
+export type McpTemplateStep = "source" | "configuration" | "reference" | "confirm"
 
-const STEPS: Array<{ id: CreateStep; label: string }> = [
+const STEPS: Array<{ id: McpTemplateStep; label: string }> = [
   { id: "source", label: "Source" },
   { id: "configuration", label: "Configuration" },
   { id: "reference", label: "Reference info" },
@@ -15,16 +15,18 @@ export function McpTemplateCreateSteps({
   sourceHref,
   configurationHref,
   referenceHref,
+  mode = "register",
 }: {
-  activeStep: CreateStep
+  activeStep: McpTemplateStep
   sourceHref: string
   configurationHref?: string
   referenceHref?: string
+  mode?: "register" | "edit"
 }) {
   const activeIndex = STEPS.findIndex((step) => step.id === activeStep)
 
   return (
-    <nav className="mcp-create-step-panel" aria-label="Template registration steps">
+    <nav className="mcp-create-step-panel" aria-label={`Template ${mode} steps`}>
       <ol className="mcp-create-steps">
         {STEPS.map((step, index) => {
           const isActive = step.id === activeStep

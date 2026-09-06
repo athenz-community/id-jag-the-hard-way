@@ -1,3 +1,6 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import {
   isKubectlAlreadyExists,
   kubectlArgs,
@@ -43,6 +46,34 @@ export async function createMcpTemplate(
       throw new McpTemplateConflictError("An MCP template with this key already exists")
     }
     throw error
+  }
+}
+
+export async function updateMcpTemplate(
+  input: McpTemplateInput,
+  runKubectl: KubectlRunner = runKubectlCommand,
+) {
+  const resourceName = `${TEMPLATE_PREFIX}${input.templateKey}`
+  await getMcpTemplate(input.project, input.templateKey, runKubectl)
+
+  const manifest = JSON.stringify(buildMcpTemplateSecret(input))
+  const patchDirectory = await mkdtemp(join(tmpdir(), "idthw-mcp-template-patch-"))
+  const patchPath = join(patchDirectory, "patch.json")
+  try {
+    await writeFile(patchPath, manifest, { encoding: "utf8", mode: 0o600 })
+    const patchArgs = [
+      "patch",
+      `secret/${resourceName}`,
+      "--namespace",
+      TEMPLATE_NAMESPACE,
+      "--type=merge",
+      "--patch-file",
+      patchPath,
+    ]
+    await runKubectl(kubectlArgs([...patchArgs, "--dry-run=server"]))
+    await runKubectl(kubectlArgs(patchArgs))
+  } finally {
+    await rm(patchDirectory, { recursive: true, force: true })
   }
 }
 
