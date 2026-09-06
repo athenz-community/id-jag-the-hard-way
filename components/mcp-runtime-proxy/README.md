@@ -21,6 +21,8 @@ MCP client
 
 The MCP credential broker remains on the client. MCP Gateway exchanges the signed-in user's identity for the narrowly scoped Athenz access token. The Runtime Proxy validates that token and preserves its `Authorization` header for the colocated MCP container. It must target that container directly; targeting MCP Gateway would create a routing loop.
 
+For new Hub-managed servers, Runtime Proxy also manages the selected Athenz service identity. Its bootstrap private-key Secret is mounted only in this container. On startup, the proxy uses `zts-svccert` and the registered `idthw-hub-generated` key to obtain a service certificate, verifies that the certificate matches the private key, and publishes both into a separate Kubernetes Secret. The MCP container mounts that published Secret read-only as `/var/run/athenz/service.cert.pem` and `/var/run/athenz/service.key.pem`. The proxy refreshes the identity every 24 hours and retries a failed scheduled refresh after five minutes without deleting the last good identity.
+
 ## Configuration
 
 | Environment variable | Default | Purpose |
@@ -33,6 +35,19 @@ The MCP credential broker remains on the client. MCP Gateway exchanges the signe
 | `ATHENZ_EXPECTED_AUDIENCE` | Required | Athenz domain accepted in the token `aud` claim |
 | `ATHENZ_REQUIRED_SCOPE` | Required | Fully qualified `<domain>:role.<role>` required in `scp` or `scope` |
 | `ATHENZ_JWKS_ALLOW_INSECURE_HTTP` | `false` | Allows an HTTP JWKS endpoint for local tests only |
+| `ATHENZ_SERVICE_DOMAIN` | Unset | Enables identity refresh and names the selected Athenz service domain |
+| `ATHENZ_SERVICE_NAME` | Unset | Selected Athenz service name; required with `ATHENZ_SERVICE_DOMAIN` |
+| `ATHENZ_SERVICE_KEY_ID` | `idthw-hub-generated` | Registered Athenz service public-key ID |
+| `ATHENZ_ZTS_URL` | `https://athenz-zts-server.athenz:4443/zts/v1` | ZTS service-certificate endpoint |
+| `ATHENZ_ZTS_CA_PATH` | `/var/run/athenz/ca.crt` | CA used for service-certificate issuance |
+| `ATHENZ_ZTS_DNS_DOMAIN` | `zts.athenz.cloud` | DNS suffix requested in the service certificate |
+| `ATHENZ_BOOTSTRAP_PRIVATE_KEY_PATH` | `/var/run/athenz-bootstrap/service.key.pem` | Runtime-Proxy-only generated private key |
+| `ATHENZ_PUBLISHED_CERT_PATH` | `/var/run/athenz-identity/service.cert.pem` | Projected identity Secret path used to confirm publication |
+| `ATHENZ_IDENTITY_REFRESH_SECONDS` | `86400` | Successful certificate refresh interval |
+| `ATHENZ_IDENTITY_RETRY_SECONDS` | `300` | Retry interval after a scheduled refresh failure |
+| `KUBERNETES_IDENTITY_SECRET_NAME` | Required when identity refresh is enabled | Published certificate/key Secret |
+| `POD_NAME` | Required when identity refresh is enabled | ZTS instance ID source |
+| `POD_NAMESPACE` | Required when identity refresh is enabled | Namespace of the published Secret |
 
 Hub-managed deployments set the audience to `mcp-hub.mcps.<project>`, require `mcp-hub.mcps.<project>:role.accessor`, and mount the Athenz CA from the project-local `mcp-runtime-proxy-athenz-ca` ConfigMap. MCP Hub idempotently refreshes that ConfigMap from its configured Athenz CA when a Hub-managed server is created or updated.
 

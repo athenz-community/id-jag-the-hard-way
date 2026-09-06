@@ -8,6 +8,7 @@ import {
 } from "../../kubernetes/api/kubectl.ts"
 import {
   buildMcpKubernetesResources,
+  MCP_MANAGED_IDENTITY_ANNOTATION,
   type McpEnvironmentVariable,
   type McpKubernetesManifestInput,
 } from "../lib/kubernetesManifest.ts"
@@ -259,17 +260,27 @@ export async function deleteMcpResources(
   mcpKeyName: string,
   runKubectl: KubectlRunner = runKubectlCommand,
 ) {
-  await getMcpServerConfiguration(project, mcpKeyName, runKubectl)
+  const deployment = await readMcpDeployment(project, mcpKeyName, runKubectl)
+  configurationFromDeployment(deployment, project, mcpKeyName)
   const deleteArgs = [
     "delete",
     `deployment/${mcpKeyName}`,
     `service/${mcpKeyName}`,
     `secret/${mcpKeyName}-env`,
-    "--namespace",
-    project,
-    "--ignore-not-found",
-    "--wait=true",
   ]
+  if (
+    deployment.metadata?.annotations?.[MCP_MANAGED_IDENTITY_ANNOTATION]
+    === `${mcpKeyName}-athenz-identity`
+  ) {
+    deleteArgs.push(
+      `secret/${mcpKeyName}-athenz-bootstrap`,
+      `secret/${mcpKeyName}-athenz-identity`,
+      `serviceaccount/${mcpKeyName}-runtime-proxy`,
+      `role/${mcpKeyName}-runtime-proxy-identity`,
+      `rolebinding/${mcpKeyName}-runtime-proxy-identity`,
+    )
+  }
+  deleteArgs.push("--namespace", project, "--ignore-not-found", "--wait=true")
   await runKubectl(kubectlArgs([...deleteArgs, "--dry-run=server"]))
   await runKubectl(kubectlArgs(deleteArgs))
 }
@@ -278,7 +289,12 @@ export function buildMcpResourceUpdate(
   input: McpKubernetesManifestInput,
   currentDeployment: KubernetesDeployment,
 ) {
-  const resources = buildMcpKubernetesResources(input, runtimeProxyResourceOptions())
+  const resources = buildMcpKubernetesResources(input, {
+    ...runtimeProxyResourceOptions(),
+    managedServiceIdentity: Boolean(
+      currentDeployment.metadata?.annotations?.[MCP_MANAGED_IDENTITY_ANNOTATION],
+    ),
+  })
   const desiredDeployment = resources.find(({ kind }) => kind === "Deployment") as Record<string, unknown> | undefined
   const desiredService = resources.find(({ kind }) => kind === "Service") as Record<string, unknown> | undefined
   if (!desiredDeployment || !desiredService) throw new Error("Unable to build MCP server update")
@@ -287,7 +303,12 @@ export function buildMcpResourceUpdate(
   const desiredSpec = desiredDeployment.spec as {
     template: {
       metadata: { labels: Record<string, string> }
-      spec: { containers: KubernetesContainer[]; volumes?: unknown[] }
+      spec: {
+        automountServiceAccountToken?: boolean
+        containers: KubernetesContainer[]
+        serviceAccountName?: string
+        volumes?: unknown[]
+      }
     }
   }
   const desiredMainContainer = desiredSpec.template.spec.containers.find(({ name }) => name === input.mcpKeyName)
@@ -324,6 +345,7 @@ export function buildMcpResourceUpdate(
     ANNOTATION_ICON,
     ANNOTATION_IAM_SERVICE_ACCOUNT,
     ANNOTATION_TEMPLATE_KEY,
+    MCP_MANAGED_IDENTITY_ANNOTATION,
   ]
   const annotations: Record<string, string | null> = { ...desiredMetadata.annotations }
   for (const annotation of optionalAnnotations) {
@@ -340,7 +362,9 @@ export function buildMcpResourceUpdate(
             annotations: { "mcp.idthw.dev/updated-at": new Date().toISOString() },
           },
           spec: {
+            automountServiceAccountToken: desiredSpec.template.spec.automountServiceAccountToken ?? null,
             containers: desiredSpec.template.spec.containers,
+            serviceAccountName: desiredSpec.template.spec.serviceAccountName ?? null,
             volumes: desiredSpec.template.spec.volumes ?? null,
           },
         },

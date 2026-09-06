@@ -10,13 +10,18 @@ import {
   type McpKubernetesManifestInput,
 } from "../lib/kubernetesManifest.ts"
 import { runtimeProxyResourceOptions } from "./mcpRuntimeProxy.ts"
+import {
+  generateMcpServiceIdentity,
+  type GeneratedMcpServiceIdentity,
+} from "./mcpServiceIdentity.ts"
 
 export type { KubectlRunner } from "../../kubernetes/api/kubectl.ts"
 
 export class McpResourceConflictError extends Error {}
 
 type CreateMcpResourceOptions = {
-  beforeCreate?: () => Promise<void>
+  beforeCreate?: (identity?: GeneratedMcpServiceIdentity) => Promise<void>
+  generateServiceIdentity?: () => GeneratedMcpServiceIdentity
 }
 
 export async function createMcpResources(
@@ -31,11 +36,17 @@ export async function createMcpResources(
     "--selector",
     "app.kubernetes.io/part-of=mcp-hub",
     "-o",
-    "custom-columns=ROUTE_ID:.metadata.annotations.mcp\\.idthw\\.dev/id,NAME:.metadata.name,PROJECT_LABEL:.metadata.labels.mcp\\.idthw\\.dev/project,PROJECT_ANNOTATION:.metadata.annotations.mcp\\.idthw\\.dev/project",
+    "custom-columns=ROUTE_ID:.metadata.annotations.mcp\\.idthw\\.dev/id,NAME:.metadata.name,PROJECT_LABEL:.metadata.labels.mcp\\.idthw\\.dev/project,PROJECT_ANNOTATION:.metadata.annotations.mcp\\.idthw\\.dev/project,SERVICE_ACCOUNT:.metadata.annotations.mcp\\.idthw\\.dev/iam-service-account",
     "--no-headers",
   ]))
   if (hasRouteId(registeredRoutes.stdout, input.mcpKeyName)) {
     throw new McpResourceConflictError("An MCP server with this key already exists")
+  }
+  if (
+    input.accessManagement === "hub"
+    && hasServiceAccount(registeredRoutes.stdout, input.serviceAccount)
+  ) {
+    throw new McpResourceConflictError("The IAM service account is already assigned to another MCP server")
   }
 
   const namespaceResult = await runKubectl(kubectlArgs([
@@ -69,7 +80,11 @@ export async function createMcpResources(
     throw new McpResourceConflictError("An MCP server with this key already exists")
   }
 
+  const identity = input.accessManagement === "hub"
+    ? (options.generateServiceIdentity ?? generateMcpServiceIdentity)()
+    : undefined
   const resources = buildMcpKubernetesResources(input, {
+    generatedServicePrivateKey: identity?.privateKeyPem,
     includeSecretValues: true,
     ...runtimeProxyResourceOptions(),
   }).slice(1)
@@ -79,7 +94,7 @@ export async function createMcpResources(
 
   try {
     await runKubectl(kubectlArgs(["create", "--dry-run=server", "-f", "-"]), manifest)
-    await options.beforeCreate?.()
+    await options.beforeCreate?.(identity)
     await runKubectl(kubectlArgs(["create", "-f", "-"]), manifest)
   } catch (error) {
     if (isKubectlAlreadyExists(error)) {
@@ -96,5 +111,16 @@ function hasRouteId(output: string, expectedRouteId: string) {
     if (projectLabel === "<none>" && projectAnnotation === "<none>") return false
     const routeId = configuredRouteId === "<none>" ? deploymentName : configuredRouteId
     return routeId === expectedRouteId
+  })
+}
+
+function hasServiceAccount(output: string, expectedServiceAccount: string) {
+  return output.split("\n").some((line) => {
+    const values = line.trim().split(/\s+/)
+    const projectLabel = values[2]
+    const projectAnnotation = values[3]
+    const serviceAccount = values[4]
+    if (projectLabel === "<none>" && projectAnnotation === "<none>") return false
+    return serviceAccount === expectedServiceAccount
   })
 }
