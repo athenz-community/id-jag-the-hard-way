@@ -17,7 +17,7 @@ import { resolveMcpTemplateRegistration } from "../features/mcp-templates/lib/te
 import type { McpTemplateInput } from "../features/mcp-templates/types.ts"
 
 const validPayload = {
-  argument: "",
+  arguments: ["--transport", "streamable-http", "--stateless", "--host", "0.0.0.0", "--port", "9000"],
   command: "",
   description: "Atlassian tools",
   documentation: "https://example.test/docs",
@@ -54,6 +54,16 @@ function validInput() {
   return result.input
 }
 
+test("accepts a legacy singular container argument", () => {
+  const result = validateMcpTemplate({
+    ...validPayload,
+    argument: "--port=9000",
+    arguments: undefined,
+  })
+  assert.equal(result.ok, true)
+  if (result.ok) assert.deepEqual(result.input.arguments, ["--port=9000"])
+})
+
 test("stores non-secret defaults but omits secret defaults", () => {
   const input = validInput()
   assert.equal(input.environmentVariables[0].defaultValue, "https://example.atlassian.net/wiki")
@@ -73,6 +83,7 @@ test("stores non-secret defaults but omits secret defaults", () => {
   assert.equal(resource.metadata.namespace, "mcp-hub")
   assert.doesNotMatch(resource.stringData["template.json"], /must-never-be-stored/)
   assert.match(resource.stringData["template.json"], /example\.atlassian\.net/)
+  assert.deepEqual(JSON.parse(resource.stringData["template.json"]).arguments, validPayload.arguments)
 })
 
 test("rejects a default value for a secret template variable", () => {
@@ -138,6 +149,7 @@ test("loads one project template from its Kubernetes Secret", async () => {
 
   const template = await getMcpTemplate("k8s-docs-server", "confluence-mcp", runner)
   assert.equal(template.image, validPayload.image)
+  assert.deepEqual(template.arguments, validPayload.arguments)
   assert.equal(template.environmentVariables[1].secret, true)
   assert.equal("defaultValue" in template.environmentVariables[1], false)
 })
@@ -171,6 +183,7 @@ test("resolves template runtime fields and secret flags from the Kubernetes temp
   assert.equal(result.ok, true)
   if (!result.ok) return
   assert.equal(result.payload.image, validPayload.image)
+  assert.deepEqual(result.payload.arguments, validPayload.arguments)
   assert.deepEqual(result.payload.environmentVariables, [
     { key: "CONFLUENCE_URL", value: "https://example.atlassian.net/wiki", secret: false },
     { key: "CONFLUENCE_API_TOKEN", value: "runtime-token", secret: true },

@@ -33,8 +33,9 @@ export function ConfirmSummary({
   const configuredEnvironmentVariables = draft.environmentVariables.filter(({ key, description, defaultValue }) => (
     key || description || defaultValue
   ))
+  const containerArguments = draft.containerArguments.map(({ value }) => value).filter(Boolean)
   const templateInput = {
-    argument: draft.argument,
+    arguments: containerArguments,
     command: draft.command,
     description: draft.description,
     documentation: draft.documentation,
@@ -98,7 +99,16 @@ export function ConfirmSummary({
               <dl className="mcp-confirm-nested-list">
                 <div><dt>Path</dt><dd>{valueOrFallback(draft.path)}</dd></div>
                 <div><dt>Container command</dt><dd>{valueOrFallback(draft.command)}</dd></div>
-                <div><dt>Container argument</dt><dd>{valueOrFallback(draft.argument)}</dd></div>
+                <div>
+                  <dt>Container arguments</dt>
+                  <dd>
+                    {containerArguments.length > 0 ? (
+                      <ol className="mcp-confirm-argument-list">
+                        {containerArguments.map((argument, index) => <li key={`${index}-${argument}`}>{argument}</li>)}
+                      </ol>
+                    ) : "Not provided"}
+                  </dd>
+                </div>
               </dl>
             </dd>
           </div>

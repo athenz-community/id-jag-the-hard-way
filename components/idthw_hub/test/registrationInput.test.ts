@@ -4,7 +4,7 @@ import { validateMcpRegistration } from "../features/registration/lib/registrati
 
 const validPayload = {
   accessManagement: "hub",
-  argument: "",
+  arguments: ["--transport", "streamable-http"],
   command: "",
   environmentVariables: [
     { key: "API_TOKEN", secret: true, value: "test-value" },
@@ -22,7 +22,20 @@ const validPayload = {
 test("accepts a valid MCP registration", () => {
   const result = validateMcpRegistration(validPayload)
   assert.equal(result.ok, true)
-  if (result.ok) assert.equal(result.input.mcpKeyName, "docs-mcp")
+  if (result.ok) {
+    assert.equal(result.input.mcpKeyName, "docs-mcp")
+    assert.deepEqual(result.input.arguments, ["--transport", "streamable-http"])
+  }
+})
+
+test("accepts a legacy singular container argument", () => {
+  const result = validateMcpRegistration({
+    ...validPayload,
+    argument: "--port=8080",
+    arguments: undefined,
+  })
+  assert.equal(result.ok, true)
+  if (result.ok) assert.deepEqual(result.input.arguments, ["--port=8080"])
 })
 
 test("rejects invalid Kubernetes names and ports", () => {

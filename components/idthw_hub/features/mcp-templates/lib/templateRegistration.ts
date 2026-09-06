@@ -65,7 +65,7 @@ export function resolveMcpTemplateRegistration(
     ok: true,
     payload: {
       ...payload,
-      argument: template.argument,
+      arguments: template.arguments,
       command: template.command,
       creationMethod: "template",
       description: template.description,

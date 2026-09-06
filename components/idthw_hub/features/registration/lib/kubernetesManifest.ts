@@ -11,7 +11,7 @@ export type McpEnvironmentVariable = {
 
 export type McpKubernetesManifestInput = {
   accessManagement: "hub" | "server"
-  argument: string
+  arguments: string[]
   command: string
   creationMethod: "direct" | "template"
   description: string
@@ -72,7 +72,8 @@ export function buildMcpKubernetesResources(
     ports: [{ name: "http", containerPort: port }],
   }
   if (input.command) container.command = [input.command]
-  if (input.argument) container.args = [input.argument]
+  const containerArguments = input.arguments.filter(Boolean)
+  if (containerArguments.length > 0) container.args = containerArguments
 
   const containers = [container]
   if (input.accessManagement === "hub") {

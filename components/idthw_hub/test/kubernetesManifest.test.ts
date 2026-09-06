@@ -4,7 +4,7 @@ import { buildMcpKubernetesManifest, buildMcpKubernetesResources } from "../feat
 
 const input = {
   accessManagement: "hub" as const,
-  argument: "--port=8080",
+  arguments: ["--transport", "streamable-http", "--stateless", "--host", "0.0.0.0", "--port", "9000"],
   command: "/app/server",
   creationMethod: "direct" as const,
   description: "",
@@ -31,6 +31,7 @@ test("builds namespace, secret, deployment, and service resources", () => {
   const deployment = resources[2] as {
     metadata: { annotations: Record<string, string> }
     spec: { template: { spec: { containers: Array<{
+      args?: string[]
       env: Array<{ name: string; value: string }>
       image: string
       name: string
@@ -44,6 +45,15 @@ test("builds namespace, secret, deployment, and service resources", () => {
     "mcp-hub.mcps.k8s-docs-server.runtime",
   )
   assert.equal(deployment.spec.template.spec.containers[0].env.length, 3)
+  assert.deepEqual(deployment.spec.template.spec.containers[0].args, [
+    "--transport",
+    "streamable-http",
+    "--stateless",
+    "--host",
+    "0.0.0.0",
+    "--port",
+    "9000",
+  ])
   assert.equal(deployment.spec.template.spec.containers[1].name, "mcp-runtime-proxy")
   assert.equal(
     deployment.spec.template.spec.containers[1].image,

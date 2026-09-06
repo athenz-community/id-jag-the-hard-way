@@ -33,7 +33,7 @@ export function ConfirmSummary({
   const selectedTemplate = draft.selectedTemplate
   const runtime = usesTemplate && selectedTemplate
     ? {
-        argument: selectedTemplate.argument,
+        arguments: selectedTemplate.arguments,
         command: selectedTemplate.command,
         description: selectedTemplate.description,
         image: selectedTemplate.image,
@@ -41,7 +41,7 @@ export function ConfirmSummary({
         port: selectedTemplate.port,
       }
     : {
-        argument: draft.argument,
+        arguments: draft.containerArguments.map(({ value }) => value).filter(Boolean),
         command: draft.command,
         description: "",
         image: draft.image,
@@ -53,7 +53,7 @@ export function ConfirmSummary({
   const kubernetesManifest = buildMcpKubernetesManifest({
     project,
     accessManagement: draft.accessManagement,
-    argument: runtime.argument,
+    arguments: runtime.arguments,
     command: runtime.command,
     creationMethod: draft.creationMethod,
     description: runtime.description,
@@ -78,7 +78,7 @@ export function ConfirmSummary({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           accessManagement: draft.accessManagement,
-          argument: runtime.argument,
+          arguments: runtime.arguments,
           command: runtime.command,
           creationMethod: draft.creationMethod,
           description: runtime.description,
@@ -134,7 +134,16 @@ export function ConfirmSummary({
                   <dl className="mcp-confirm-nested-list">
                     <div><dt>Path</dt><dd>{valueOrFallback(runtime.path)}</dd></div>
                     <div><dt>Container command</dt><dd>{valueOrFallback(runtime.command)}</dd></div>
-                    <div><dt>Container argument</dt><dd>{valueOrFallback(runtime.argument)}</dd></div>
+                    <div>
+                      <dt>Container arguments</dt>
+                      <dd>
+                        {runtime.arguments.length > 0 ? (
+                          <ol className="mcp-confirm-argument-list">
+                            {runtime.arguments.map((argument, index) => <li key={`${index}-${argument}`}>{argument}</li>)}
+                          </ol>
+                        ) : "Not provided"}
+                      </dd>
+                    </div>
                   </dl>
                 </dd>
               </div>

@@ -17,7 +17,7 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
   const path = trimmedString(payload.path)
   const port = trimmedString(payload.port)
   const command = trimmedString(payload.command)
-  const argument = trimmedString(payload.argument)
+  const containerArguments = validateContainerArguments(payload)
   const serviceAccount = trimmedString(payload.serviceAccount)
   const creationMethod = payload.creationMethod ?? "direct"
   const description = trimmedString(payload.description ?? "")
@@ -41,7 +41,7 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
     return invalid("Target port must be an integer from 1 to 65535")
   }
   if (command === null || command.length > 4096) return invalid("Container command is invalid")
-  if (argument === null || argument.length > 4096) return invalid("Container argument is invalid")
+  if (!containerArguments.ok) return containerArguments
   if (creationMethod !== "direct" && creationMethod !== "template") {
     return invalid("Creation method is invalid")
   }
@@ -74,7 +74,7 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
     ok: true,
     input: {
       accessManagement: payload.accessManagement,
-      argument,
+      arguments: containerArguments.arguments,
       command,
       creationMethod,
       description,
@@ -90,6 +90,30 @@ export function validateMcpRegistration(payload: unknown): ValidationResult {
       visibility,
     },
   }
+}
+
+function validateContainerArguments(payload: Record<string, unknown>):
+  | { ok: true; arguments: string[] }
+  | { ok: false; error: string } {
+  if (payload.arguments === undefined) {
+    const legacyArgument = trimmedString(payload.argument)
+    if (legacyArgument === null || legacyArgument.length > 4096) {
+      return invalid("Container arguments are invalid")
+    }
+    return { ok: true, arguments: legacyArgument ? [legacyArgument] : [] }
+  }
+  if (!Array.isArray(payload.arguments) || payload.arguments.length > 50) {
+    return invalid("Container arguments are invalid")
+  }
+
+  const containerArguments: string[] = []
+  for (const argument of payload.arguments) {
+    if (typeof argument !== "string" || argument.length > 4096) {
+      return invalid("Container arguments are invalid")
+    }
+    if (argument) containerArguments.push(argument)
+  }
+  return { ok: true, arguments: containerArguments }
 }
 
 function validateEnvironmentVariables(value: unknown):

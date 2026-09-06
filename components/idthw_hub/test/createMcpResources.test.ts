@@ -8,7 +8,7 @@ import {
 
 const input = {
   accessManagement: "hub" as const,
-  argument: "",
+  arguments: [],
   command: "",
   environmentVariables: [
     { key: "API_TOKEN", secret: true, value: "test-secret-value" },

@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useCallback, useState } from "react"
 import type { McpTemplateDetailResponse, McpTemplateSummary } from "@/features/mcp-templates/types"
+import { ContainerArgumentsField } from "@/features/registration/components/ContainerArgumentsField"
 import { ContainerImageField } from "./ContainerImageField"
 import { useMcpCreateDraft } from "./McpCreateDraftContext"
 
@@ -230,17 +231,11 @@ export function SourceForm({
                 onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, command: event.target.value }))}
               />
             </div>
-            <div className="mcp-create-field">
-              <label htmlFor="mcp-argument">Container argument</label>
-              <input
-                id="mcp-argument"
-                className="filter-select"
-                name="argument"
-                placeholder="e.g. --port 8080"
-                value={draft.argument}
-                onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, argument: event.target.value }))}
-              />
-            </div>
+            <ContainerArgumentsField
+              idPrefix="mcp"
+              containerArguments={draft.containerArguments}
+              onChange={(containerArguments) => setDraft((currentDraft) => ({ ...currentDraft, containerArguments }))}
+            />
           </details>
         </>
       )}
