@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
 import test from "node:test"
 import type { KubectlRunner } from "../features/kubernetes/api/kubectl.ts"
 import {
@@ -7,6 +8,7 @@ import {
   listMcpTemplates,
   McpTemplateConflictError,
   McpTemplateNotFoundError,
+  updateMcpTemplate,
 } from "../features/mcp-templates/api/kubernetesTemplates.ts"
 import {
   buildMcpTemplateSecret,
@@ -125,6 +127,37 @@ test("creates the template Secret without overwriting an existing key", async ()
     stderr: "",
   })
   await assert.rejects(createMcpTemplate(validInput(), collisionRunner), McpTemplateConflictError)
+})
+
+test("updates an existing project template with a server-validated patch", async () => {
+  const calls: Array<{ args: string[]; stdin?: string }> = []
+  const input = { ...validInput(), name: "Updated Confluence MCP" }
+  const runner: KubectlRunner = async (args, stdin) => {
+    const patchFileFlag = args.indexOf("--patch-file")
+    const patch = patchFileFlag >= 0 ? await readFile(args[patchFileFlag + 1], "utf8") : stdin
+    calls.push({ args, stdin: patch })
+    if (args.includes("get")) {
+      return {
+        stdout: [
+          "mcp-template",
+          input.project,
+          input.templateKey,
+          Buffer.from(JSON.stringify(buildStoredMcpTemplate(validInput()))).toString("base64"),
+        ].join("\t"),
+        stderr: "",
+      }
+    }
+    return { stdout: "", stderr: "" }
+  }
+
+  await updateMcpTemplate(input, runner)
+
+  const patchCalls = calls.filter(({ args }) => args.includes("patch"))
+  assert.equal(patchCalls.length, 2)
+  assert.equal(patchCalls[0].args.includes("--dry-run=server"), true)
+  assert.equal(patchCalls[1].args.includes("--dry-run=server"), false)
+  assert.equal(patchCalls.every(({ args }) => args.includes("--patch-file")), true)
+  assert.match(patchCalls[1].stdin ?? "", /Updated Confluence MCP/)
 })
 
 test("lists template metadata without reading Secret data", async () => {

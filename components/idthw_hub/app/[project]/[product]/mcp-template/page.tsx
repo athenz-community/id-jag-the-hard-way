@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronsUpDown, Home, MoreHorizontal, Plus } from "lucide-react"
+import { ChevronRight, ChevronsUpDown, Home, Pencil, Plus } from "lucide-react"
 import Link from "next/link"
 import { consoleHref, displayProduct } from "@/components/navigation/consoleRoute"
 import { ConsoleTemplate } from "@/components/templates/ConsoleTemplate"
@@ -67,9 +67,19 @@ export default async function McpTemplateRoute({
                 <td>{template.visibility}</td>
                 <td>{template.project}</td>
                 <td>
-                  <button className="table-action" type="button" aria-label={`Open actions for ${template.name}`} disabled>
-                    <MoreHorizontal size={16} />
-                  </button>
+                  <Link
+                    className="table-action"
+                    href={consoleHref({
+                      project,
+                      product,
+                      section: "mcp-template",
+                      suffix: `${encodeURIComponent(template.key)}/edit`,
+                    })}
+                    aria-label={`Edit ${template.name}`}
+                    title={`Edit ${template.name}`}
+                  >
+                    <Pencil size={16} />
+                  </Link>
                 </td>
               </tr>
             )) : (

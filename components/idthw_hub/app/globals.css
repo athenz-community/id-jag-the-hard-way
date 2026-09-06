@@ -634,6 +634,12 @@ input:disabled {
   width: 100%;
 }
 
+.mcp-template-key-readonly {
+  cursor: not-allowed;
+  background: #f5f6f8;
+  color: var(--text-secondary);
+}
+
 .mcp-create-arguments-textarea {
   min-height: 168px;
   resize: vertical;
@@ -921,6 +927,54 @@ input:disabled {
 
 .mcp-confirm-env-table th {
   background: #f7f7f8;
+}
+
+.mcp-template-change-table-wrap {
+  overflow-x: auto;
+}
+
+.mcp-template-change-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.mcp-template-change-table th,
+.mcp-template-change-table td {
+  border: 1px solid var(--line);
+  padding: 8px;
+  font-size: 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.mcp-template-change-table thead th,
+.mcp-template-change-table tbody th {
+  background: #f7f7f8;
+}
+
+.mcp-template-change-table th:first-child {
+  width: 180px;
+}
+
+.mcp-template-change-value {
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 4px;
+  padding: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.mcp-template-change-value.before {
+  background: #fff4f4;
+}
+
+.mcp-template-change-value.after {
+  background: #f1f8f3;
 }
 
 .mcp-confirm-manifest-copy {

@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, type Dispatch, type ReactNode, type SetStateAction, useContext, useState } from "react"
+import type { McpTemplateInput } from "@/features/mcp-templates/types"
 
 export type McpTemplateEnvironmentVariableDraft = {
   id: number
@@ -11,7 +12,7 @@ export type McpTemplateEnvironmentVariableDraft = {
   defaultValue: string
 }
 
-type McpTemplateDraft = {
+export type McpTemplateDraft = {
   image: string
   port: string
   path: string
@@ -45,17 +46,54 @@ const INITIAL_DRAFT: McpTemplateDraft = {
   description: "",
 }
 
+function draftFromTemplate(template: McpTemplateInput): McpTemplateDraft {
+  return {
+    image: template.image,
+    port: template.port,
+    path: template.path,
+    command: template.command,
+    containerArguments: template.arguments.length > 0
+      ? template.arguments.map((value, index) => ({ id: index + 1, value }))
+      : [{ id: 1, value: "" }],
+    name: template.name,
+    templateKey: template.templateKey,
+    templateKeyWasCustomized: true,
+    showTemplateKeyWarning: false,
+    environmentVariables: template.environmentVariables.length > 0
+      ? template.environmentVariables.map((variable, index) => ({
+          id: index + 1,
+          key: variable.key,
+          description: variable.description,
+          required: variable.required,
+          secret: variable.secret,
+          defaultValue: variable.secret ? "" : (variable.defaultValue ?? ""),
+        }))
+      : [{ id: 1, key: "", description: "", required: true, secret: false, defaultValue: "" }],
+    visibility: template.visibility,
+    documentation: template.documentation,
+    description: template.description,
+  }
+}
+
 const McpTemplateDraftContext = createContext<{
   draft: McpTemplateDraft
+  initialDraft: McpTemplateDraft
   setDraft: Dispatch<SetStateAction<McpTemplateDraft>>
   resetDraft: () => void
 } | null>(null)
 
-export function McpTemplateDraftProvider({ children }: { children: ReactNode }) {
-  const [draft, setDraft] = useState<McpTemplateDraft>(INITIAL_DRAFT)
+export function McpTemplateDraftProvider({
+  children,
+  initialTemplate,
+}: {
+  children: ReactNode
+  initialTemplate?: McpTemplateInput
+}) {
+  const [initialDraft] = useState(() => initialTemplate ? draftFromTemplate(initialTemplate) : INITIAL_DRAFT)
+  const [draft, setDraft] = useState<McpTemplateDraft>(initialDraft)
 
   return (
-    <McpTemplateDraftContext.Provider value={{ draft, setDraft, resetDraft: () => setDraft(INITIAL_DRAFT) }}>
+    <McpTemplateDraftContext.Provider value={{ draft, initialDraft, setDraft, resetDraft: () => setDraft(initialDraft) }}>
       {children}
     </McpTemplateDraftContext.Provider>
   )

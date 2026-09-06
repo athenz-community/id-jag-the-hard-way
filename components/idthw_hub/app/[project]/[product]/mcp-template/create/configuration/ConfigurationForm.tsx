@@ -9,10 +9,12 @@ export function ConfigurationForm({
   cancelHref,
   sourceHref,
   referenceHref,
+  templateKeyReadOnly = false,
 }: {
   cancelHref: string
   sourceHref: string
   referenceHref: string
+  templateKeyReadOnly?: boolean
 }) {
   const { draft, setDraft, resetDraft } = useMcpTemplateDraft()
 
@@ -64,7 +66,7 @@ export function ConfigurationForm({
 
   return (
     <form className="mcp-create-form">
-      <McpTemplateIdentityFields />
+      <McpTemplateIdentityFields templateKeyReadOnly={templateKeyReadOnly} />
 
       <fieldset className="mcp-create-fieldset">
         <legend>Environment variables</legend>
