@@ -20,6 +20,7 @@ const ANNOTATION_PROJECT = "mcp.idthw.dev/project"
 const ANNOTATION_ALIAS = "mcp.idthw.dev/alias"
 const ANNOTATION_ACCESS_SCOPE = "mcp.idthw.dev/access-scope"
 const ANNOTATION_PUBLIC_URL = "mcp.idthw.dev/public-url"
+const ANNOTATION_TOOL_PERMISSIONS = "mcp.idthw.dev/tool-permissions"
 const LEGACY_ANNOTATION_SERVER = "mcp.idthw.dev/server"
 const LABEL_PROJECT = "mcp.idthw.dev/project"
 const LABEL_ALIAS = "mcp.idthw.dev/alias"
@@ -124,11 +125,21 @@ function deploymentToMcpServer(
     gatewayUrl: publicGatewayUrl(routeId),
     proxyUrl: coreProxyUrl(routeId),
     accessScope: annotations[ANNOTATION_ACCESS_SCOPE]?.trim() || undefined,
+    toolPermissionOverrides: parseJsonAnnotation(annotations[ANNOTATION_TOOL_PERMISSIONS]),
     totalToolCalls: "N/A",
     iconSrc: resolveMcpIconSrc(annotations[ANNOTATION_ICON], iconOptions),
     logoText: initialsFor(displayName),
     logoBg: "#ffffff",
     logoFg: "#111111",
+  }
+}
+
+function parseJsonAnnotation(value: string | undefined): unknown {
+  if (!value) return undefined
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return value
   }
 }
 

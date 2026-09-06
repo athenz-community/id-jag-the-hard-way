@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises"
 import test from "node:test"
 import { parse } from "yaml"
 import {
+  mergeToolPermissionSettings,
   parsePermissionPresetForServer,
+  parseToolPermissionSettings,
   parseToolAccessScopesForServer,
   SIGNED_IN_USER_MEMBER,
   withManagedAccessRequirements,
@@ -52,8 +54,8 @@ test("loads the checked-in pure YAML permission settings", async () => {
   assert.equal(preset.groups[0].label, "Tool: get_k8s_docs")
   assert.equal(preset.groups[1].label, "Tool: post_k8s_doc")
   assert.equal(preset.groups[2].label, "Tool: delete_k8s_doc")
-  assert.equal(preset.groups[0].requirements[1].role, "api:role.mcp-accessor")
-  assert.equal(preset.groups[0].requirements[2].role, "api:role.mcp-accessor-jag-exchanger")
+  assert.equal(preset.groups[0].requirements[1].role, "api:role.docs-getter-jag-exchanger")
+  assert.equal(preset.groups[0].requirements[2].role, "api:role.docs-getter-exchanger")
   assert.equal(preset.groups[1].requirements[0].role, "api:role.docs-poster")
   assert.equal(preset.groups[2].requirements[0].role, "api:role.docs-deleter")
 })
@@ -69,6 +71,7 @@ test("resolves the exact signed-in-user placeholder and keeps literal principals
   assert.equal(preset.groups[0].requirements[0].configuredMember, SIGNED_IN_USER_MEMBER)
   assert.equal(preset.groups[0].requirements[0].member, "human.idjag-learner")
   assert.equal(preset.groups[0].requirements[2].member, "mcp-hub.mcp-gateway")
+  assert.equal(preset.groups[0].requirements[0].source, "tool")
   assert.equal(preset.groups[0].label, "Tool: get_k8s_docs")
   assert.equal(preset.groups[0].toolName, "get_k8s_docs")
 })
@@ -81,9 +84,9 @@ test("derives each tool's Gateway scope from signed-in-user requirements only", 
   const configured = parse(source, { maxAliasCount: 50 }) as unknown
 
   assert.deepEqual(parseToolAccessScopesForServer(configured, "k8s-docs-server"), {
-    get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor",
-    post_k8s_doc: "api:role.docs-poster api:role.mcp-accessor",
-    delete_k8s_doc: "api:role.docs-deleter api:role.mcp-accessor",
+    get_k8s_docs: "api:role.docs-getter",
+    post_k8s_doc: "api:role.docs-poster",
+    delete_k8s_doc: "api:role.docs-deleter",
   })
 })
 
@@ -115,13 +118,72 @@ test("shows managed user and Gateway requirements without a custom tool preset",
         label: "Signed-in user can invoke this Athenz-protected MCP server",
         member: "human.idjag-learner",
         role: "mcp-hub.mcps.k8s-docs-server:role.accessor",
+        source: "managed",
       }, {
         configuredMember: "mcp-hub.mcp-gateway",
         label: "MCP Gateway can request protected MCP access",
         member: "mcp-hub.mcp-gateway",
         role: "mcp-hub.mcps.k8s-docs-server:role.accessor-jag-exchanger",
+        source: "managed",
       }],
     }],
+  })
+})
+
+test("merges per-server tool permission overrides over the checked-in defaults", () => {
+  const base = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      read: { requirements: [{ member: SIGNED_IN_USER_MEMBER, role: "api:role.reader" }] },
+      write: { requirements: [{ member: SIGNED_IN_USER_MEMBER, role: "api:role.writer" }] },
+    },
+  })
+  const overrides = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      write: { requirements: [{ member: "api.writer", role: "api:role.writer-service" }] },
+    },
+  })
+
+  const merged = mergeToolPermissionSettings(base, overrides)
+  assert.equal(merged?.tools.read.requirements[0].member, SIGNED_IN_USER_MEMBER)
+  assert.equal(merged?.tools.write.requirements[0].member, "api.writer")
+})
+
+test("allows an empty override to clear a tool's custom permissions", () => {
+  const base = parseToolPermissionSettings({
+    version: 1,
+    tools: {
+      read: { requirements: [{ member: SIGNED_IN_USER_MEMBER, role: "api:role.reader" }] },
+    },
+  })
+  const overrides = parseToolPermissionSettings({
+    version: 1,
+    tools: { read: { requirements: [] } },
+  })
+
+  const merged = mergeToolPermissionSettings(base, overrides)
+  assert.deepEqual(merged?.tools.read.requirements, [])
+})
+
+test("allows a static service-only tool when the managed MCP scope is present", () => {
+  const configured = {
+    version: 1,
+    servers: {
+      confluence: {
+        tools: {
+          search: { requirements: [{ member: "confluence.indexer", role: "content:role.reader" }] },
+        },
+      },
+    },
+  }
+
+  assert.deepEqual(parseToolAccessScopesForServer(
+    configured,
+    "confluence",
+    "mcp-hub.mcps.docs:role.accessor",
+  ), {
+    search: "mcp-hub.mcps.docs:role.accessor",
   })
 })
 

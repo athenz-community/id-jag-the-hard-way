@@ -116,13 +116,15 @@ The first entry opens Keycloak login through MCP Gateway automatically; all entr
 
 ## Permission Readiness Presets
 
-The client-configuration page shows required Athenz role memberships before the manual client setup. Athenz remains the source of truth for current role membership. The Hub checks membership through ZMS with its server-side certificate. Creation of a Hub-managed server provisions only the shared managed-access roles and exchange policy described below; custom per-tool grants remain curated settings and are not provisioned automatically.
+The client-configuration page shows required Athenz role memberships before the manual client setup. Athenz remains the source of truth for current role membership. The Hub checks membership through ZMS with its server-side certificate. Creation of a Hub-managed server provisions only the shared managed-access roles and exchange policy described below; custom per-tool grants are configurable requirements and are not provisioned automatically.
 
-Edit the pure settings document at [`config/permission-presets.yaml`](./config/permission-presets.yaml). It starts with `version` and `servers` and contains no Kubernetes resource wrapper. `make local`, and therefore the repository-root `make ui`, generates and applies the `mcp-hub/mcp-hub-permission-presets` ConfigMap from that file before building and starting IDTHW Hub. The ConfigMap stores the document under `permission-presets.yaml`.
+Checked-in defaults live in the pure settings document at [`config/permission-presets.yaml`](./config/permission-presets.yaml). It starts with `version` and `servers` and contains no Kubernetes resource wrapper. `make local`, and therefore the repository-root `make ui`, generates and applies the `mcp-hub/mcp-hub-permission-presets` ConfigMap from that file before building and starting IDTHW Hub. The ConfigMap stores the document under `permission-presets.yaml`.
+
+An authenticated Hub user can edit a live tool's custom requirements in its permission dialog. Each row targets either `<signed_in_user>` or a literal Athenz service principal and one Athenz role. The Hub stores partial per-tool overrides as versioned JSON in the MCP Deployment's `mcp.idthw.dev/tool-permissions` annotation; an override replaces that tool's checked-in default while other defaults remain intact. An empty override intentionally removes all custom requirements for that tool. Because the patch changes Deployment metadata only, saving it does not restart the MCP pod. Saving configuration also does not add role members in Athenz.
 
 The current preset contains only `k8s-docs-server`. A server without a preset still shows the generated shared Hub-managed access requirements when its deployment publishes a managed access scope. A server with neither a preset nor a managed access scope shows its tools with the yellow `No configuration found` state.
 
-The permission setup uses the public live MCP `tools/list` response as the source of truth for available tools. Listing tools does not require an Athenz access role or mint an access token. Every returned tool is shown before manual client setup; the configured and generated requirements describe protected execution, not discovery. A tool without either kind of requirement is marked yellow as `No configuration found`; otherwise it shows its checked Athenz status. Missing permissions open a request dialog that lists the unresolved principal-to-role memberships and links to Athenz. MCP Hub does not submit custom permission requests yet.
+The permission setup uses the public live MCP `tools/list` response as the source of truth for available tools. Listing tools does not require an Athenz access role or mint an access token. Every returned tool is shown before manual client setup; the configured and generated requirements describe protected execution, not discovery. A tool without either kind of requirement is marked yellow as `No configuration found`; otherwise it shows its checked Athenz status. The dialog separates editable custom **Tool permissions** from read-only Hub-managed **MCP access** defaults and links each role to Athenz. MCP Hub does not submit custom permission requests yet.
 
 Use the exact reserved member value `<signed_in_user>` when a requirement belongs to the current browser session:
 
@@ -133,13 +135,13 @@ role: api:role.docs-getter
 
 It resolves to `human.<preferred_username>` by default. Override the Athenz domain with `MCP_HUB_PERMISSION_SIGNED_IN_USER_DOMAIN`. All other member values must be complete literal Athenz principals such as `mcp-hub.mcp-gateway` or `api.api-mcp`. Partial interpolation and unknown placeholders are rejected. A malformed preset produces a visible configuration error rather than silently omitting a requirement and reporting a false ready state.
 
-For every tool, the current K8s Docs preset checks:
+For every tool, the current K8s Docs preset and generated defaults check:
 
 - the signed-in user in the tool-specific role and the shared `api:role.mcp-accessor` role
 - `mcp-hub.mcp-gateway` in the shared `api:role.mcp-accessor-jag-exchanger` role and the tool-specific `api:role.*-jag-exchanger` role
 - `api.api-mcp` in the tool-specific exchanger role for downstream token exchange
 
-Shared MCP-access requirements are intentionally repeated inside each tool entry. The UI shows one permission row per live tool and no separate server-access section.
+Shared MCP-access requirements are generated for every tool from the Deployment's managed access scope. They appear in the read-only **MCP access** section at the bottom of each tool dialog instead of being duplicated in the editable preset.
 
 ### Hub-managed Athenz access
 
@@ -153,7 +155,7 @@ The Hub does not create `mcp-hub.mcps.<project>` itself. Project/domain lifecycl
 
 Hub-managed creation and update idempotently apply a project-local `mcp-runtime-proxy-athenz-ca` ConfigMap from the Hub's configured Athenz CA. The Runtime Proxy uses that trust bundle to retrieve signing keys directly from `https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true`; TLS verification is not disabled. It does not download or evaluate Athenz policy. MCP bootstrap, `ping`, and `tools/list` remain public, while protected calls return `401` for missing or invalid tokens and `403` when the accessor scope is absent.
 
-Custom per-tool requirements can be added later in `config/permission-presets.yaml`. When present, their signed-in-user roles are combined with the shared accessor role for that exact tool call, and the readiness UI combines both sets of membership checks.
+Custom per-tool requirements can be supplied by `config/permission-presets.yaml` or overridden from the permission dialog. Their signed-in-user roles are combined with the shared accessor role for that exact tool call, and the readiness UI checks both the custom and managed memberships.
 
 When a server returns five or more tools, the client-configuration page collapses the permission rows by default behind **Expand tools** so the configuration in step 2 remains visible without a long initial scroll. Servers with fewer than five tools keep their rows expanded.
 
@@ -286,6 +288,10 @@ mcp.idthw.dev/access-scope: "api:role.mcp-accessor api:role.docs-getter"
 For a Hub-managed server, this annotation is generated as `mcp-hub.mcps.<project>:role.accessor`. If the server also has permission presets, `/api/mcp-servers` publishes a `toolScopes` map that combines this shared role with each tool's custom `<signed_in_user>` roles, and MCP Gateway selects the exact mapping from `tools/call.params.name`. An unmapped tool on such a server fails closed. Servers without `toolScopes` use the annotation as the route-level scope for protected calls.
 
 If omitted, MCP Gateway uses its `MCP_GATEWAY_ACCESS_SCOPE` fallback.
+
+### `mcp.idthw.dev/tool-permissions`
+
+Optional versioned JSON containing partial per-tool requirement overrides saved by the Hub UI. Each configured tool replaces the same tool from `config/permission-presets.yaml`; unmentioned tools continue to use the checked-in default. The Hub derives Gateway `toolScopes` only from `<signed_in_user>` requirements, while literal service-principal requirements are still included in readiness checks.
 
 ### `mcp.idthw.dev/alias`
 

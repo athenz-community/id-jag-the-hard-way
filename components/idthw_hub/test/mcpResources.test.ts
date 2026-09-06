@@ -1,9 +1,11 @@
 import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
 import test from "node:test"
 import {
   buildMcpResourceUpdate,
   configurationFromDeployment,
   deleteMcpResources,
+  updateMcpToolPermissions,
 } from "../features/registration/api/mcpResources.ts"
 import type { KubectlRunner } from "../features/kubernetes/api/kubectl.ts"
 
@@ -139,6 +141,68 @@ test("includes only newly supplied secret values in the Secret patch", () => {
     ],
   }, deployment)
   assert.deepEqual(update.newSecretValues, { API_TOKEN: "replacement-test-value" })
+})
+
+test("stores per-tool permission overrides on the MCP deployment without restarting it", async () => {
+  const calls: string[][] = []
+  const patches: Array<Record<string, unknown>> = []
+  const runner: KubectlRunner = async (args) => {
+    calls.push(args)
+    if (args.includes("get")) return { stdout: JSON.stringify(deployment), stderr: "" }
+    const patchPath = args[args.indexOf("--patch-file") + 1]
+    patches.push(JSON.parse(await readFile(patchPath, "utf8")) as Record<string, unknown>)
+    return { stdout: "", stderr: "" }
+  }
+
+  const settings = await updateMcpToolPermissions(
+    "k8s-docs-server",
+    "docs-mcp",
+    "get_k8s_docs",
+    [{
+      label: "Signed-in user can read documentation",
+      member: "<signed_in_user>",
+      role: "api:role.docs-getter",
+    }, {
+      label: "Docs MCP can exchange downstream access",
+      member: "api.api-mcp",
+      role: "api:role.docs-getter-exchanger",
+    }],
+    runner,
+  )
+
+  assert.equal(settings.tools.get_k8s_docs.requirements.length, 2)
+  assert.equal(calls.filter((args) => args.includes("patch")).length, 2)
+  const metadata = patches[1].metadata as { annotations: Record<string, string> }
+  const stored = JSON.parse(metadata.annotations["mcp.idthw.dev/tool-permissions"]) as {
+    tools: Record<string, { requirements: unknown[] }>
+  }
+  assert.equal(stored.tools.get_k8s_docs.requirements.length, 2)
+  assert.equal("spec" in patches[1], false)
+})
+
+test("stores an empty tool override when all custom permissions are removed", async () => {
+  const patches: Array<Record<string, unknown>> = []
+  const runner: KubectlRunner = async (args) => {
+    if (args.includes("get")) return { stdout: JSON.stringify(deployment), stderr: "" }
+    const patchPath = args[args.indexOf("--patch-file") + 1]
+    patches.push(JSON.parse(await readFile(patchPath, "utf8")) as Record<string, unknown>)
+    return { stdout: "", stderr: "" }
+  }
+
+  const settings = await updateMcpToolPermissions(
+    "k8s-docs-server",
+    "docs-mcp",
+    "get_k8s_docs",
+    [],
+    runner,
+  )
+
+  assert.deepEqual(settings.tools.get_k8s_docs.requirements, [])
+  const metadata = patches[1].metadata as { annotations: Record<string, string> }
+  const stored = JSON.parse(metadata.annotations["mcp.idthw.dev/tool-permissions"]) as {
+    tools: Record<string, { requirements: unknown[] }>
+  }
+  assert.deepEqual(stored.tools.get_k8s_docs.requirements, [])
 })
 
 test("cleanly deletes a server deployment, service, and dedicated environment Secret", async () => {

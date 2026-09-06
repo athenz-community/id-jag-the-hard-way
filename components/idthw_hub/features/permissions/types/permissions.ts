@@ -1,8 +1,22 @@
+export type ConfiguredPermissionRequirement = {
+  label: string
+  member: string
+  role: string
+}
+
+export type ToolPermissionSettings = {
+  version: 1
+  tools: Record<string, {
+    requirements: ConfiguredPermissionRequirement[]
+  }>
+}
+
 export type PermissionRequirement = {
   configuredMember: string
   label: string
   member: string
   role: string
+  source: "managed" | "tool"
 }
 
 export type PermissionPresetGroup = {

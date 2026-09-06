@@ -13,9 +13,13 @@ import type {
 const COLLAPSED_TOOL_COUNT = 5
 
 export function PermissionReadinessSection({
+  mcpKeyName,
+  project,
   readiness,
   toolsResult,
 }: {
+  mcpKeyName: string
+  project: string
   readiness: PermissionReadiness | null
   toolsResult: McpToolsResult
 }) {
@@ -61,6 +65,8 @@ export function PermissionReadinessSection({
         {toolsResult.tools.length > COLLAPSED_TOOL_COUNT ? (
           <>
             <ToolPermissionList
+              mcpKeyName={mcpKeyName}
+              project={project}
               sharedGroup={sharedGroup}
               toolGroups={toolGroups}
               tools={toolsExpanded ? toolsResult.tools : toolsResult.tools.slice(0, COLLAPSED_TOOL_COUNT)}
@@ -78,7 +84,13 @@ export function PermissionReadinessSection({
             </button>
           </>
         ) : toolsResult.tools.length > 0 ? (
-          <ToolPermissionList sharedGroup={sharedGroup} toolGroups={toolGroups} tools={toolsResult.tools} />
+          <ToolPermissionList
+            mcpKeyName={mcpKeyName}
+            project={project}
+            sharedGroup={sharedGroup}
+            toolGroups={toolGroups}
+            tools={toolsResult.tools}
+          />
         ) : toolsResult.error ? null : (
           <div className="permission-tools-empty">This MCP server returned no tools.</div>
         )}
@@ -88,10 +100,14 @@ export function PermissionReadinessSection({
 }
 
 function ToolPermissionList({
+  mcpKeyName,
+  project,
   sharedGroup,
   toolGroups,
   tools,
 }: {
+  mcpKeyName: string
+  project: string
   sharedGroup?: PermissionReadinessGroup
   toolGroups: Map<string, PermissionReadinessGroup>
   tools: McpTool[]
@@ -102,6 +118,8 @@ function ToolPermissionList({
         <ToolPermissionRow
           group={toolGroups.get(tool.name) ?? sharedGroup}
           key={`${tool.name}:${index}`}
+          mcpKeyName={mcpKeyName}
+          project={project}
           tool={tool}
         />
       ))}
@@ -111,9 +129,13 @@ function ToolPermissionList({
 
 function ToolPermissionRow({
   group,
+  mcpKeyName,
+  project,
   tool,
 }: {
   group?: PermissionReadinessGroup
+  mcpKeyName: string
+  project: string
   tool: McpTool
 }) {
   if (!group) {
@@ -123,8 +145,11 @@ function ToolPermissionRow({
         <ToolIdentity tool={tool} />
         <PermissionRequestDialog
           configurationMissing
+          mcpKeyName={mcpKeyName}
+          project={project}
           requirements={[]}
           subject={`Tool: ${tool.name}`}
+          toolName={tool.name}
           triggerLabel="No configuration"
         />
       </div>
@@ -137,8 +162,11 @@ function ToolPermissionRow({
       <PermissionStatusIcon status={status} />
       <ToolIdentity tool={tool} />
       <PermissionRequestDialog
+        mcpKeyName={mcpKeyName}
+        project={project}
         requirements={group.requirements}
         subject={`Tool: ${tool.name}`}
+        toolName={tool.name}
         triggerLabel={status === "ready" ? "View permissions" : status === "missing" ? "Request permission" : "View requirements"}
       />
     </div>

@@ -10,6 +10,7 @@ export type McpServer = {
   gatewayUrl?: string
   proxyUrl: string
   accessScope?: string
+  toolPermissionOverrides?: unknown
   toolScopes?: Record<string, string>
   totalToolCalls: string
   iconSrc?: string

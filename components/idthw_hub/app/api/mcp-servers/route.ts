@@ -4,7 +4,12 @@ import { listMcpServersFromKubernetes } from "@/features/catalog/api/kubernetesC
 import { isMcpHubServiceRequest } from "@/features/catalog/lib/mcpHubServiceAuth"
 import type { CatalogResponse } from "@/features/catalog/types/catalog"
 import { readPermissionPresetConfigMap } from "@/features/permissions/lib/fetchPermissionReadiness"
-import { parseToolAccessScopesForServer } from "@/features/permissions/lib/permissionPreset"
+import {
+  mergeToolPermissionSettings,
+  parseToolPermissionSettings,
+  toolAccessScopesFromSettings,
+  toolPermissionSettingsForServer,
+} from "@/features/permissions/lib/permissionPreset"
 import {
   createMcpResources,
   McpResourceConflictError,
@@ -39,10 +44,19 @@ export async function GET(request: NextRequest) {
       listMcpServersFromKubernetes(),
       readPermissionPresetConfigMap(),
     ])
-    const registryServers = servers.map((server) => ({
-      ...server,
-      toolScopes: parseToolAccessScopesForServer(permissionPreset, server.routeId, server.accessScope),
-    }))
+    const registryServers = servers.map((server) => {
+      const configuredSettings = toolPermissionSettingsForServer(permissionPreset, server.routeId)
+      const overrideSettings = server.toolPermissionOverrides === undefined
+        ? undefined
+        : parseToolPermissionSettings(server.toolPermissionOverrides)
+      const settings = mergeToolPermissionSettings(configuredSettings, overrideSettings)
+      return {
+        ...server,
+        toolScopes: settings
+          ? toolAccessScopesFromSettings(settings, server.routeId, server.accessScope)
+          : undefined,
+      }
+    })
     return NextResponse.json<CatalogResponse>(
       { servers: registryServers },
       {
