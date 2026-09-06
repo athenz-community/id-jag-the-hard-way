@@ -21,7 +21,7 @@ MCP client
 
 The MCP credential broker remains on the client. MCP Gateway exchanges the signed-in user's identity for the narrowly scoped Athenz access token. The Runtime Proxy validates that token and preserves its `Authorization` header for the colocated MCP container. It must target that container directly; targeting MCP Gateway would create a routing loop.
 
-For new Hub-managed servers, Runtime Proxy also manages the selected Athenz service identity. Its bootstrap private-key Secret is mounted only in this container. On startup, the proxy uses `zts-svccert` and the registered `idthw-hub-generated` key to obtain a service certificate, verifies that the certificate matches the private key, and publishes both into a separate Kubernetes Secret. The MCP container mounts that published Secret read-only as `/var/run/athenz/service.cert.pem` and `/var/run/athenz/service.key.pem`. The proxy refreshes the identity every 24 hours and retries a failed scheduled refresh after five minutes without deleting the last good identity.
+For new Hub-managed servers, Runtime Proxy also manages the selected Athenz service identity. Its bootstrap private-key Secret is mounted only in this container. On startup, the proxy uses `zts-svccert` and the registered `idthw-hub-generated` key to obtain a service certificate, verifies that the certificate matches the private key, and publishes both into a separate Kubernetes Secret. Runtime Proxy and the MCP container both mount that published identity read-only as `/var/run/athenz/service.cert.pem` and `/var/run/athenz/service.key.pem`. The proxy refreshes the identity every 24 hours and retries a failed scheduled refresh after five minutes without deleting the last good identity.
 
 ## Configuration
 
