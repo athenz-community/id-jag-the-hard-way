@@ -2055,6 +2055,8 @@ body:has(.permission-request-dialog[open]) {
 }
 
 .permission-dialog-card {
+  min-width: 0;
+  overflow: hidden;
   background: #fff;
 }
 
@@ -2079,6 +2081,7 @@ body:has(.permission-request-dialog[open]) {
 
 .permission-dialog-head h3 {
   margin: 0;
+  overflow-wrap: anywhere;
   color: var(--text);
   font-size: 17px;
   font-weight: 900;
@@ -2139,6 +2142,7 @@ body:has(.permission-request-dialog[open]) {
 }
 
 .permission-dialog-section-head p {
+  min-width: 0;
   align-self: end;
   margin: 0;
   color: var(--text-muted);
@@ -2357,7 +2361,8 @@ body:has(.permission-request-dialog[open]) {
 }
 
 .permission-editor {
-  min-width: 1120px;
+  min-width: 0;
+  container: permission-editor / inline-size;
 }
 
 .mcp-tool-permission-authoring {
@@ -2374,12 +2379,13 @@ body:has(.permission-request-dialog[open]) {
   display: grid;
   gap: 14px;
   margin-bottom: 10px;
-  overflow-x: auto;
   padding-bottom: 4px;
 }
 
 .mcp-tool-permission-group {
-  min-width: 1180px;
+  width: 100%;
+  min-width: 0;
+  container: tool-permission / inline-size;
   border: 1px solid #d8dfe8;
   border-radius: 7px;
   padding: 12px;
@@ -2389,7 +2395,7 @@ body:has(.permission-request-dialog[open]) {
 .mcp-tool-permission-head {
   width: min(100%, 560px);
   display: grid;
-  grid-template-columns: minmax(300px, 1fr) 32px;
+  grid-template-columns: minmax(0, 1fr) 32px;
   align-items: end;
   gap: 8px;
   margin-bottom: 10px;
@@ -2539,10 +2545,12 @@ body:has(.permission-request-dialog[open]) {
 .permission-helper-heading {
   display: grid;
   gap: 3px;
+  min-width: 0;
   color: var(--text);
 }
 
 .permission-helper-heading strong {
+  overflow-wrap: anywhere;
   font-size: 11px;
   font-weight: 900;
 }
@@ -2655,6 +2663,7 @@ body:has(.permission-request-dialog[open]) {
 .permission-helper-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 3px;
 }
@@ -2681,6 +2690,7 @@ body:has(.permission-request-dialog[open]) {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 9px;
   padding: 11px 18px;
   border-top: 1px solid #e5e9ef;
@@ -2698,6 +2708,253 @@ body:has(.permission-request-dialog[open]) {
 @keyframes permission-refresh-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@container tool-permission (max-width: 700px) {
+  .mcp-tool-permission-group > .permission-editor {
+    margin-left: 12px;
+    padding-left: 10px;
+  }
+
+  .mcp-tool-permission-group > .permission-editor::before {
+    left: -12px;
+    width: 10px;
+  }
+}
+
+@container permission-editor (max-width: 1020px) {
+  .permission-editor-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px;
+  }
+
+  .permission-editor-row > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .permission-editor-row > :nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .permission-editor-row > :nth-child(3) {
+    grid-column: 1 / 4;
+    grid-row: 2;
+  }
+
+  .permission-editor-row > :nth-child(4) {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .permission-editor-row > :nth-child(5) {
+    grid-column: 2 / 4;
+    grid-row: 3;
+  }
+
+  .permission-editor-row > .permission-editor-remove {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .permission-helper-settings {
+    margin-left: 16px;
+  }
+
+  .permission-helper-description,
+  .permission-helper-note,
+  .permission-helper-preview {
+    margin-left: 16px;
+  }
+
+  .permission-helper-membership-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px;
+  }
+
+  .permission-helper-membership-row > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .permission-helper-membership-row > :nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .permission-helper-membership-row > :nth-child(3) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .permission-helper-membership-row > :nth-child(4) {
+    grid-column: 2 / 4;
+    grid-row: 2;
+  }
+
+  .permission-helper-membership-row > .permission-editor-remove {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .permission-helper-policy-row {
+    grid-template-columns: 48px minmax(105px, 0.5fr) minmax(0, 1fr) 32px;
+    margin-left: 24px;
+  }
+
+  .permission-helper-policy-row > .permission-helper-row-label {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .permission-helper-policy-row > .permission-helper-effect-field {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .permission-helper-policy-row > :nth-child(3) {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .permission-helper-policy-row > .permission-helper-resource-field {
+    grid-column: 2 / 4;
+    grid-row: 2;
+  }
+
+  .permission-helper-policy-row > .permission-editor-remove {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .permission-helper-policy-actions {
+    margin-left: 24px;
+  }
+}
+
+@container permission-editor (max-width: 620px) {
+  .permission-editor-row {
+    grid-template-columns: minmax(0, 1fr) 32px;
+  }
+
+  .permission-editor-row > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .permission-editor-row > :nth-child(2) {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+
+  .permission-editor-row > :nth-child(3) {
+    grid-column: 1 / 3;
+    grid-row: 3;
+  }
+
+  .permission-editor-row > :nth-child(4) {
+    grid-column: 1 / 3;
+    grid-row: 4;
+  }
+
+  .permission-editor-row > :nth-child(5) {
+    grid-column: 1 / 3;
+    grid-row: 5;
+  }
+
+  .permission-editor-row > .permission-editor-remove {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .permission-helper-settings {
+    margin-left: 8px;
+  }
+
+  .permission-helper-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 8px;
+    padding: 10px;
+  }
+
+  .permission-helper-toggle-label {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .permission-helper-chevron {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .permission-helper-description,
+  .permission-helper-note,
+  .permission-helper-preview {
+    margin-right: 10px;
+    margin-left: 10px;
+  }
+
+  .permission-helper-membership-row {
+    grid-template-columns: minmax(0, 1fr) 32px;
+  }
+
+  .permission-helper-membership-row > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .permission-helper-membership-row > :nth-child(2) {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+
+  .permission-helper-membership-row > :nth-child(3) {
+    grid-column: 1 / 3;
+    grid-row: 3;
+  }
+
+  .permission-helper-membership-row > :nth-child(4) {
+    grid-column: 1 / 3;
+    grid-row: 4;
+  }
+
+  .permission-helper-membership-row > .permission-editor-remove {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .permission-helper-policy-row {
+    grid-template-columns: minmax(0, 1fr) 32px;
+    margin-left: 10px;
+  }
+
+  .permission-helper-policy-row > .permission-helper-row-label {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .permission-helper-policy-row > .permission-helper-effect-field {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+
+  .permission-helper-policy-row > :nth-child(3) {
+    grid-column: 1 / 3;
+    grid-row: 3;
+  }
+
+  .permission-helper-policy-row > .permission-helper-resource-field {
+    grid-column: 1 / 3;
+    grid-row: 4;
+  }
+
+  .permission-helper-policy-row > .permission-editor-remove {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .permission-helper-policy-actions {
+    margin-left: 10px;
   }
 }
 
@@ -4327,7 +4584,26 @@ body:has(.permission-request-dialog[open]) {
   font-weight: 650;
 }
 
+@media (max-width: 1180px) {
+  .mcp-create-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-create-step-panel {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .mcp-create-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 980px) {
+  .console-shell {
+    grid-template-rows: auto 1fr;
+  }
+
   .top-header {
     height: auto;
     align-items: flex-start;
@@ -4362,25 +4638,13 @@ body:has(.permission-request-dialog[open]) {
   }
 
   .sidebar-link {
+    width: auto;
     flex: 0 0 auto;
     margin-top: 0;
   }
 
   .main-content {
     padding: 0 16px 30px;
-  }
-
-  .mcp-create-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .mcp-create-step-panel {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .mcp-create-steps {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .mcp-create-field {
