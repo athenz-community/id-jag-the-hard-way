@@ -185,7 +185,7 @@ export function ConfigurationForm({
             />
             <span>
               <strong>Personal</strong>
-              <small>Instance for personal use only. Accessible only by the creator.</small>
+              <small>Instance owned by its creator. MCP access must still be requested.</small>
             </span>
           </label>
           <label className={`mcp-create-choice ${usesTemplate && !isEditing ? "" : "disabled"}`}>
@@ -199,7 +199,7 @@ export function ConfigurationForm({
             />
             <span>
               <strong>Project</strong>
-              <small>Instance shared at the project level. Accessible by project members.</small>
+              <small>Instance shared in the project catalog. MCP access must still be requested.</small>
             </span>
           </label>
         </div>

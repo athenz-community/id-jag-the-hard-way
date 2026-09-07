@@ -133,8 +133,6 @@ export async function PUT(
       { status: 401, headers: NO_STORE_HEADERS },
     )
   }
-  const username = session.user.username
-
   const reference = await serverReference(request, params)
   if (!reference) {
     return NextResponse.json(
@@ -168,7 +166,6 @@ export async function PUT(
       await ensureMcpManagedAccess(
         validation.input.project,
         validation.input.mcpKeyName,
-        username,
         validation.input.serviceAccount,
         requestZms,
       )

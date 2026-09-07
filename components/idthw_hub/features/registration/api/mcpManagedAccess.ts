@@ -19,7 +19,6 @@ export type ZmsRequest = (
 ) => Promise<{ body: string; status: number }>
 
 export type McpManagedAccessReport = {
-  accessorMemberAdded: boolean
   exchangePolicyCreated: boolean
   exchangerMemberAdded: boolean
   exchangerRoleCreated: boolean
@@ -42,7 +41,6 @@ export type McpManagedAccessDeletionReport = {
 export async function ensureMcpManagedAccess(
   project: string,
   mcpKeyName: string,
-  username: string,
   serviceAccount: string,
   configuredRequest?: ZmsRequest,
 ): Promise<McpManagedAccessReport> {
@@ -53,18 +51,13 @@ export async function ensureMcpManagedAccess(
   const domain = managedMcpAccessDomain(project)
   const names = managedAccessNames(mcpKeyName)
   const serviceName = serviceNameInDomain(serviceAccount, domain)
-  const userDomain = process.env.MCP_HUB_PERMISSION_SIGNED_IN_USER_DOMAIN ?? DEFAULT_SIGNED_IN_USER_DOMAIN
-  const userPrincipal = `${userDomain}.${username}`
   const gatewayPrincipal = process.env.MCP_HUB_GATEWAY_PRINCIPAL ?? DEFAULT_GATEWAY_PRINCIPAL
-  for (const principal of [userPrincipal, gatewayPrincipal]) {
-    if (!PRINCIPAL_PATTERN.test(principal)) throw new Error("Managed MCP Athenz principal is invalid")
-  }
+  if (!PRINCIPAL_PATTERN.test(gatewayPrincipal)) throw new Error("Managed MCP Athenz principal is invalid")
 
   const requestZms = configuredRequest ?? await createZmsRequest()
   await requireDomain(requestZms, domain)
   await requireService(requestZms, domain, serviceName, serviceAccount)
   const roleCreated = await ensureRole(requestZms, domain, names.accessorRole)
-  const accessorMemberAdded = await ensureRoleMember(requestZms, domain, names.accessorRole, userPrincipal)
   const exchangerRoleCreated = await ensureRole(requestZms, domain, names.exchangerRole)
   const exchangerMemberAdded = await ensureRoleMember(
     requestZms,
@@ -82,7 +75,6 @@ export async function ensureMcpManagedAccess(
   )
 
   return {
-    accessorMemberAdded,
     exchangePolicyCreated,
     exchangerMemberAdded,
     exchangerRoleCreated,
@@ -90,6 +82,28 @@ export async function ensureMcpManagedAccess(
     sourceExchangerMemberAdded,
     sourceExchangerRoleCreated,
   }
+}
+
+export async function ensureMcpManagedAccessorMember(
+  project: string,
+  mcpKeyName: string,
+  username: string,
+  configuredRequest?: ZmsRequest,
+) {
+  if (!/^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/.test(project)) {
+    throw new Error("Managed MCP project is invalid")
+  }
+
+  const userDomain = process.env.MCP_HUB_PERMISSION_SIGNED_IN_USER_DOMAIN ?? DEFAULT_SIGNED_IN_USER_DOMAIN
+  const userPrincipal = `${userDomain}.${username}`
+  if (!PRINCIPAL_PATTERN.test(userPrincipal)) throw new Error("Managed MCP Athenz principal is invalid")
+
+  const domain = managedMcpAccessDomain(project)
+  const names = managedAccessNames(mcpKeyName)
+  const requestZms = configuredRequest ?? await createZmsRequest()
+  await requireDomain(requestZms, domain)
+  await ensureRole(requestZms, domain, names.accessorRole)
+  return ensureRoleMember(requestZms, domain, names.accessorRole, userPrincipal)
 }
 
 export async function ensureMcpSourceExchangeAccess(

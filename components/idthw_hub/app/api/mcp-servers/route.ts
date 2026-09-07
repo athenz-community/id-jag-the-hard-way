@@ -95,8 +95,6 @@ export async function POST(request: NextRequest) {
       { status: 401, headers: NO_STORE_HEADERS },
     )
   }
-  const username = session.user.username
-
   let payload: unknown
   try {
     payload = await request.json()
@@ -163,7 +161,6 @@ export async function POST(request: NextRequest) {
             await ensureMcpManagedAccess(
               validation.input.project,
               validation.input.mcpKeyName,
-              username,
               validation.input.serviceAccount,
               requestZms,
             )

@@ -3,22 +3,21 @@ import test from "node:test"
 import {
   deleteMcpManagedAccess,
   ensureMcpManagedAccess,
+  ensureMcpManagedAccessorMember,
   ensureMcpSourceExchangeAccess,
   type ZmsRequest,
 } from "../features/registration/api/mcpManagedAccess.ts"
 
-test("idempotently provisions access in an existing project domain", async () => {
+test("provisions access infrastructure without granting the creator membership", async () => {
   const state = new FakeZms()
 
   const first = await ensureMcpManagedAccess(
     "k8s-docs-server",
     "docs-mcp",
-    "idjag-learner",
     "mcp-hub.mcps.k8s-docs-server.runtime",
     state.request,
   )
   assert.deepEqual(first, {
-    accessorMemberAdded: true,
     exchangePolicyCreated: true,
     exchangerMemberAdded: true,
     exchangerRoleCreated: true,
@@ -28,7 +27,7 @@ test("idempotently provisions access in an existing project domain", async () =>
   })
 
   const domain = "mcp-hub.mcps.k8s-docs-server"
-  assert.deepEqual([...state.roles.get("docs-mcp-accessor") ?? []], ["human.idjag-learner"])
+  assert.deepEqual([...state.roles.get("docs-mcp-accessor") ?? []], [])
   assert.deepEqual(
     [...state.roles.get("docs-mcp-accessor-jag-exchanger") ?? []],
     ["mcp-hub.mcp-gateway"],
@@ -46,16 +45,22 @@ test("idempotently provisions access in an existing project domain", async () =>
     }],
   })
 
+  assert.equal(await ensureMcpManagedAccessorMember(
+    "k8s-docs-server",
+    "docs-mcp",
+    "idjag-learner",
+    state.request,
+  ), true)
+  assert.deepEqual([...state.roles.get("docs-mcp-accessor") ?? []], ["human.idjag-learner"])
+
   const mutationCount = state.mutations.length
   const second = await ensureMcpManagedAccess(
     "k8s-docs-server",
     "docs-mcp",
-    "idjag-learner",
     "mcp-hub.mcps.k8s-docs-server.runtime",
     state.request,
   )
   assert.deepEqual(second, {
-    accessorMemberAdded: false,
     exchangePolicyCreated: false,
     exchangerMemberAdded: false,
     exchangerRoleCreated: false,
@@ -63,6 +68,12 @@ test("idempotently provisions access in an existing project domain", async () =>
     sourceExchangerMemberAdded: false,
     sourceExchangerRoleCreated: false,
   })
+  assert.equal(await ensureMcpManagedAccessorMember(
+    "k8s-docs-server",
+    "docs-mcp",
+    "idjag-learner",
+    state.request,
+  ), false)
   assert.equal(state.mutations.length, mutationCount)
 })
 
@@ -72,17 +83,17 @@ test("keeps managed roles and policies isolated between MCP servers in one proje
   await ensureMcpManagedAccess(
     "k8s-docs-server",
     "docs-mcp",
-    "idjag-learner",
     "mcp-hub.mcps.k8s-docs-server.runtime",
     state.request,
   )
   await ensureMcpManagedAccess(
     "k8s-docs-server",
     "confluence",
-    "alice",
     "mcp-hub.mcps.k8s-docs-server.runtime",
     state.request,
   )
+  await ensureMcpManagedAccessorMember("k8s-docs-server", "docs-mcp", "idjag-learner", state.request)
+  await ensureMcpManagedAccessorMember("k8s-docs-server", "confluence", "alice", state.request)
 
   assert.deepEqual([...state.roles.get("docs-mcp-accessor") ?? []], ["human.idjag-learner"])
   assert.deepEqual([...state.roles.get("confluence-accessor") ?? []], ["human.alice"])
@@ -108,7 +119,6 @@ test("repairs an existing per-server JAG policy without discarding its assertion
   const report = await ensureMcpManagedAccess(
     "k8s-docs-server",
     "docs-mcp",
-    "idjag-learner",
     "mcp-hub.mcps.k8s-docs-server.runtime",
     state.request,
   )
@@ -217,7 +227,6 @@ test("does not create a missing project domain", async () => {
     ensureMcpManagedAccess(
       "missing-project",
       "docs-mcp",
-      "alice",
       "mcp-hub.mcps.missing-project.runtime",
       request,
     ),

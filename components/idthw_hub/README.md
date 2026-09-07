@@ -148,7 +148,7 @@ Server-specific MCP-access requirements are generated for every tool from the De
 
 Creating a server with **Hub-managed access** requires an existing Athenz service in `mcp-hub.mcps.<project>`. After the Kubernetes server-side dry run succeeds and before creating the resources, the Hub idempotently verifies the domain and selected service, then ensures:
 
-- `mcp-hub.mcps.<project>:role.<mcp-key>-accessor` contains `human.<signed-in-user>`
+- `mcp-hub.mcps.<project>:role.<mcp-key>-accessor` exists without automatically adding the creator; every user requests membership from the client-configuration page
 - `mcp-hub.mcps.<project>:role.<mcp-key>-accessor-jag-exchanger` contains `mcp-hub.mcp-gateway`
 - the server-specific JAG exchanger role may perform `zts.jag_exchange` on `mcp-hub.mcps.<project>:role.<mcp-key>-accessor`
 - `mcp-hub.mcps.<project>:role.<mcp-key>-accessor-source-exchanger` contains the selected MCP service account

@@ -9,6 +9,7 @@ import { signedInUserPermissionAudiences } from "@/features/permissions/lib/tool
 import {
   createZmsRequest,
   ensureMcpManagedAccess,
+  ensureMcpManagedAccessorMember,
   ensureMcpSourceExchangeAccess,
 } from "@/features/registration/api/mcpManagedAccess"
 import {
@@ -64,8 +65,13 @@ export async function POST(
     const managedReport = await ensureMcpManagedAccess(
       project,
       mcpKeyName,
-      session.user.username,
       configuration.serviceAccount,
+      requestZms,
+    )
+    const accessorMemberAdded = await ensureMcpManagedAccessorMember(
+      project,
+      mcpKeyName,
+      session.user.username,
       requestZms,
     )
     const sourceReport = sourceExchangeAudiences.length > 0
@@ -80,6 +86,7 @@ export async function POST(
     const configurationUpdated = await reconcileMcpManagedAccessConfiguration(project, mcpKeyName)
     const changed = configurationUpdated
       || Object.values(managedReport).some(Boolean)
+      || accessorMemberAdded
       || Boolean(sourceReport && Object.values(sourceReport).some(Boolean))
 
     return NextResponse.json({
