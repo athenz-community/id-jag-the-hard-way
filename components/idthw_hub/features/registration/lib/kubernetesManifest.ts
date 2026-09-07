@@ -51,8 +51,15 @@ export function managedMcpAccessDomain(project: string) {
   return `mcp-hub.mcps.${project}`
 }
 
-export function managedMcpAccessScope(project: string) {
-  return `${managedMcpAccessDomain(project)}:role.accessor`
+export function managedMcpAccessRole(mcpKeyName: string) {
+  if (!/^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/.test(mcpKeyName)) {
+    throw new Error("Managed MCP key is invalid")
+  }
+  return `${mcpKeyName}-accessor`
+}
+
+export function managedMcpAccessScope(project: string, mcpKeyName: string) {
+  return `${managedMcpAccessDomain(project)}:role.${managedMcpAccessRole(mcpKeyName)}`
 }
 
 export function buildMcpKubernetesManifest(input: McpKubernetesManifestInput) {
@@ -99,7 +106,7 @@ export function buildMcpKubernetesResources(
   }
   if (input.accessManagement === "hub") {
     annotations["mcp.idthw.dev/access-audience"] = managedMcpAccessDomain(input.project)
-    annotations["mcp.idthw.dev/access-scope"] = managedMcpAccessScope(input.project)
+    annotations["mcp.idthw.dev/access-scope"] = managedMcpAccessScope(input.project, name)
   }
   if (input.toolPermissions) {
     annotations["mcp.idthw.dev/tool-permissions"] = JSON.stringify(input.toolPermissions)
@@ -121,7 +128,7 @@ export function buildMcpKubernetesResources(
   const podSpec: Record<string, unknown> = { containers }
   if (input.accessManagement === "hub") {
     const expectedAudience = managedMcpAccessDomain(input.project)
-    const requiredScope = managedMcpAccessScope(input.project)
+    const requiredScope = managedMcpAccessScope(input.project, name)
     const serviceName = input.serviceAccount.startsWith(`${expectedAudience}.`)
       ? input.serviceAccount.slice(expectedAudience.length + 1)
       : "service-account-required"

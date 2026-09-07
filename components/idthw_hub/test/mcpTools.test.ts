@@ -58,6 +58,7 @@ test("live tool discovery does not send an authorization header", async () => {
   try {
     const address = upstream.address() as AddressInfo
     const server: McpServer = {
+      accessManagement: "server",
       id: "api:k8s-docs-server",
       routeId: "k8s-docs-server",
       name: "mcp",

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { buildMcpKubernetesManifest, buildMcpKubernetesResources } from "../features/registration/lib/kubernetesManifest.ts"
+import {
+  buildMcpKubernetesManifest,
+  buildMcpKubernetesResources,
+  managedMcpAccessScope,
+} from "../features/registration/lib/kubernetesManifest.ts"
 
 const input = {
   accessManagement: "hub" as const,
@@ -66,7 +70,7 @@ test("builds namespace, secret, deployment, and service resources", () => {
   assert.equal(deployment.metadata.annotations["mcp.idthw.dev/icon"], "confluence.png")
   assert.equal(
     deployment.metadata.annotations["mcp.idthw.dev/access-scope"],
-    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    "mcp-hub.mcps.k8s-docs-server:role.docs-mcp-accessor",
   )
   assert.equal(
     deployment.metadata.annotations["mcp.idthw.dev/access-audience"],
@@ -97,6 +101,17 @@ test("builds namespace, secret, deployment, and service resources", () => {
     "ghcr.io/mlajkim/mcp-runtime-proxy:latest",
   )
   const proxyEnvironment = deployment.spec.template.spec.containers[1].env
+  assert.deepEqual(
+    proxyEnvironment.find(({ name }) => name === "ATHENZ_EXPECTED_AUDIENCE"),
+    { name: "ATHENZ_EXPECTED_AUDIENCE", value: "mcp-hub.mcps.k8s-docs-server" },
+  )
+  assert.deepEqual(
+    proxyEnvironment.find(({ name }) => name === "ATHENZ_REQUIRED_SCOPE"),
+    {
+      name: "ATHENZ_REQUIRED_SCOPE",
+      value: "mcp-hub.mcps.k8s-docs-server:role.docs-mcp-accessor",
+    },
+  )
   assert.deepEqual(
     proxyEnvironment.find(({ name }) => name === "MCP_READINESS_PATH"),
     { name: "MCP_READINESS_PATH", value: "/mcp" },
@@ -185,6 +200,21 @@ test("builds namespace, secret, deployment, and service resources", () => {
     spec: { ports: Array<{ targetPort: number }> }
   }
   assert.equal(service.spec.ports[0].targetPort, 8082)
+})
+
+test("derives an isolated managed access scope from each MCP key", () => {
+  assert.equal(
+    managedMcpAccessScope("k8s-docs-server", "docs-mcp"),
+    "mcp-hub.mcps.k8s-docs-server:role.docs-mcp-accessor",
+  )
+  assert.equal(
+    managedMcpAccessScope("k8s-docs-server", "confluence"),
+    "mcp-hub.mcps.k8s-docs-server:role.confluence-accessor",
+  )
+  assert.throws(
+    () => managedMcpAccessScope("k8s-docs-server", "Invalid MCP"),
+    /Managed MCP key is invalid/,
+  )
 })
 
 test("redacts secret environment values from the YAML preview", () => {

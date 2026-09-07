@@ -8,6 +8,8 @@ import {
 } from "../../kubernetes/api/kubectl.ts"
 import {
   buildMcpKubernetesResources,
+  managedMcpAccessDomain,
+  managedMcpAccessScope,
   MCP_MANAGED_IDENTITY_ANNOTATION,
   type McpEnvironmentVariable,
   type McpKubernetesManifestInput,
@@ -91,6 +93,82 @@ export async function getMcpServerConfiguration(
 ): Promise<McpServerConfiguration> {
   const deployment = await readMcpDeployment(project, mcpKeyName, runKubectl)
   return configurationFromDeployment(deployment, project, mcpKeyName)
+}
+
+export async function reconcileMcpManagedAccessConfiguration(
+  project: string,
+  mcpKeyName: string,
+  runKubectl: KubectlRunner = runKubectlCommand,
+) {
+  const deployment = await readMcpDeployment(project, mcpKeyName, runKubectl)
+  const configuration = configurationFromDeployment(deployment, project, mcpKeyName)
+  if (configuration.accessManagement !== "hub") {
+    throw new Error("This MCP server does not use Hub-managed access")
+  }
+
+  const expectedScope = managedMcpAccessScope(project, mcpKeyName)
+  const expectedAudience = managedMcpAccessDomain(project)
+  const currentScope = deployment.metadata?.annotations?.[ANNOTATION_ACCESS_SCOPE]
+  const currentAudience = deployment.metadata?.annotations?.[ANNOTATION_ACCESS_AUDIENCE]
+  const runtimeProxy = deployment.spec?.template?.spec?.containers?.find(
+    ({ name }) => name === "mcp-runtime-proxy",
+  )
+  const runtimeScope = runtimeProxy?.env?.find(
+    ({ name }) => name === "ATHENZ_REQUIRED_SCOPE",
+  )?.value
+  const runtimeAudience = runtimeProxy?.env?.find(
+    ({ name }) => name === "ATHENZ_EXPECTED_AUDIENCE",
+  )?.value
+  const runtimeUpdateRequired = runtimeScope !== expectedScope
+    || runtimeAudience !== expectedAudience
+  if (
+    currentScope === expectedScope
+    && currentAudience === expectedAudience
+    && !runtimeUpdateRequired
+  ) return false
+
+  const patchDirectory = await mkdtemp(join(tmpdir(), "idthw-mcp-access-patch-"))
+  try {
+    const patchPath = join(patchDirectory, "deployment-patch.json")
+    await writeFile(patchPath, JSON.stringify({
+      metadata: {
+        annotations: {
+          [ANNOTATION_ACCESS_AUDIENCE]: expectedAudience,
+          [ANNOTATION_ACCESS_SCOPE]: expectedScope,
+        },
+      },
+      ...(runtimeUpdateRequired ? {
+        spec: {
+          template: {
+            metadata: { annotations: { "mcp.idthw.dev/updated-at": new Date().toISOString() } },
+            spec: {
+              containers: [{
+                name: "mcp-runtime-proxy",
+                env: [
+                  { name: "ATHENZ_EXPECTED_AUDIENCE", value: expectedAudience },
+                  { name: "ATHENZ_REQUIRED_SCOPE", value: expectedScope },
+                ],
+              }],
+            },
+          },
+        },
+      } : {}),
+    }), { encoding: "utf8", mode: 0o600 })
+    const args = [
+      "patch",
+      `deployment/${mcpKeyName}`,
+      "--namespace",
+      project,
+      "--type=strategic",
+      "--patch-file",
+      patchPath,
+    ]
+    await runKubectl(kubectlArgs([...args, "--dry-run=server"]))
+    await runKubectl(kubectlArgs(args))
+  } finally {
+    await rm(patchDirectory, { recursive: true, force: true })
+  }
+  return true
 }
 
 export function configurationFromDeployment(
@@ -245,6 +323,7 @@ export async function updateMcpToolPermissions(
   if (directAudienceRequirements.length > 0 && serviceAccount && configuration.accessManagement === "hub") {
     await ensureMcpSourceExchangeAccess(
       project,
+      mcpKeyName,
       serviceAccount,
       directAudienceRequirements.map(({ role }) => parseAthenzRole(role).domain),
       configuredZmsRequest,

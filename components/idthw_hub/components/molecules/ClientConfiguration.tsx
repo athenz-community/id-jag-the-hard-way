@@ -241,10 +241,16 @@ function requiresInsecureHttpOptIn(mcpServerUrl: string) {
 }
 
 export function ClientConfiguration({
+  accessRequest,
+  configurationStepNumber = 2,
+  followingStepsVisible = true,
   serverName,
   mcpServerUrl,
   permissionCheck,
 }: {
+  accessRequest?: ReactNode
+  configurationStepNumber?: number
+  followingStepsVisible?: boolean
   serverName: string
   mcpServerUrl: string
   permissionCheck: ReactNode
@@ -300,75 +306,80 @@ export function ClientConfiguration({
             <p>The first server opens browser sign-in once after npm starts the broker. Other server entries wait and reuse the shared Gateway session.</p>
           </div>
 
-          {permissionCheck}
+          {accessRequest}
+          {followingStepsVisible ? (
+            <>
+              {permissionCheck}
 
-          <div className="manual-grid">
-            <div className="config-rail">
-              <div className="config-step-card">
-                <span className="step-marker">2</span>
-                <div>
-                  <h4>Copy the {client.format} configuration</h4>
-                  <p>This sample is generated for {client.label} using the current MCP server URL.</p>
-                  <div className="scope-config">
-                    <h4>Save the configuration based on scope</h4>
-                    <p>Scope determines whether this applies at the project level or globally.</p>
-                    <div className="scope-tabs" aria-label="Configuration scope">
-                      {(["project", "global"] as const).map((scopeKey) => (
-                        <button
-                          key={scopeKey}
-                          className={`scope-tab ${scope === scopeKey ? "active" : ""}`}
-                          type="button"
-                          onClick={() => setScope(scopeKey)}
-                        >
-                          {client[scopeKey].label}
-                        </button>
-                      ))}
-                    </div>
+              <div className="manual-grid">
+                <div className="config-rail">
+                  <div className="config-step-card">
+                    <span className="step-marker">{configurationStepNumber}</span>
+                    <div>
+                      <h4>Copy the {client.format} configuration</h4>
+                      <p>This sample is generated for {client.label} using the current MCP server URL.</p>
+                      <div className="scope-config">
+                        <h4>Save the configuration based on scope</h4>
+                        <p>Scope determines whether this applies at the project level or globally.</p>
+                        <div className="scope-tabs" aria-label="Configuration scope">
+                          {(["project", "global"] as const).map((scopeKey) => (
+                            <button
+                              key={scopeKey}
+                              className={`scope-tab ${scope === scopeKey ? "active" : ""}`}
+                              type="button"
+                              onClick={() => setScope(scopeKey)}
+                            >
+                              {client[scopeKey].label}
+                            </button>
+                          ))}
+                        </div>
 
-                    <div className="scope-panel">
-                      {selectedScope.steps.map((step, index) => (
-                        <div className="scope-instruction" key={step}>
-                          <span>{index + 1}</span>
-                          <p>{step}</p>
+                        <div className="scope-panel">
+                          {selectedScope.steps.map((step, index) => (
+                            <div className="scope-instruction" key={step}>
+                              <span>{index + 1}</span>
+                              <p>{step}</p>
+                            </div>
+                          ))}
+                          {selectedScope.path && (
+                            <div className="scope-path">
+                              <code>{selectedScope.path}</code>
+                              <CopyButton
+                                value={selectedScope.path}
+                                label={`Copy ${selectedScope.path} path`}
+                                className="scope-path-copy"
+                              />
+                            </div>
+                          )}
                         </div>
-                      ))}
-                      {selectedScope.path && (
-                        <div className="scope-path">
-                          <code>{selectedScope.path}</code>
-                          <CopyButton
-                            value={selectedScope.path}
-                            label={`Copy ${selectedScope.path} path`}
-                            className="scope-path-copy"
-                          />
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
+
+                </div>
+
+                <div className="code-panel">
+                  <div className="code-panel-title">Copy the {client.format} configuration</div>
+                  <CopyButton value={config} label={`Copy ${client.format} configuration`} className="code-copy" />
+                  <pre className="config-code">
+                    <code>{config}</code>
+                  </pre>
                 </div>
               </div>
 
-            </div>
-
-            <div className="code-panel">
-              <div className="code-panel-title">Copy the {client.format} configuration</div>
-              <CopyButton value={config} label={`Copy ${client.format} configuration`} className="code-copy" />
-              <pre className="config-code">
-                <code>{config}</code>
-              </pre>
-            </div>
-          </div>
-
-          <aside className="broker-session-note" aria-label="Sign out of the shared MCP Gateway session">
-            <div>
-              <span className="config-eyebrow">Shared session</span>
-              <h4>Ready for a fresh sign-in?</h4>
-              <p>Run this in a shell to clear the shared Gateway session and open Keycloak sign-out in your browser. Your client configuration stays in place, and the next connection brings browser sign-in back.</p>
-            </div>
-            <div className="broker-logout-command">
-              <code>{logoutCommand}</code>
-              <CopyButton value={logoutCommand} label="Copy broker sign-out command" />
-            </div>
-          </aside>
+              <aside className="broker-session-note" aria-label="Sign out of the shared MCP Gateway session">
+                <div>
+                  <span className="config-eyebrow">Shared session</span>
+                  <h4>Ready for a fresh sign-in?</h4>
+                  <p>Run this in a shell to clear the shared Gateway session and open Keycloak sign-out in your browser. Your client configuration stays in place, and the next connection brings browser sign-in back.</p>
+                </div>
+                <div className="broker-logout-command">
+                  <code>{logoutCommand}</code>
+                  <CopyButton value={logoutCommand} label="Copy broker sign-out command" />
+                </div>
+              </aside>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

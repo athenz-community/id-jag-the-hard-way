@@ -123,10 +123,12 @@ export function McpServerUrlSection({ mcpServerUrl }: { mcpServerUrl: string }) 
 }
 
 export function JsonConfigurationSection({
+  clientConfiguration,
   serverName,
   mcpServerUrl,
   permissionCheck,
 }: {
+  clientConfiguration?: ReactNode
   serverName: string
   mcpServerUrl: string
   permissionCheck: ReactNode
@@ -138,11 +140,13 @@ export function JsonConfigurationSection({
         Configure your MCP client
       </h2>
 
-      <ClientConfiguration
-        serverName={serverName}
-        mcpServerUrl={mcpServerUrl}
-        permissionCheck={permissionCheck}
-      />
+      {clientConfiguration ?? (
+        <ClientConfiguration
+          serverName={serverName}
+          mcpServerUrl={mcpServerUrl}
+          permissionCheck={permissionCheck}
+        />
+      )}
     </section>
   )
 }

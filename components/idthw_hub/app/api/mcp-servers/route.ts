@@ -95,8 +95,6 @@ export async function POST(request: NextRequest) {
       { status: 401, headers: NO_STORE_HEADERS },
     )
   }
-  const username = session.user.username
-
   let payload: unknown
   try {
     payload = await request.json()
@@ -162,7 +160,7 @@ export async function POST(request: NextRequest) {
             const requestZms = await createZmsRequest()
             await ensureMcpManagedAccess(
               validation.input.project,
-              username,
+              validation.input.mcpKeyName,
               validation.input.serviceAccount,
               requestZms,
             )
@@ -172,6 +170,7 @@ export async function POST(request: NextRequest) {
             if (sourceExchangeAudiences.length > 0) {
               await ensureMcpSourceExchangeAccess(
                 validation.input.project,
+                validation.input.mcpKeyName,
                 validation.input.serviceAccount,
                 sourceExchangeAudiences,
                 requestZms,

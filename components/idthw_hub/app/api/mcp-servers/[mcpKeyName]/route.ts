@@ -8,6 +8,7 @@ import {
 } from "@/features/registration/api/mcpResources"
 import {
   createZmsRequest,
+  deleteMcpManagedAccess,
   ensureMcpManagedAccess,
   ensureMcpSourceExchangeAccess,
 } from "@/features/registration/api/mcpManagedAccess"
@@ -100,6 +101,9 @@ export async function DELETE(
         { status: 400, headers: NO_STORE_HEADERS },
       )
     }
+    if (server.accessManagement === "hub") {
+      await deleteMcpManagedAccess(reference.project, reference.mcpKeyName)
+    }
     await deleteMcpResources(reference.project, reference.mcpKeyName)
     return NextResponse.json({ deleted: reference }, { headers: NO_STORE_HEADERS })
   } catch (error) {
@@ -129,8 +133,6 @@ export async function PUT(
       { status: 401, headers: NO_STORE_HEADERS },
     )
   }
-  const username = session.user.username
-
   const reference = await serverReference(request, params)
   if (!reference) {
     return NextResponse.json(
@@ -163,7 +165,7 @@ export async function PUT(
       const requestZms = await createZmsRequest()
       await ensureMcpManagedAccess(
         validation.input.project,
-        username,
+        validation.input.mcpKeyName,
         validation.input.serviceAccount,
         requestZms,
       )
@@ -171,6 +173,7 @@ export async function PUT(
       if (sourceExchangeAudiences.length > 0) {
         await ensureMcpSourceExchangeAccess(
           validation.input.project,
+          validation.input.mcpKeyName,
           validation.input.serviceAccount,
           sourceExchangeAudiences,
           requestZms,

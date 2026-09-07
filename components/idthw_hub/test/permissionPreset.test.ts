@@ -140,7 +140,7 @@ test("derives compact exchange policy rules from the route source audience", () 
     exchangePolicyRules(
       "api:role.docs-getter",
       "mcp-hub.mcps.k8s-docs-server",
-      "mcp-hub.mcps.k8s-docs-server:role.accessor-source-exchanger",
+      "mcp-hub.mcps.k8s-docs-server:role.docs-mcp-accessor-source-exchanger",
     ),
     [{
       action: "zts.jag_exchange",
@@ -151,7 +151,7 @@ test("derives compact exchange policy rules from the route source audience", () 
       action: "zts.token_source_exchange",
       effect: "ALLOW",
       resource: "mcp-hub.mcps.k8s-docs-server:api",
-      role: "mcp-hub.mcps.k8s-docs-server:role.accessor-source-exchanger",
+      role: "mcp-hub.mcps.k8s-docs-server:role.docs-mcp-accessor-source-exchanger",
     }, {
       action: "zts.token_target_exchange",
       effect: "ALLOW",
@@ -187,7 +187,7 @@ test("keeps exchange policy checks independent and under their tool", () => {
   const managedPreset = withManagedAccessRequirements(
     toolPreset,
     "myapiserver",
-    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    "mcp-hub.mcps.k8s-docs-server:role.myapiserver-accessor",
     "human.idjag-learner",
     "mcp-hub.mcp-gateway",
     "mcp-hub.mcps.k8s-docs-server.api-docs",
@@ -217,7 +217,7 @@ test("keeps exchange policy checks independent and under their tool", () => {
       source: "helper",
     }, {
       action: "zts.jag_exchange",
-      resource: "mcp-hub.mcps.k8s-docs-server:role.accessor",
+      resource: "mcp-hub.mcps.k8s-docs-server:role.myapiserver-accessor",
       source: "managed",
     }],
   )
@@ -312,7 +312,7 @@ test("normalizes a legacy singular helper policy and keeps it attached to its he
     withManagedAccessRequirements(
       preset,
       "demo-api",
-      "mcp-hub.mcps.demo:role.accessor",
+      "mcp-hub.mcps.demo:role.demo-api-accessor",
       "human.idjag-learner",
       "mcp-hub.mcp-gateway",
       "mcp-hub.mcps.demo.api-mcp",
@@ -538,9 +538,9 @@ test("adds the managed route scope to every configured tool scope", () => {
   assert.deepEqual(parseToolAccessScopesForServer(
     validPreset,
     "k8s-docs-server",
-    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    "mcp-hub.mcps.k8s-docs-server:role.k8s-docs-server-accessor",
   ), {
-    get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor mcp-hub.mcps.k8s-docs-server:role.accessor",
+    get_k8s_docs: "api:role.docs-getter api:role.mcp-accessor mcp-hub.mcps.k8s-docs-server:role.k8s-docs-server-accessor",
   })
 })
 
@@ -548,7 +548,7 @@ test("shows managed user and Gateway requirements without a custom tool preset",
   const preset = withManagedAccessRequirements(
     undefined,
     "confluence",
-    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    "mcp-hub.mcps.k8s-docs-server:role.confluence-accessor",
     "human.idjag-learner",
     "mcp-hub.mcp-gateway",
     "mcp-hub.mcps.k8s-docs-server.api-docs",
@@ -563,19 +563,19 @@ test("shows managed user and Gateway requirements without a custom tool preset",
         configuredMember: SIGNED_IN_USER_MEMBER,
         label: "Signed-in user can invoke this Athenz-protected MCP server",
         member: "human.idjag-learner",
-        role: "mcp-hub.mcps.k8s-docs-server:role.accessor",
+        role: "mcp-hub.mcps.k8s-docs-server:role.confluence-accessor",
         source: "managed",
       }, {
         configuredMember: "mcp-hub.mcp-gateway",
         label: "MCP Gateway can request protected MCP access",
         member: "mcp-hub.mcp-gateway",
-        role: "mcp-hub.mcps.k8s-docs-server:role.accessor-jag-exchanger",
+        role: "mcp-hub.mcps.k8s-docs-server:role.confluence-accessor-jag-exchanger",
         source: "managed",
       }, {
         configuredMember: "mcp-hub.mcps.k8s-docs-server.api-docs",
-        label: "MCP service can exchange from this MCP access domain",
+        label: "MCP service can exchange from this MCP server access role",
         member: "mcp-hub.mcps.k8s-docs-server.api-docs",
-        role: "mcp-hub.mcps.k8s-docs-server:role.accessor-source-exchanger",
+        role: "mcp-hub.mcps.k8s-docs-server:role.confluence-accessor-source-exchanger",
         source: "managed",
       }],
     }],
@@ -633,9 +633,9 @@ test("allows a static service-only tool when the managed MCP scope is present", 
   assert.deepEqual(parseToolAccessScopesForServer(
     configured,
     "confluence",
-    "mcp-hub.mcps.docs:role.accessor",
+    "mcp-hub.mcps.docs:role.confluence-accessor",
   ), {
-    search: "mcp-hub.mcps.docs:role.accessor",
+    search: "mcp-hub.mcps.docs:role.confluence-accessor",
   })
 })
 
@@ -648,7 +648,7 @@ test("adds managed user and Gateway requirements to every custom tool preset", (
   const managedPreset = withManagedAccessRequirements(
     preset,
     "k8s-docs-server",
-    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    "mcp-hub.mcps.k8s-docs-server:role.k8s-docs-server-accessor",
     "human.idjag-learner",
   )
 
@@ -657,10 +657,10 @@ test("adds managed user and Gateway requirements to every custom tool preset", (
     managedPreset.groups[0].requirements.slice(-2).map(({ member, role }) => ({ member, role })),
     [{
       member: "human.idjag-learner",
-      role: "mcp-hub.mcps.k8s-docs-server:role.accessor",
+      role: "mcp-hub.mcps.k8s-docs-server:role.k8s-docs-server-accessor",
     }, {
       member: "mcp-hub.mcp-gateway",
-      role: "mcp-hub.mcps.k8s-docs-server:role.accessor-jag-exchanger",
+      role: "mcp-hub.mcps.k8s-docs-server:role.k8s-docs-server-accessor-jag-exchanger",
     }],
   )
 })

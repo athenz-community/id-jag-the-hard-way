@@ -1,27 +1,24 @@
 import { readFile } from "node:fs/promises"
 import https from "node:https"
 import path from "node:path"
-import { managedMcpAccessDomain } from "../lib/kubernetesManifest.ts"
+import {
+  managedMcpAccessDomain,
+  managedMcpAccessRole,
+} from "../lib/kubernetesManifest.ts"
 
-const ACCESSOR_ROLE = "accessor"
 const DEFAULT_GATEWAY_PRINCIPAL = "mcp-hub.mcp-gateway"
 const DEFAULT_SIGNED_IN_USER_DOMAIN = "human"
 const DEFAULT_ZMS_URL = "https://localhost:4443/zms/v1"
-const EXCHANGER_ROLE = "accessor-jag-exchanger"
-const EXCHANGE_POLICY = "accessor-jag-exchanger_zts_jag_exchange_role_accessor"
-const SOURCE_EXCHANGER_ROLE = "accessor-source-exchanger"
-const SOURCE_EXCHANGE_POLICY = "accessor-source-exchanger_zts_token_source_exchange"
 const MAX_RESPONSE_BYTES = 256 * 1024
 const PRINCIPAL_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/
 
 export type ZmsRequest = (
-  method: "GET" | "PUT",
+  method: "DELETE" | "GET" | "PUT",
   requestPath: string,
   body?: unknown,
 ) => Promise<{ body: string; status: number }>
 
 export type McpManagedAccessReport = {
-  accessorMemberAdded: boolean
   exchangePolicyCreated: boolean
   exchangerMemberAdded: boolean
   exchangerRoleCreated: boolean
@@ -36,9 +33,14 @@ export type McpSourceExchangeReport = {
   sourceExchangerRoleCreated: boolean
 }
 
+export type McpManagedAccessDeletionReport = {
+  policiesDeleted: string[]
+  rolesDeleted: string[]
+}
+
 export async function ensureMcpManagedAccess(
   project: string,
-  username: string,
+  mcpKeyName: string,
   serviceAccount: string,
   configuredRequest?: ZmsRequest,
 ): Promise<McpManagedAccessReport> {
@@ -47,32 +49,32 @@ export async function ensureMcpManagedAccess(
   }
 
   const domain = managedMcpAccessDomain(project)
+  const names = managedAccessNames(mcpKeyName)
   const serviceName = serviceNameInDomain(serviceAccount, domain)
-  const userDomain = process.env.MCP_HUB_PERMISSION_SIGNED_IN_USER_DOMAIN ?? DEFAULT_SIGNED_IN_USER_DOMAIN
-  const userPrincipal = `${userDomain}.${username}`
   const gatewayPrincipal = process.env.MCP_HUB_GATEWAY_PRINCIPAL ?? DEFAULT_GATEWAY_PRINCIPAL
-  for (const principal of [userPrincipal, gatewayPrincipal]) {
-    if (!PRINCIPAL_PATTERN.test(principal)) throw new Error("Managed MCP Athenz principal is invalid")
-  }
+  if (!PRINCIPAL_PATTERN.test(gatewayPrincipal)) throw new Error("Managed MCP Athenz principal is invalid")
 
   const requestZms = configuredRequest ?? await createZmsRequest()
   await requireDomain(requestZms, domain)
   await requireService(requestZms, domain, serviceName, serviceAccount)
-  const roleCreated = await ensureRole(requestZms, domain, ACCESSOR_ROLE)
-  const accessorMemberAdded = await ensureRoleMember(requestZms, domain, ACCESSOR_ROLE, userPrincipal)
-  const exchangerRoleCreated = await ensureRole(requestZms, domain, EXCHANGER_ROLE)
-  const exchangerMemberAdded = await ensureRoleMember(requestZms, domain, EXCHANGER_ROLE, gatewayPrincipal)
-  const exchangePolicyCreated = await ensureExchangePolicy(requestZms, domain)
-  const sourceExchangerRoleCreated = await ensureRole(requestZms, domain, SOURCE_EXCHANGER_ROLE)
+  const roleCreated = await ensureRole(requestZms, domain, names.accessorRole)
+  const exchangerRoleCreated = await ensureRole(requestZms, domain, names.exchangerRole)
+  const exchangerMemberAdded = await ensureRoleMember(
+    requestZms,
+    domain,
+    names.exchangerRole,
+    gatewayPrincipal,
+  )
+  const exchangePolicyCreated = await ensureExchangePolicy(requestZms, domain, names)
+  const sourceExchangerRoleCreated = await ensureRole(requestZms, domain, names.sourceExchangerRole)
   const sourceExchangerMemberAdded = await ensureRoleMember(
     requestZms,
     domain,
-    SOURCE_EXCHANGER_ROLE,
+    names.sourceExchangerRole,
     serviceAccount,
   )
 
   return {
-    accessorMemberAdded,
     exchangePolicyCreated,
     exchangerMemberAdded,
     exchangerRoleCreated,
@@ -82,8 +84,31 @@ export async function ensureMcpManagedAccess(
   }
 }
 
+export async function ensureMcpManagedAccessorMember(
+  project: string,
+  mcpKeyName: string,
+  username: string,
+  configuredRequest?: ZmsRequest,
+) {
+  if (!/^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/.test(project)) {
+    throw new Error("Managed MCP project is invalid")
+  }
+
+  const userDomain = process.env.MCP_HUB_PERMISSION_SIGNED_IN_USER_DOMAIN ?? DEFAULT_SIGNED_IN_USER_DOMAIN
+  const userPrincipal = `${userDomain}.${username}`
+  if (!PRINCIPAL_PATTERN.test(userPrincipal)) throw new Error("Managed MCP Athenz principal is invalid")
+
+  const domain = managedMcpAccessDomain(project)
+  const names = managedAccessNames(mcpKeyName)
+  const requestZms = configuredRequest ?? await createZmsRequest()
+  await requireDomain(requestZms, domain)
+  await ensureRole(requestZms, domain, names.accessorRole)
+  return ensureRoleMember(requestZms, domain, names.accessorRole, userPrincipal)
+}
+
 export async function ensureMcpSourceExchangeAccess(
   project: string,
+  mcpKeyName: string,
   serviceAccount: string,
   targetDomains: string[],
   configuredRequest?: ZmsRequest,
@@ -100,19 +125,50 @@ export async function ensureMcpSourceExchangeAccess(
   }
 
   const domain = managedMcpAccessDomain(project)
+  const names = managedAccessNames(mcpKeyName)
   const serviceName = serviceNameInDomain(serviceAccount, domain)
   const requestZms = configuredRequest ?? await createZmsRequest()
   await requireDomain(requestZms, domain)
   await requireService(requestZms, domain, serviceName, serviceAccount)
-  const sourceExchangerRoleCreated = await ensureRole(requestZms, domain, SOURCE_EXCHANGER_ROLE)
+  const sourceExchangerRoleCreated = await ensureRole(requestZms, domain, names.sourceExchangerRole)
   const sourceExchangerMemberAdded = await ensureRoleMember(
     requestZms,
     domain,
-    SOURCE_EXCHANGER_ROLE,
+    names.sourceExchangerRole,
     serviceAccount,
   )
-  const policyUpdated = await ensureSourceExchangePolicy(requestZms, domain, audiences)
+  const policyUpdated = await ensureSourceExchangePolicy(requestZms, domain, names, audiences)
   return { policyUpdated, sourceExchangerMemberAdded, sourceExchangerRoleCreated }
+}
+
+export async function deleteMcpManagedAccess(
+  project: string,
+  mcpKeyName: string,
+  configuredRequest?: ZmsRequest,
+): Promise<McpManagedAccessDeletionReport> {
+  if (!/^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/.test(project)) {
+    throw new Error("Managed MCP project is invalid")
+  }
+
+  const domain = managedMcpAccessDomain(project)
+  const names = managedAccessNames(mcpKeyName)
+  const requestZms = configuredRequest ?? await createZmsRequest()
+  const domainResponse = await requestZms("GET", `/domain/${encodeURIComponent(domain)}`)
+  if (domainResponse.status === 404) return { policiesDeleted: [], rolesDeleted: [] }
+  if (domainResponse.status !== 200) {
+    throw unexpectedStatus("checking the managed MCP domain before access cleanup", domainResponse.status)
+  }
+
+  const policiesDeleted: string[] = []
+  for (const policy of [names.exchangePolicy, names.sourceExchangePolicy]) {
+    if (await deleteZmsEntity(requestZms, domain, "policy", policy)) policiesDeleted.push(policy)
+  }
+
+  const rolesDeleted: string[] = []
+  for (const role of [names.exchangerRole, names.sourceExchangerRole, names.accessorRole]) {
+    if (await deleteZmsEntity(requestZms, domain, "role", role)) rolesDeleted.push(role)
+  }
+  return { policiesDeleted, rolesDeleted }
 }
 
 async function requireDomain(requestZms: ZmsRequest, domain: string) {
@@ -153,6 +209,30 @@ async function ensureRole(requestZms: ZmsRequest, domain: string, role: string) 
   return isSuccess(created.status)
 }
 
+async function deleteZmsEntity(
+  requestZms: ZmsRequest,
+  domain: string,
+  kind: "policy" | "role",
+  name: string,
+) {
+  const entityPath = `/domain/${encodeURIComponent(domain)}/${kind}/${encodeURIComponent(name)}`
+  const existing = await requestZms("GET", entityPath)
+  if (existing.status === 404) return false
+  if (existing.status !== 200) {
+    throw unexpectedStatus(`checking managed MCP ${kind} ${name} before deletion`, existing.status)
+  }
+
+  const deleted = await requestZms("DELETE", entityPath)
+  if (!isSuccess(deleted.status) && deleted.status !== 404) {
+    throw unexpectedStatus(`deleting managed MCP ${kind} ${name}`, deleted.status)
+  }
+  const verified = await requestZms("GET", entityPath)
+  if (verified.status !== 404) {
+    throw unexpectedStatus(`verifying managed MCP ${kind} ${name} deletion`, verified.status)
+  }
+  return deleted.status !== 404
+}
+
 async function ensureRoleMember(
   requestZms: ZmsRequest,
   domain: string,
@@ -177,21 +257,43 @@ async function ensureRoleMember(
   return isSuccess(added.status)
 }
 
-async function ensureExchangePolicy(requestZms: ZmsRequest, domain: string) {
-  const policyPath = `/domain/${encodeURIComponent(domain)}/policy/${encodeURIComponent(EXCHANGE_POLICY)}`
-  const role = `${domain}:role.${EXCHANGER_ROLE}`
-  const resource = `${domain}:role.${ACCESSOR_ROLE}`
+async function ensureExchangePolicy(
+  requestZms: ZmsRequest,
+  domain: string,
+  names: ManagedAccessNames,
+) {
+  const policyPath = `/domain/${encodeURIComponent(domain)}/policy/${encodeURIComponent(names.exchangePolicy)}`
+  const role = `${domain}:role.${names.exchangerRole}`
+  const resource = `${domain}:role.${names.accessorRole}`
   const existing = await requestZms("GET", policyPath)
   if (existing.status === 200) {
-    if (!policyContains(existing.body, role, resource, "zts.jag_exchange")) {
-      throw new Error("Managed MCP exchange policy exists without the required assertion")
+    const assertions = policyAssertions(existing.body, "managed MCP exchange policy")
+    if (assertions.some((current) => sameAssertion(current, {
+      action: "zts.jag_exchange",
+      resource,
+      role,
+    }))) return false
+
+    const updated = await requestZms("PUT", policyPath, {
+      name: `${domain}:policy.${names.exchangePolicy}`,
+      assertions: [...assertions, { role, resource, action: "zts.jag_exchange" }],
+    })
+    if (!isSuccess(updated.status) && updated.status !== 409) {
+      throw unexpectedStatus("repairing managed MCP exchange policy", updated.status)
     }
-    return false
+    const verified = await requestZms("GET", policyPath)
+    if (
+      verified.status !== 200
+      || !policyContains(verified.body, role, resource, "zts.jag_exchange")
+    ) {
+      throw new Error("Unable to verify repaired managed MCP exchange policy")
+    }
+    return isSuccess(updated.status)
   }
   if (existing.status !== 404) throw unexpectedStatus("checking managed MCP exchange policy", existing.status)
 
   const created = await requestZms("PUT", policyPath, {
-    name: `${domain}:policy.${EXCHANGE_POLICY}`,
+    name: `${domain}:policy.${names.exchangePolicy}`,
     assertions: [{ role, resource, action: "zts.jag_exchange" }],
   })
   if (!isSuccess(created.status) && created.status !== 409) {
@@ -211,10 +313,11 @@ async function ensureExchangePolicy(requestZms: ZmsRequest, domain: string) {
 async function ensureSourceExchangePolicy(
   requestZms: ZmsRequest,
   domain: string,
+  names: ManagedAccessNames,
   targetDomains: string[],
 ) {
-  const policyPath = `/domain/${encodeURIComponent(domain)}/policy/${encodeURIComponent(SOURCE_EXCHANGE_POLICY)}`
-  const role = `${domain}:role.${SOURCE_EXCHANGER_ROLE}`
+  const policyPath = `/domain/${encodeURIComponent(domain)}/policy/${encodeURIComponent(names.sourceExchangePolicy)}`
+  const role = `${domain}:role.${names.sourceExchangerRole}`
   const desired = targetDomains.map((targetDomain) => ({
     action: "zts.token_source_exchange",
     resource: `${domain}:${targetDomain}`,
@@ -235,7 +338,7 @@ async function ensureSourceExchangePolicy(
     if (!assertions.some((current) => sameAssertion(current, assertion))) assertions.push(assertion)
   }
   const updated = await requestZms("PUT", policyPath, {
-    name: `${domain}:policy.${SOURCE_EXCHANGE_POLICY}`,
+    name: `${domain}:policy.${names.sourceExchangePolicy}`,
     assertions,
   })
   if (!isSuccess(updated.status) && updated.status !== 409) {
@@ -251,6 +354,27 @@ async function ensureSourceExchangePolicy(
     throw new Error("Unable to verify managed MCP source-exchange policy")
   }
   return isSuccess(updated.status)
+}
+
+type ManagedAccessNames = {
+  accessorRole: string
+  exchangePolicy: string
+  exchangerRole: string
+  sourceExchangePolicy: string
+  sourceExchangerRole: string
+}
+
+function managedAccessNames(mcpKeyName: string): ManagedAccessNames {
+  const accessorRole = managedMcpAccessRole(mcpKeyName)
+  const exchangerRole = `${accessorRole}-jag-exchanger`
+  const sourceExchangerRole = `${accessorRole}-source-exchanger`
+  return {
+    accessorRole,
+    exchangePolicy: `${exchangerRole}_zts_jag_exchange_role_${accessorRole}`,
+    exchangerRole,
+    sourceExchangePolicy: `${sourceExchangerRole}_zts_token_source_exchange`,
+    sourceExchangerRole,
+  }
 }
 
 function policyAssertions(body: string, resource: string) {

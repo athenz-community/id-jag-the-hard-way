@@ -5,6 +5,7 @@ import {
   buildMcpResourceUpdate,
   configurationFromDeployment,
   deleteMcpResources,
+  reconcileMcpManagedAccessConfiguration,
   updateMcpToolPermissions,
 } from "../features/registration/api/mcpResources.ts"
 import type { KubectlRunner } from "../features/kubernetes/api/kubectl.ts"
@@ -131,10 +132,70 @@ test("builds deployment and service patches while preserving existing secret ref
   }
   assert.equal(
     patch.metadata.annotations["mcp.idthw.dev/access-scope"],
-    "mcp-hub.mcps.k8s-docs-server:role.accessor",
+    "mcp-hub.mcps.k8s-docs-server:role.docs-mcp-accessor",
   )
   assert.equal(patch.metadata.annotations["mcp.idthw.dev/icon"], "confluence.png")
   assert.equal(patch.spec.template.spec.volumes?.[0].name, "athenz-ca")
+})
+
+test("reconciles a legacy shared MCP scope to its per-server access role", async () => {
+  const legacyScope = "mcp-hub.mcps.k8s-docs-server:role.accessor"
+  const legacyDeployment = {
+    ...deployment,
+    metadata: {
+      ...deployment.metadata,
+      annotations: {
+        ...deployment.metadata.annotations,
+        "mcp.idthw.dev/access-scope": legacyScope,
+      },
+    },
+    spec: {
+      template: {
+        spec: {
+          containers: deployment.spec.template.spec.containers.map((container) => (
+            container.name === "mcp-runtime-proxy"
+              ? {
+                  ...container,
+                  env: [{ name: "ATHENZ_REQUIRED_SCOPE", value: legacyScope }],
+                }
+              : container
+          )),
+        },
+      },
+    },
+  }
+  const patches: Array<Record<string, unknown>> = []
+  const runner: KubectlRunner = async (args) => {
+    if (args.includes("get")) return { stdout: JSON.stringify(legacyDeployment), stderr: "" }
+    const patchIndex = args.indexOf("--patch-file")
+    if (patchIndex >= 0) {
+      patches.push(JSON.parse(await readFile(args[patchIndex + 1], "utf8")) as Record<string, unknown>)
+    }
+    return { stdout: "", stderr: "" }
+  }
+
+  assert.equal(
+    await reconcileMcpManagedAccessConfiguration("k8s-docs-server", "docs-mcp", runner),
+    true,
+  )
+  const deploymentPatch = patches.find((patch) => "spec" in patch) as {
+    metadata: { annotations: Record<string, string> }
+    spec: { template: { spec: { containers: Array<{
+      env?: Array<{ name: string; value: string }>
+      name: string
+    }> } } }
+  }
+  const runtimeProxy = deploymentPatch.spec.template.spec.containers.find(
+    ({ name }) => name === "mcp-runtime-proxy",
+  )
+  assert.equal(
+    deploymentPatch.metadata.annotations["mcp.idthw.dev/access-scope"],
+    "mcp-hub.mcps.k8s-docs-server:role.docs-mcp-accessor",
+  )
+  assert.equal(
+    runtimeProxy?.env?.find(({ name }) => name === "ATHENZ_REQUIRED_SCOPE")?.value,
+    "mcp-hub.mcps.k8s-docs-server:role.docs-mcp-accessor",
+  )
 })
 
 test("adds request-scoped token delivery to an existing managed-identity deployment", () => {
@@ -236,7 +297,7 @@ test("stores per-tool permission overrides on the MCP deployment without restart
   }
   let sourcePolicy: unknown
   const requestZms: ZmsRequest = async (method, requestPath, body) => {
-    if (requestPath.endsWith("/role/accessor-source-exchanger")) {
+    if (requestPath.endsWith("/role/docs-mcp-accessor-source-exchanger")) {
       return {
         status: 200,
         body: JSON.stringify({
@@ -244,7 +305,7 @@ test("stores per-tool permission overrides on the MCP deployment without restart
         }),
       }
     }
-    if (requestPath.endsWith("/policy/accessor-source-exchanger_zts_token_source_exchange")) {
+    if (requestPath.endsWith("/policy/docs-mcp-accessor-source-exchanger_zts_token_source_exchange")) {
       if (method === "PUT") sourcePolicy = body
       return sourcePolicy === undefined
         ? { status: 404, body: "{}" }

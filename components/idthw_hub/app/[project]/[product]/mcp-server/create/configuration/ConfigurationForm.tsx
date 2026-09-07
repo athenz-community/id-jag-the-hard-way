@@ -185,7 +185,7 @@ export function ConfigurationForm({
             />
             <span>
               <strong>Personal</strong>
-              <small>Instance for personal use only. Accessible only by the creator.</small>
+              <small>Instance owned by its creator. MCP access must still be requested.</small>
             </span>
           </label>
           <label className={`mcp-create-choice ${usesTemplate && !isEditing ? "" : "disabled"}`}>
@@ -199,7 +199,7 @@ export function ConfigurationForm({
             />
             <span>
               <strong>Project</strong>
-              <small>Instance shared at the project level. Accessible by project members.</small>
+              <small>Instance shared in the project catalog. MCP access must still be requested.</small>
             </span>
           </label>
         </div>
@@ -361,7 +361,7 @@ export function ConfigurationForm({
             />
             <span>
               <strong>Hub-managed access (Recommended)</strong>
-              <small>Users sign in once. The Hub provisions shared Athenz access, shows current permissions, and validates protected calls at the MCP Runtime Proxy.</small>
+              <small>Users sign in once. The Hub provisions server-specific Athenz access, shows current permissions, and validates protected calls at the MCP Runtime Proxy.</small>
             </span>
           </label>
           <label className="mcp-create-choice">

@@ -103,9 +103,9 @@ Each returned server includes:
 - `routeId`, the stable globally unique ID used in `/mcp/{id}`
 - `gatewayUrl`, the public MCP client URL when `MCP_HUB_MCP_GATEWAY_URL` is configured
 - `proxyUrl`, the corresponding Core MCP Proxy URL
-- `accessScope`, the shared Athenz route scope published on a Hub-managed deployment
+- `accessScope`, the server-specific Athenz route scope published on a Hub-managed deployment
 - `accessAudience`, selecting the route's core Athenz audience; Hub-managed servers use `mcp-hub.mcps.<project>` so it matches Runtime Proxy validation
-- `toolScopes`, when permission presets configure tool execution, mapping each MCP tool name to its custom scopes plus the shared managed route scope
+- `toolScopes`, when permission presets configure tool execution, mapping each MCP tool name to its custom scopes plus the server-specific managed route scope
 
 The client-configuration page converts `gatewayUrl` into a separate stdio entry backed by `@mlajkim/mcp-credential-broker` from the standard npm registry. The package defaults to `@mlajkim/mcp-credential-broker@latest`; set `NEXT_PUBLIC_MCP_CREDENTIAL_BROKER_PACKAGE` at build time to use another published version:
 
@@ -117,15 +117,15 @@ The first entry opens Keycloak login through MCP Gateway automatically; all entr
 
 ## Permission Readiness Presets
 
-The client-configuration page shows required Athenz role memberships before the manual client setup. Athenz remains the source of truth for current role membership. The Hub checks membership through ZMS with its server-side certificate. Creation of a Hub-managed server provisions only the shared managed-access roles and exchange policy described below; custom per-tool grants are configurable requirements and are not provisioned automatically.
+The client-configuration page starts Hub-managed servers with **Request access to this MCP server**. The authenticated request adds the current signed-in user to that server's access role and idempotently creates or repairs the server-specific managed roles, memberships, JAG policy, and configured source-exchange assertions. It also migrates a legacy shared Deployment scope to the per-server scope without deleting the legacy Athenz resources. After approval, setup continues with permission verification and client configuration as steps 2 and 3. Athenz remains the source of truth for current role membership, and the Hub checks it through ZMS with its server-side certificate. Custom downstream per-tool grants remain configurable requirements and are not provisioned automatically.
 
 Checked-in defaults live in the pure settings document at [`config/permission-presets.yaml`](./config/permission-presets.yaml). It starts with `version` and `servers` and contains no Kubernetes resource wrapper. `make local`, and therefore the repository-root `make ui`, generates and applies the `mcp-hub/mcp-hub-permission-presets` ConfigMap from that file before building and starting IDTHW Hub. The ConfigMap stores the document under `permission-presets.yaml`.
 
-An authenticated Hub user can edit a live tool's custom requirements in its permission dialog. Each direct-access row starts with the required downstream audience/Athenz domain and role; description and member customization are secondary. For a Hub-managed server, the required `<role>-jag-exchanger` membership for MCP Gateway and `<role>-exchanger` membership for the selected MCP IAM account appear as an indented helper list under each signed-in-user row. Without the Gateway membership, the delegated ID-JAG flow cannot obtain the user-scoped token; without the MCP IAM membership, Runtime Proxy cannot obtain the downstream access token. Providers can add, edit, or delete individual helpers and select MCP Gateway, the MCP IAM account, or a custom service account as the member. An empty helper list can regenerate the defaults, and a customized list can reset to them. When a signed-in-user audience is saved, the Hub also adds `zts.token_source_exchange` for that target domain to the managed MCP domain's shared `accessor-source-exchanger` policy. The Hub stores partial per-tool overrides as versioned JSON in the MCP Deployment's `mcp.idthw.dev/tool-permissions` annotation; an override replaces that tool's checked-in default while other defaults remain intact. An empty override intentionally removes all custom requirements for that tool. Because the Kubernetes patch changes Deployment metadata only, it does not restart the MCP pod. Saving still does not add the downstream target-domain role members represented by the editable helper rows.
+An authenticated Hub user can edit a live tool's custom requirements in its permission dialog. Each direct-access row starts with the required downstream audience/Athenz domain and role; description and member customization are secondary. For a Hub-managed server, the required `<role>-jag-exchanger` membership for MCP Gateway and `<role>-exchanger` membership for the selected MCP IAM account appear as an indented helper list under each signed-in-user row. Without the Gateway membership, the delegated ID-JAG flow cannot obtain the user-scoped token; without the MCP IAM membership, Runtime Proxy cannot obtain the downstream access token. Providers can add, edit, or delete individual helpers and select MCP Gateway, the MCP IAM account, or a custom service account as the member. An empty helper list can regenerate the defaults, and a customized list can reset to them. When a signed-in-user audience is saved, the Hub also adds `zts.token_source_exchange` for that target domain to the managed MCP domain's server-specific `<mcp-key>-accessor-source-exchanger` policy. The Hub stores partial per-tool overrides as versioned JSON in the MCP Deployment's `mcp.idthw.dev/tool-permissions` annotation; an override replaces that tool's checked-in default while other defaults remain intact. An empty override intentionally removes all custom requirements for that tool. Because the Kubernetes patch changes Deployment metadata only, it does not restart the MCP pod. Saving still does not add the downstream target-domain role members represented by the editable helper rows.
 
-The current preset contains only `k8s-docs-server`. A server without a preset still shows the generated shared Hub-managed access requirements when its deployment publishes a managed access scope. A server with neither a preset nor a managed access scope shows its tools with the yellow `No configuration found` state.
+The current preset contains only `k8s-docs-server`. A server without a preset still shows its generated server-specific Hub-managed access requirements when its deployment publishes a managed access scope. A server with neither a preset nor a managed access scope shows its tools with the yellow `No configuration found` state.
 
-The permission setup uses the public live MCP `tools/list` response as the source of truth for available tools. Listing tools does not require an Athenz access role or mint an access token. Every returned tool is shown before manual client setup; the configured and generated requirements describe protected execution, not discovery. A tool without either kind of requirement is marked yellow as `No configuration found`; otherwise it shows its checked Athenz status. The dialog separates editable custom **Tool permissions** from read-only Hub-managed **MCP access** defaults and links each role to Athenz. Each indented token-exchange helper keeps its editable membership and role together with zero or more editable policies. Policies can be added and removed independently within their helper, and each policy keeps its effect, action, and resource. MCP Hub does not submit custom permission requests yet.
+The permission setup uses the public live MCP `tools/list` response as the source of truth for available tools. Listing tools does not require an Athenz access role or mint an access token. Every returned tool is shown before manual client setup; the configured and generated requirements describe protected execution, not discovery. A tool without either kind of requirement is marked yellow as `No configuration found`; otherwise it shows its checked Athenz status. The dialog separates editable custom **Tool permissions** from read-only Hub-managed **MCP access** defaults and links each role to Athenz. Each indented token-exchange helper keeps its editable membership and role together with zero or more editable policies. Policies can be added and removed independently within their helper, and each policy keeps its effect, action, and resource. MCP Hub fulfills its own managed MCP access request, but does not submit downstream custom tool-role permission requests yet.
 
 Use the exact reserved member value `<signed_in_user>` when a requirement belongs to the current browser session:
 
@@ -138,23 +138,25 @@ It resolves to `human.<preferred_username>` by default. Override the Athenz doma
 
 For every tool, the current K8s Docs preset and generated defaults check:
 
-- the signed-in user in the tool-specific role and the shared `api:role.mcp-accessor` role
-- `mcp-hub.mcp-gateway` in the shared `api:role.mcp-accessor-jag-exchanger` role and the tool-specific `api:role.*-jag-exchanger` role
-- `api.api-mcp` in the tool-specific exchanger role for downstream token exchange
+- the signed-in user in the tool-specific role and `mcp-hub.mcps.<project>:role.<mcp-key>-accessor`
+- `mcp-hub.mcp-gateway` in `mcp-hub.mcps.<project>:role.<mcp-key>-accessor-jag-exchanger` and the tool-specific `api:role.*-jag-exchanger` role
+- the selected MCP service account in `mcp-hub.mcps.<project>:role.<mcp-key>-accessor-source-exchanger` and its tool-specific exchanger role for downstream token exchange
 
-Shared MCP-access requirements are generated for every tool from the Deployment's managed access scope. They appear in the read-only **MCP access** section at the bottom of each tool dialog instead of being duplicated in the editable preset.
+Server-specific MCP-access requirements are generated for every tool from the Deployment's managed access scope. They appear in the read-only **MCP access** section at the bottom of each tool dialog instead of being duplicated in the editable preset.
 
 ### Hub-managed Athenz access
 
 Creating a server with **Hub-managed access** requires an existing Athenz service in `mcp-hub.mcps.<project>`. After the Kubernetes server-side dry run succeeds and before creating the resources, the Hub idempotently verifies the domain and selected service, then ensures:
 
-- `mcp-hub.mcps.<project>:role.accessor` contains `human.<signed-in-user>`
-- `mcp-hub.mcps.<project>:role.accessor-jag-exchanger` contains `mcp-hub.mcp-gateway`
-- the exchanger role may perform `zts.jag_exchange` on `mcp-hub.mcps.<project>:role.accessor`
-- `mcp-hub.mcps.<project>:role.accessor-source-exchanger` contains the selected MCP service account
+- `mcp-hub.mcps.<project>:role.<mcp-key>-accessor` exists without automatically adding the creator; every user requests membership from the client-configuration page
+- `mcp-hub.mcps.<project>:role.<mcp-key>-accessor-jag-exchanger` contains `mcp-hub.mcp-gateway`
+- the server-specific JAG exchanger role may perform `zts.jag_exchange` on `mcp-hub.mcps.<project>:role.<mcp-key>-accessor`
+- `mcp-hub.mcps.<project>:role.<mcp-key>-accessor-source-exchanger` contains the selected MCP service account
 - the source-exchanger policy gains one `zts.token_source_exchange` assertion for each configured downstream audience
 
 The Hub does not create `mcp-hub.mcps.<project>` itself. Project/domain lifecycle remains separate. The generated Deployment publishes the managed domain as `mcp.idthw.dev/access-audience` and the accessor role as `mcp.idthw.dev/access-scope`. MCP Gateway reads both dynamically through `/api/mcp-servers`, supplies the core audience when ZTS issues an access token spanning the MCP and downstream scope domains, and replaces the opaque Gateway session bearer with that Athenz bearer before forwarding. Core MCP Proxy preserves the header. The pod-local Runtime Proxy verifies the ZTS signature, expiry, same managed audience, and accessor scope before preserving the validated header for the MCP container. No Gateway ConfigMap update or restart is required for registry changes.
+
+Confirmed deletion of a Hub-managed MCP server removes only that server's `<mcp-key>-accessor`, JAG-exchanger, and source-exchanger roles plus their JAG/source-exchange policies. The project-owned Athenz service account and domain remain intact, and legacy shared access resources are not deleted.
 
 Hub-managed creation and update idempotently apply a project-local `mcp-runtime-proxy-athenz-ca` ConfigMap from the Hub's configured Athenz CA. The Runtime Proxy uses that trust bundle to retrieve signing keys directly from `https://athenz-zts-server.athenz:4443/zts/v1/oauth2/keys?rfc=true`; TLS verification is not disabled. It does not download or evaluate Athenz policy. MCP bootstrap, `ping`, and `tools/list` remain public, while protected calls return `401` for missing or invalid tokens and `403` when the accessor scope is absent.
 
@@ -168,11 +170,11 @@ New Hub-managed servers also receive a workload identity lifecycle:
 
 Each MCP server has a distinct deterministic Athenz key ID, so one Athenz service account can back multiple Hub-managed MCP servers without replacing another server's public key. The readable form is `idthw-hub-<mcp-key>`; names that would exceed 63 characters are truncated with a stable SHA-256 suffix. Updates preserve the key ID already configured on legacy deployments.
 
-Custom per-tool requirements can be supplied by `config/permission-presets.yaml` or overridden from the permission dialog. Their signed-in-user roles are combined with the shared accessor role for that exact tool call, and the readiness UI checks both the custom and managed memberships.
+Custom per-tool requirements can be supplied by `config/permission-presets.yaml` or overridden from the permission dialog. Their signed-in-user roles are combined with that MCP server's accessor role for the exact tool call, and the readiness UI checks both the custom and managed memberships.
 
 `components/idthw-demo-api-mcp` is the tutorial consumer for this contract. Its published image is `ghcr.io/mlajkim/idthw-demo-api-mcp:latest`; it exposes the three K8s Docs tools without handling service keys or performing token exchange itself.
 
-When a server returns five or more tools, the client-configuration page collapses the permission rows by default behind **Expand tools** so the configuration in step 2 remains visible without a long initial scroll. Servers with fewer than five tools keep their rows expanded.
+When a server returns more than five tools, the client-configuration page keeps the first five permission rows visible and places the rest behind **Expand tools** so the following configuration step remains reachable without a long initial scroll. Servers with five or fewer tools show every row.
 
 Override the ConfigMap location when needed with `MCP_HUB_PERMISSION_CONFIG_MAP_NAMESPACE`, `MCP_HUB_PERMISSION_CONFIG_MAP_NAME`, and `MCP_HUB_PERMISSION_CONFIG_MAP_KEY`. In-cluster IDTHW Hub service accounts need read access to that ConfigMap.
 
@@ -300,7 +302,7 @@ Optional space-separated Athenz scopes that MCP Gateway requests for the signed-
 mcp.idthw.dev/access-scope: "api:role.mcp-accessor api:role.docs-getter"
 ```
 
-For a Hub-managed server, this annotation is generated as `mcp-hub.mcps.<project>:role.accessor`. If the server also has permission presets, `/api/mcp-servers` publishes a `toolScopes` map that combines this shared role with each tool's custom `<signed_in_user>` roles, and MCP Gateway selects the exact mapping from `tools/call.params.name`. An unmapped tool on such a server fails closed. Servers without `toolScopes` use the annotation as the route-level scope for protected calls.
+For a Hub-managed server, this annotation is generated as `mcp-hub.mcps.<project>:role.<mcp-key>-accessor`. If the server also has permission presets, `/api/mcp-servers` publishes a `toolScopes` map that combines this server-specific role with each tool's custom `<signed_in_user>` roles, and MCP Gateway selects the exact mapping from `tools/call.params.name`. An unmapped tool on such a server fails closed. Servers without `toolScopes` use the annotation as the route-level scope for protected calls.
 
 If omitted, MCP Gateway uses its `MCP_GATEWAY_ACCESS_SCOPE` fallback.
 
