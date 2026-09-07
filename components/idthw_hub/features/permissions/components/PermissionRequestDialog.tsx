@@ -519,6 +519,7 @@ export function PermissionEditor({
               <span>Audience (Athenz domain)</span>
               <input
                 required
+                autoComplete="off"
                 value={requirement.audience}
                 placeholder="api"
                 onChange={(event) => update(requirementIndex, { audience: event.target.value })}
@@ -528,6 +529,7 @@ export function PermissionEditor({
               <span>Required role</span>
               <input
                 required
+                autoComplete="off"
                 value={requirement.role}
                 placeholder="docs-getter"
                 onChange={(event) => update(requirementIndex, { role: event.target.value })}
@@ -536,6 +538,7 @@ export function PermissionEditor({
             <label className="permission-editor-field permission-editor-label-field">
               <span>Description (optional)</span>
               <input
+                autoComplete="off"
                 value={requirement.label}
                 placeholder="Signed-in user can call the downstream API"
                 onChange={(event) => update(requirementIndex, { label: event.target.value })}
@@ -566,6 +569,7 @@ export function PermissionEditor({
               ) : (
                 <input
                   required
+                  autoComplete="off"
                   value={requirement.member}
                   placeholder="domain.service"
                   onChange={(event) => update(requirementIndex, { member: event.target.value })}
@@ -596,11 +600,11 @@ export function PermissionEditor({
         </div>
       ))}
       <button
-        className="button permission-editor-add"
+        className="permission-inline-add permission-editor-add"
         type="button"
         onClick={() => setRequirements((current) => [...current, emptyEditablePermissionRequirement()])}
       >
-        <Plus size={14} aria-hidden="true" />
+        <Plus size={12} aria-hidden="true" />
         Add permission
       </button>
     </div>
@@ -622,6 +626,10 @@ function ExchangeHelperEditor({
   servicePrincipal?: string
   setRequirements: Dispatch<SetStateAction<EditableRequirement[]>>
 }) {
+  const directRoleConfigured = Boolean(requirement.audience.trim() && requirement.role.trim())
+  const directRoleWasConfiguredOnMount = useRef(directRoleConfigured)
+  const hasAutoExpanded = useRef(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   const effectiveServicePrincipal = servicePrincipal ?? helperPreviewServicePrincipal
   const templateMcpBinding = Boolean(
     !servicePrincipal && helperPreviewServicePrincipal && !requirement.exchangeHelpersCustomized,
@@ -634,6 +642,17 @@ function ExchangeHelperEditor({
   const displayedHelperRequirements = requirement.exchangeHelpersCustomized
     ? requirement.helperRequirements
     : derivedHelperRequirements
+  const helperRoleCount = displayedHelperRequirements.filter((helper) => helper.role.trim()).length
+  const helperPolicyCount = displayedHelperRequirements.reduce(
+    (count, helper) => count + helper.policies.filter((policy) => (
+      policy.action.trim() && policy.resource.trim()
+    )).length,
+    0,
+  )
+  const helperCountLabel = [
+    helperRoleCount > 0 ? `${helperRoleCount} ${helperRoleCount === 1 ? "Role" : "Roles"}` : "",
+    helperPolicyCount > 0 ? `${helperPolicyCount} ${helperPolicyCount === 1 ? "Policy" : "Policies"}` : "",
+  ].filter(Boolean).join(" & ")
   const updateRequirement = (values: Partial<EditableRequirement>) => {
     setRequirements((current) => current.map((item, index) => (
       index === requirementIndex ? { ...item, ...values } : item
@@ -684,14 +703,38 @@ function ExchangeHelperEditor({
     })
   }
 
+  useEffect(() => {
+    if (
+      !directRoleWasConfiguredOnMount.current
+      && directRoleConfigured
+      && !hasAutoExpanded.current
+    ) {
+      hasAutoExpanded.current = true
+      setIsExpanded(true)
+    }
+  }, [directRoleConfigured])
+
   return (
-    <div className="permission-helper-settings">
-      <div className="permission-helper-heading">
-        <strong>Token-exchange helper permissions</strong>
-        <small>{templateMcpBinding
-          ? "Generated from the direct role. The MCP IAM account is resolved during server creation."
-          : "Each indented helper keeps its role membership and optional exchange policy together."}</small>
-      </div>
+    <details
+      className="permission-helper-settings"
+      open={isExpanded}
+      onToggle={(event) => setIsExpanded(event.currentTarget.open)}
+    >
+      <summary className="permission-helper-summary">
+        <span className="permission-helper-heading">
+          <strong>
+            Token-exchange helper permissions{helperCountLabel ? ` (${helperCountLabel})` : ""}
+          </strong>
+        </span>
+        <span className="permission-helper-toggle-label">
+          <span className="permission-helper-expand-label">Expand helper permissions</span>
+          <span className="permission-helper-collapse-label">Collapse helper permissions</span>
+        </span>
+        <ChevronDown className="permission-helper-chevron" size={15} aria-hidden="true" />
+      </summary>
+      <p className="permission-helper-description">{templateMcpBinding
+        ? "Generated from the direct role. The MCP IAM account is resolved during server creation."
+        : "Each indented helper keeps its role membership and optional exchange policy together."}</p>
       {!effectiveServicePrincipal ? (
         <p className="permission-helper-note">Helpers require a Hub-managed MCP IAM account.</p>
       ) : (
@@ -699,11 +742,11 @@ function ExchangeHelperEditor({
           {displayedHelperRequirements.map((helper, helperIndex) => (
             <div className="permission-helper-preview-row" key={helperIndex}>
               <div className="permission-helper-membership-row">
-                <span className="permission-helper-row-label">Helper</span>
                 <label className="permission-editor-field">
                   <span>Required access</span>
                   <input
                     required
+                    autoComplete="off"
                     value={helper.label}
                     onChange={(event) => updateHelper(helperIndex, { label: event.target.value })}
                   />
@@ -729,6 +772,7 @@ function ExchangeHelperEditor({
                   <span>Member</span>
                   <input
                     required
+                    autoComplete="off"
                     disabled={helper.memberType !== "custom"}
                     value={!servicePrincipal
                       && helper.memberType === "mcp-service"
@@ -743,6 +787,7 @@ function ExchangeHelperEditor({
                   <span>Role</span>
                   <input
                     required
+                    autoComplete="off"
                     value={helper.role}
                     onChange={(event) => updateHelper(helperIndex, { role: event.target.value })}
                   />
@@ -775,6 +820,7 @@ function ExchangeHelperEditor({
                     <span>Action</span>
                     <input
                       required
+                      autoComplete="off"
                       value={policy.action}
                       placeholder="zts.jag_exchange"
                       onChange={(event) => updateHelperPolicy(helperIndex, policyIndex, { action: event.target.value })}
@@ -784,6 +830,7 @@ function ExchangeHelperEditor({
                     <span>Resource</span>
                     <input
                       required
+                      autoComplete="off"
                       value={policy.resource}
                       placeholder="domain:role.role-name"
                       onChange={(event) => updateHelperPolicy(helperIndex, policyIndex, { resource: event.target.value })}
@@ -801,7 +848,7 @@ function ExchangeHelperEditor({
               ))}
               <div className="permission-helper-policy-actions">
                 <button
-                  className="permission-helper-policy-add"
+                  className="permission-inline-add"
                   type="button"
                   onClick={() => addHelperPolicy(helperIndex)}
                 >
@@ -812,8 +859,8 @@ function ExchangeHelperEditor({
             </div>
           ))}
           <div className="permission-helper-actions">
-            <button className="button permission-helper-add" type="button" onClick={addHelper}>
-              <Plus size={14} aria-hidden="true" />
+            <button className="permission-inline-add permission-helper-add" type="button" onClick={addHelper}>
+              <Plus size={12} aria-hidden="true" />
               Add helper permission
             </button>
             {displayedHelperRequirements.length === 0 ? (
@@ -844,7 +891,7 @@ function ExchangeHelperEditor({
           </div>
         </div>
       )}
-    </div>
+    </details>
   )
 }
 
