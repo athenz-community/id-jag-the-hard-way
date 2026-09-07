@@ -2379,7 +2379,7 @@ body:has(.permission-request-dialog[open]) {
 }
 
 .mcp-tool-permission-group {
-  min-width: 1120px;
+  min-width: 1180px;
   border: 1px solid #d8dfe8;
   border-radius: 7px;
   padding: 12px;
@@ -2393,6 +2393,22 @@ body:has(.permission-request-dialog[open]) {
   align-items: end;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.mcp-tool-permission-group > .permission-editor {
+  position: relative;
+  margin-left: 24px;
+  border-left: 2px solid #c9d8ec;
+  padding-left: 12px;
+}
+
+.mcp-tool-permission-group > .permission-editor::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -24px;
+  width: 22px;
+  border-top: 2px solid #c9d8ec;
 }
 
 .permission-editor-group + .permission-editor-group {
@@ -2482,11 +2498,42 @@ body:has(.permission-request-dialog[open]) {
 }
 
 .permission-helper-settings {
+  overflow: hidden;
   margin: 7px 0 0 28px;
   border-left: 3px solid #c9d8ec;
   border-radius: 0 6px 6px 0;
-  padding: 12px 14px;
   background: #f7f9fc;
+}
+
+.permission-helper-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.permission-helper-summary::-webkit-details-marker {
+  display: none;
+}
+
+.permission-helper-settings[open] .permission-helper-summary {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.permission-helper-summary:hover strong {
+  color: #3567a7;
+}
+
+.permission-helper-chevron {
+  color: #687384;
+  transition: transform 0.16s ease;
+}
+
+.permission-helper-settings[open] .permission-helper-chevron {
+  transform: rotate(180deg);
 }
 
 .permission-helper-heading {
@@ -2500,7 +2547,22 @@ body:has(.permission-request-dialog[open]) {
   font-weight: 900;
 }
 
-.permission-helper-heading small,
+.permission-helper-toggle-label {
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.permission-helper-collapse-label,
+.permission-helper-settings[open] .permission-helper-expand-label {
+  display: none;
+}
+
+.permission-helper-settings[open] .permission-helper-collapse-label {
+  display: inline;
+}
+
+.permission-helper-description,
 .permission-helper-note {
   color: var(--text-muted);
   font-size: 10px;
@@ -2508,14 +2570,18 @@ body:has(.permission-request-dialog[open]) {
   line-height: 1.45;
 }
 
+.permission-helper-description {
+  margin: 10px 14px 0 32px;
+}
+
 .permission-helper-note {
-  margin: 9px 0 0 18px;
+  margin: 6px 14px 12px 32px;
 }
 
 .permission-helper-preview {
   display: grid;
   gap: 7px;
-  margin: 10px 0 0 18px;
+  margin: 10px 14px 12px 32px;
 }
 
 .permission-helper-preview-row {
@@ -2527,7 +2593,7 @@ body:has(.permission-request-dialog[open]) {
 
 .permission-helper-membership-row {
   display: grid;
-  grid-template-columns: 48px minmax(210px, 1.15fr) minmax(155px, 0.8fr) minmax(190px, 1fr) minmax(230px, 1.2fr) 32px;
+  grid-template-columns: minmax(210px, 1.15fr) minmax(155px, 0.8fr) minmax(190px, 1fr) minmax(230px, 1.2fr) 32px;
   align-items: end;
   gap: 8px;
   padding: 7px 9px;
@@ -2551,7 +2617,7 @@ body:has(.permission-request-dialog[open]) {
   margin: -2px 9px 8px 105px;
 }
 
-.permission-helper-policy-add {
+.permission-inline-add {
   min-height: 24px;
   display: inline-flex;
   align-items: center;
@@ -2562,6 +2628,16 @@ body:has(.permission-request-dialog[open]) {
   color: var(--blue);
   font-size: 10px;
   font-weight: 850;
+}
+
+.permission-inline-add:hover {
+  color: #155dcc;
+}
+
+.permission-inline-add:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid rgb(49 116 211 / 22%);
+  outline-offset: 1px;
 }
 
 .permission-helper-row-label {

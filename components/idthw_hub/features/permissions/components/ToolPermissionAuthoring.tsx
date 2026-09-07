@@ -60,6 +60,7 @@ export function ToolPermissionAuthoring({
                   <span>MCP tool name</span>
                   <input
                     required
+                    autoComplete="off"
                     placeholder="get_k8s_docs"
                     value={tool.toolName}
                     onChange={(event) => updateTool(tool.id, { toolName: event.target.value })}
