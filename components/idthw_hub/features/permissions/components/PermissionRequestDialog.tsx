@@ -14,12 +14,10 @@ import {
   useTransition,
 } from "react"
 import {
-  exchangeHelperRequirements,
-  exchangePolicyRules,
-} from "@/features/permissions/lib/permissionPreset"
-import {
   configuredRequirementsFromDraft,
   emptyEditablePermissionRequirement,
+  exchangeHelperDraftsForRequirement,
+  generatedExchangeHelperDraftsForRequirement,
   SIGNED_IN_USER_MEMBER,
 } from "@/features/permissions/lib/toolPermissionDraft"
 import type {
@@ -634,14 +632,16 @@ function ExchangeHelperEditor({
   const templateMcpBinding = Boolean(
     !servicePrincipal && helperPreviewServicePrincipal && !requirement.exchangeHelpersCustomized,
   )
-  const derivedHelperRequirements = previewExchangeHelperRequirements(
+  const derivedHelperRequirements = generatedExchangeHelperDraftsForRequirement(
     requirement,
     effectiveServicePrincipal,
     accessAudience,
   )
-  const displayedHelperRequirements = requirement.exchangeHelpersCustomized
-    ? requirement.helperRequirements
-    : derivedHelperRequirements
+  const displayedHelperRequirements = exchangeHelperDraftsForRequirement(
+    requirement,
+    effectiveServicePrincipal,
+    accessAudience,
+  )
   const helperRoleCount = displayedHelperRequirements.filter((helper) => helper.role.trim()).length
   const helperPolicyCount = displayedHelperRequirements.reduce(
     (count, helper) => count + helper.policies.filter((policy) => (
@@ -895,40 +895,6 @@ function ExchangeHelperEditor({
   )
 }
 
-function previewExchangeHelperRequirements(
-  requirement: EditableRequirement,
-  servicePrincipal?: string,
-  sourceAudience?: string,
-) {
-  if (!servicePrincipal || !sourceAudience) return []
-  try {
-    const targetRole = configuredRole(requirement.audience, requirement.role)
-    const policiesByRole = new Map<string, EditableExchangePolicyRule[]>()
-    for (const policy of exchangePolicyRules(targetRole, sourceAudience)) {
-      policiesByRole.set(policy.role, [
-        ...(policiesByRole.get(policy.role) ?? []),
-        { action: policy.action, effect: policy.effect, resource: policy.resource },
-      ])
-    }
-    return exchangeHelperRequirements(
-      [{
-        label: requirement.label || "Required role membership",
-        member: SIGNED_IN_USER_MEMBER,
-        role: targetRole,
-      }],
-      servicePrincipal,
-    ).map((helper) => {
-      return {
-        ...helper,
-        memberType: helperMemberType(helper.member, servicePrincipal),
-        policies: policiesByRole.get(helper.role) ?? [],
-      }
-    })
-  } catch {
-    return []
-  }
-}
-
 function editableRequirements(
   requirements: PermissionRequirementCheck[],
   helperRequirements: PermissionRequirementCheck[],
@@ -999,10 +965,6 @@ function emptyExchangePolicy(): EditableExchangePolicyRule {
     effect: "ALLOW",
     resource: "",
   }
-}
-
-function configuredRole(audience: string, role: string) {
-  return `${audience.trim()}:role.${role.trim()}`
 }
 
 function editableRole(role: string) {

@@ -3,7 +3,10 @@
 import { Plus, Trash2 } from "lucide-react"
 import type { Dispatch, SetStateAction } from "react"
 import { PermissionEditor } from "./PermissionRequestDialog"
-import { emptyEditablePermissionRequirement } from "../lib/toolPermissionDraft"
+import {
+  emptyEditablePermissionRequirement,
+  TEMPLATE_MCP_IAM_MEMBER,
+} from "../lib/toolPermissionDraft"
 import type {
   EditablePermissionRequirement,
   ToolPermissionDraft,
@@ -12,7 +15,6 @@ import type {
 export function ToolPermissionAuthoring({
   accessAudience,
   description,
-  helperPreviewServicePrincipal,
   servicePrincipal,
   tools,
   validationError,
@@ -20,7 +22,6 @@ export function ToolPermissionAuthoring({
 }: {
   accessAudience?: string
   description: string
-  helperPreviewServicePrincipal?: string
   servicePrincipal?: string
   tools: ToolPermissionDraft[]
   validationError?: string
@@ -77,7 +78,7 @@ export function ToolPermissionAuthoring({
               </div>
               <PermissionEditor
                 accessAudience={accessAudience}
-                helperPreviewServicePrincipal={helperPreviewServicePrincipal}
+                helperPreviewServicePrincipal={TEMPLATE_MCP_IAM_MEMBER}
                 requirements={tool.requirements}
                 servicePrincipal={servicePrincipal}
                 setRequirements={permissionSetter(tool, updateTool)}

@@ -1,5 +1,10 @@
-import { parseToolPermissionSettings } from "./permissionPreset.ts"
+import {
+  exchangeHelperRequirements,
+  exchangePolicyRules,
+  parseToolPermissionSettings,
+} from "./permissionPreset.ts"
 import type {
+  EditableExchangeHelperRequirement,
   ConfiguredPermissionRequirement,
   EditablePermissionRequirement,
   ToolPermissionDraft,
@@ -128,6 +133,55 @@ export function emptyEditablePermissionRequirement(): EditablePermissionRequirem
     member: SIGNED_IN_USER_MEMBER,
     memberType: "signed-in-user",
     role: "",
+  }
+}
+
+export function exchangeHelperDraftsForRequirement(
+  requirement: EditablePermissionRequirement,
+  servicePrincipal?: string,
+  sourceAudience?: string,
+): EditableExchangeHelperRequirement[] {
+  if (requirement.exchangeHelpersCustomized) {
+    return requirement.helperRequirements.map((helper) => (
+      helper.memberType === "mcp-service" && servicePrincipal
+        ? { ...helper, member: servicePrincipal }
+        : helper
+    ))
+  }
+
+  return generatedExchangeHelperDraftsForRequirement(requirement, servicePrincipal, sourceAudience)
+}
+
+export function generatedExchangeHelperDraftsForRequirement(
+  requirement: EditablePermissionRequirement,
+  servicePrincipal?: string,
+  sourceAudience?: string,
+): EditableExchangeHelperRequirement[] {
+  if (!servicePrincipal || !sourceAudience) return []
+
+  try {
+    const targetRole = configuredRole(requirement.audience, requirement.role)
+    const policiesByRole = new Map<string, EditableExchangeHelperRequirement["policies"]>()
+    for (const policy of exchangePolicyRules(targetRole, sourceAudience)) {
+      policiesByRole.set(policy.role, [
+        ...(policiesByRole.get(policy.role) ?? []),
+        { action: policy.action, effect: policy.effect, resource: policy.resource },
+      ])
+    }
+    return exchangeHelperRequirements(
+      [{
+        label: requirement.label || "Required role membership",
+        member: SIGNED_IN_USER_MEMBER,
+        role: targetRole,
+      }],
+      servicePrincipal,
+    ).map((helper) => ({
+      ...helper,
+      memberType: helperMemberType(helper.member, servicePrincipal),
+      policies: policiesByRole.get(helper.role) ?? [],
+    }))
+  } catch {
+    return []
   }
 }
 
