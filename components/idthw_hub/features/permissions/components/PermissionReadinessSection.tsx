@@ -17,6 +17,7 @@ export function PermissionReadinessSection({
   mcpKeyName,
   project,
   servicePrincipal,
+  stepNumber = 1,
   readiness,
   toolsResult,
 }: {
@@ -24,6 +25,7 @@ export function PermissionReadinessSection({
   mcpKeyName: string
   project: string
   servicePrincipal?: string
+  stepNumber?: number
   readiness: PermissionReadiness | null
   toolsResult: McpToolsResult
 }) {
@@ -38,7 +40,7 @@ export function PermissionReadinessSection({
 
   return (
     <div className="permission-readiness-section" aria-labelledby="permission-readiness-heading">
-      <PermissionHeading />
+      <PermissionHeading stepNumber={stepNumber} />
 
       {readiness?.status === "configuration-error" ? (
         <div className="permission-config-error" role="alert">
@@ -217,11 +219,11 @@ function PermissionStatusIcon({ status }: { status: PermissionCheckStatus }) {
   )
 }
 
-function PermissionHeading() {
+function PermissionHeading({ stepNumber }: { stepNumber: number }) {
   return (
     <div className="permission-readiness-heading">
       <div className="permission-heading-step">
-        <span className="step-marker">1</span>
+        <span className="step-marker">{stepNumber}</span>
         <div>
           <h3 id="permission-readiness-heading" className="section-title">
             Check your permissions

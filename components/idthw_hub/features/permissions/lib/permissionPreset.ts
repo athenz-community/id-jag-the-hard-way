@@ -264,7 +264,10 @@ export function withExpectedExchangePolicies(
           .map(({ role, toolRequirementIndex }) => `${toolRequirementIndex ?? ""}\n${role}`),
       ])
       const sourceExchangeRole = group.requirements.find(({ role, source }) => (
-        source === "managed" && role.endsWith(":role.accessor-source-exchanger")
+        source === "managed" && (
+          role.endsWith(":role.accessor-source-exchanger")
+          || role.endsWith("-accessor-source-exchanger")
+        )
       ))?.role
       const requirementRoles = new Set(group.requirements.map(({ role }) => role))
 
@@ -411,18 +414,14 @@ export function withManagedAccessRequirements(
       member: gatewayPrincipal,
       role: `${parsed.domain}:role.${parsed.role}-jag-exchanger`,
       source: "managed",
-    }]
-  })
-  if (servicePrincipal) {
-    const domains = [...new Set(roles.map((role) => parseAthenzRole(role).domain))]
-    requirements.push(...domains.map((domain) => ({
+    }, ...(servicePrincipal ? [{
       configuredMember: servicePrincipal,
-      label: "MCP service can exchange from this MCP access domain",
+      label: "MCP service can exchange from this MCP server access role",
       member: servicePrincipal,
-      role: `${domain}:role.accessor-source-exchanger`,
+      role: `${parsed.domain}:role.${parsed.role}-source-exchanger`,
       source: "managed" as const,
-    })))
-  }
+    }] : [])]
+  })
 
   if (!preset) {
     return {

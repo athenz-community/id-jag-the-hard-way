@@ -162,6 +162,7 @@ export async function POST(request: NextRequest) {
             const requestZms = await createZmsRequest()
             await ensureMcpManagedAccess(
               validation.input.project,
+              validation.input.mcpKeyName,
               username,
               validation.input.serviceAccount,
               requestZms,
@@ -172,6 +173,7 @@ export async function POST(request: NextRequest) {
             if (sourceExchangeAudiences.length > 0) {
               await ensureMcpSourceExchangeAccess(
                 validation.input.project,
+                validation.input.mcpKeyName,
                 validation.input.serviceAccount,
                 sourceExchangeAudiences,
                 requestZms,

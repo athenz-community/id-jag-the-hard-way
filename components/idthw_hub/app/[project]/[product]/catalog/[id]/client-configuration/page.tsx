@@ -11,6 +11,7 @@ import {
 import { fetchCatalog } from "@/features/catalog/lib/fetchCatalog"
 import { listLiveMcpTools, resolveMcpDisplayUrl } from "@/features/catalog/lib/mcpTools"
 import { requireHubSession } from "@/features/auth/lib/session"
+import { McpManagedClientConfiguration } from "@/features/permissions/components/McpManagedClientConfiguration"
 import { PermissionReadinessSection } from "@/features/permissions/components/PermissionReadinessSection"
 import { fetchPermissionReadiness } from "@/features/permissions/lib/fetchPermissionReadiness"
 
@@ -32,6 +33,7 @@ export default async function McpServerClientConfigurationRoute({
 
   const displayName = server.alias ?? server.name
   const mcpServerUrl = resolveMcpDisplayUrl(server)
+  const usesHubManagedAccess = server.accessManagement === "hub"
   const [permissionReadiness, toolsResult] = await Promise.all([
     fetchPermissionReadiness(
       server.routeId,
@@ -43,6 +45,17 @@ export default async function McpServerClientConfigurationRoute({
     ),
     listLiveMcpTools(server),
   ])
+  const permissionCheck = (
+    <PermissionReadinessSection
+      accessAudience={server.accessAudience}
+      mcpKeyName={server.name}
+      project={server.namespace}
+      servicePrincipal={server.serviceAccount}
+      stepNumber={usesHubManagedAccess ? 2 : 1}
+      readiness={permissionReadiness}
+      toolsResult={toolsResult}
+    />
+  )
 
   return (
     <ConsoleTemplate>
@@ -51,18 +64,22 @@ export default async function McpServerClientConfigurationRoute({
       <McpServerDetailTabs project={project} product={product} serverId={server.id} active="client-configuration" />
       <McpServerUrlSection mcpServerUrl={mcpServerUrl} />
       <JsonConfigurationSection
+        clientConfiguration={usesHubManagedAccess ? (
+          <McpManagedClientConfiguration
+            currentAccessScope={server.accessScope}
+            displayName={displayName}
+            mcpKeyName={server.name}
+            mcpServerUrl={mcpServerUrl}
+            permissionCheck={permissionCheck}
+            project={server.namespace}
+            readiness={permissionReadiness}
+            serverName={server.routeId}
+            username={session.user.username}
+          />
+        ) : undefined}
         serverName={server.routeId}
         mcpServerUrl={mcpServerUrl}
-        permissionCheck={(
-          <PermissionReadinessSection
-            accessAudience={server.accessAudience}
-            mcpKeyName={server.name}
-            project={server.namespace}
-            servicePrincipal={server.serviceAccount}
-            readiness={permissionReadiness}
-            toolsResult={toolsResult}
-          />
-        )}
+        permissionCheck={permissionCheck}
       />
     </ConsoleTemplate>
   )

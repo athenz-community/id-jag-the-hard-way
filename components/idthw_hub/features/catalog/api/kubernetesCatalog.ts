@@ -18,6 +18,7 @@ const ANNOTATION_ID = "mcp.idthw.dev/id"
 const ANNOTATION_ICON = "mcp.idthw.dev/icon"
 const ANNOTATION_PROJECT = "mcp.idthw.dev/project"
 const ANNOTATION_ALIAS = "mcp.idthw.dev/alias"
+const ANNOTATION_ACCESS_MANAGEMENT = "mcp.idthw.dev/access-management"
 const ANNOTATION_ACCESS_AUDIENCE = "mcp.idthw.dev/access-audience"
 const ANNOTATION_ACCESS_SCOPE = "mcp.idthw.dev/access-scope"
 const ANNOTATION_IAM_SERVICE_ACCOUNT = "mcp.idthw.dev/iam-service-account"
@@ -131,6 +132,12 @@ function deploymentToMcpServer(
   const routeId = annotations[ANNOTATION_ID] ?? name
   if (!isValidRouteId(routeId)) return null
   const accessScope = annotations[ANNOTATION_ACCESS_SCOPE]?.trim() || undefined
+  const serviceAccount = annotations[ANNOTATION_IAM_SERVICE_ACCOUNT]?.trim() || undefined
+  const accessManagement = annotations[ANNOTATION_ACCESS_MANAGEMENT] === "server"
+    ? "server"
+    : annotations[ANNOTATION_ACCESS_MANAGEMENT] === "hub" || (accessScope && serviceAccount)
+      ? "hub"
+      : "server"
   const runtimeStatus = deploymentRuntimeStatus(deployment)
 
   return {
@@ -144,10 +151,11 @@ function deploymentToMcpServer(
     publicUrl: annotations[ANNOTATION_PUBLIC_URL],
     gatewayUrl: publicGatewayUrl(routeId),
     proxyUrl: coreProxyUrl(routeId),
+    accessManagement,
     accessAudience: annotations[ANNOTATION_ACCESS_AUDIENCE]?.trim()
       || firstScopeDomain(accessScope),
     accessScope,
-    serviceAccount: annotations[ANNOTATION_IAM_SERVICE_ACCOUNT]?.trim() || undefined,
+    serviceAccount,
     status: runtimeStatus.status,
     statusMessage: runtimeStatus.message,
     toolPermissionOverrides: parseJsonAnnotation(annotations[ANNOTATION_TOOL_PERMISSIONS]),

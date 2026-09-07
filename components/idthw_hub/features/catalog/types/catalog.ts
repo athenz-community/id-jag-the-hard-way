@@ -11,6 +11,7 @@ export type McpServer = {
   publicUrl?: string
   gatewayUrl?: string
   proxyUrl: string
+  accessManagement: "hub" | "server"
   accessAudience?: string
   accessScope?: string
   serviceAccount?: string
