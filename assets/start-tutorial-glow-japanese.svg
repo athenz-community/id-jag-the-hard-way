@@ -1,0 +1,73 @@
+<svg width="320" height="54" viewBox="0 0 320 54" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title description">
+  <title id="title">チュートリアルを始める</title>
+  <desc id="description">日本語チュートリアルの第1章に移動</desc>
+  <defs>
+    <linearGradient id="borderGlow" x1="0" y1="0" x2="320" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#7dd3fc"/>
+      <stop offset="0.7" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#f0abfc"/>
+    </linearGradient>
+
+    <linearGradient id="surface" x1="0" y1="0" x2="320" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#050505"/>
+      <stop offset="0.5" stop-color="#151515"/>
+      <stop offset="1" stop-color="#030303"/>
+    </linearGradient>
+
+    <linearGradient id="shine" x1="-80" y1="0" x2="80" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="white" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+      <animateTransform
+        attributeName="gradientTransform"
+        type="translate"
+        from="-160 0"
+        to="480 0"
+        dur="2.4s"
+        repeatCount="indefinite"/>
+    </linearGradient>
+
+    <filter id="glow" x="-30%" y="-60%" width="160%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="0 0 0 0 0.55
+                0 0 0 0 0.78
+                0 0 0 0 1
+                0 0 0 0.7 0"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <clipPath id="clip">
+      <rect x="5" y="5" width="310" height="44" rx="13"/>
+    </clipPath>
+  </defs>
+
+  <rect x="4" y="4" width="312" height="46" rx="14" fill="url(#borderGlow)" filter="url(#glow)"/>
+  <rect x="6" y="6" width="308" height="42" rx="12" fill="url(#surface)"/>
+
+  <g clip-path="url(#clip)">
+    <rect x="6" y="6" width="308" height="42" rx="12" fill="url(#shine)"/>
+    <ellipse cx="160" cy="-12" rx="130" ry="38" fill="white" opacity="0.08"/>
+  </g>
+
+  <circle cx="31" cy="27" r="12" fill="#ffffff" opacity="0.12"/>
+  <path d="M28 21.5L37 27L28 32.5V21.5Z" fill="white"/>
+
+  <text
+    x="166"
+    y="32"
+    text-anchor="middle"
+    font-family="Hiragino Sans, Noto Sans JP, Meiryo, sans-serif"
+    font-size="15"
+    font-weight="800"
+    letter-spacing="1.1"
+    fill="white">
+    チュートリアルを始める
+  </text>
+</svg>
