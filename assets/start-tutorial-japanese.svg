@@ -1,7 +1,35 @@
 <svg width="160" height="44" viewBox="0 0 160 44" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title description">
-  <title id="title">日本語 — Upcoming</title>
-  <desc id="description">Japanese tutorial translation is upcoming</desc>
-  <rect x="4" y="4" width="152" height="36" rx="12" fill="#111827" stroke="#475569"/>
-  <text x="80" y="22" text-anchor="middle" font-family="Hiragino Sans, Noto Sans JP, Meiryo, sans-serif" font-size="14" font-weight="700" fill="#cbd5e1">日本語</text>
-  <text x="80" y="34" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="9" font-weight="500" letter-spacing="0.4" fill="#94a3b8">Upcoming</text>
+  <title id="title">日本語チュートリアル</title>
+  <desc id="description">日本語チュートリアルに移動</desc>
+  <defs>
+    <linearGradient id="borderGlow" x1="0" y1="0" x2="160" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#7dd3fc"/>
+      <stop offset="0.7" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#f0abfc"/>
+    </linearGradient>
+    <linearGradient id="surface" x1="0" y1="0" x2="160" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#050505"/>
+      <stop offset="0.5" stop-color="#151515"/>
+      <stop offset="1" stop-color="#030303"/>
+    </linearGradient>
+    <filter id="glow" x="-15%" y="-40%" width="130%" height="180%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.55
+                                                     0 0 0 0 0.78
+                                                     0 0 0 0 1
+                                                     0 0 0 0.6 0"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="4" y="4" width="152" height="36" rx="12" fill="url(#borderGlow)" filter="url(#glow)"/>
+  <rect x="6" y="6" width="148" height="32" rx="10" fill="url(#surface)"/>
+
+
+  <text x="80" y="28" text-anchor="middle" font-family="Hiragino Sans, Noto Sans JP, Meiryo, sans-serif" font-size="16" font-weight="700" letter-spacing="0.4" fill="white">日本語</text>
+  <path d="M132 18L136 22L132 26" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

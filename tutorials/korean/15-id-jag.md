@@ -1,6 +1,6 @@
 | 이전 | 현재 | 다음 |
 |:---:|:---:|:---:|
-| [AI Client Gateway](./14-ai-client-gateway.md) | **ID-JAG** | [소개](./00-README.md) |
+| [AI Client Gateway](./14-ai-client-gateway.md) | **ID-JAG** | *튜토리얼의 마지막 장입니다 🎉* |
 
 <a id="id-jag--codex"></a>
 
