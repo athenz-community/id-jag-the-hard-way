@@ -15,13 +15,14 @@ Obtain an Athenz access token with an RFC 7523 assertion, then verify that Athen
 <!-- /TOC -->
 
 <details>
-<summary>Verification status — 🟡 Pending live run</summary>
+<summary>Last verified on Oct 16, 2026 — ✅ Success</summary>
 
 | # | Date | Confirmed Working |
 |---|---|---|
-| 1 | Oct 16, 2026 | 🟡 Procedure prepared against v1.12.48 source; no live results recorded |
+| 1 | Oct 16, 2026 | Procedure prepared against v1.12.48 source |
+| 2 | Oct 16, 2026 | ✅ User confirmed Step 1 token issuance succeeded with HTTP 200 and Step 2 access-token replay was rejected with HTTP 400 |
 
-The result blocks show selected, source-derived expected output, not captured command output. Additional diagnostics, variable response fields, decoded JWT objects, and raw token output are omitted from the examples. The helpers print complete non-sensitive diagnostics to stderr and issued access tokens to stdout. This page checks API access-token audience validation; it does not establish full caller-binding coverage for PR #3499 or single-use enforcement for valid ZTS-audience assertions.
+The user confirmed that both steps worked. The result blocks remain selected, source-derived examples rather than captured command output. Additional diagnostics, variable response fields, decoded JWT objects, and raw token output are omitted from the examples. The helpers print complete non-sensitive diagnostics to stderr and issued access tokens to stdout. This page checks API access-token audience validation; it does not establish full caller-binding coverage for PR #3499 or single-use enforcement for valid ZTS-audience assertions.
 
 </details>
 
