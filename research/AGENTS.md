@@ -5,15 +5,7 @@ These rules apply throughout `research/`. Use [README.md](./README.md) for the d
 ## Goal
 
 - Keep `# Goal` to one short paragraph stating the concrete purpose of the page, then proceed directly to the table of contents
-- Keep language navigation above `# Goal`, verification and release notes in the verification block, and procedural explanations in the steps; do not expand the goal with callouts, lists, or a step-by-step overview
-
-## English Source and Japanese Translation
-
-- English is the single source of truth for procedures, technical claims, and verification status
-- Every new English research page, `YYMMDD-<topic>.md`, needs an adjacent Japanese translation, `YYMMDD-<topic>.ja.md`
-- Write and verify English first, then translate it. Correct technical issues in English before updating Japanese
-- Keep commands, identifiers, configuration values, error messages, and output examples identical in both languages. Translate explanations, headings, and link labels; update each page's TOC to match its headings
-- Keep verification status aligned. Older research pages do not need Japanese translations unless requested
+- Keep verification and release notes in the verification block, and procedural explanations in the steps; do not expand the goal with callouts, lists, or a step-by-step overview
 
 ## Independent Command Blocks
 

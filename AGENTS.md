@@ -19,11 +19,6 @@ Before creating or revising anything under `research/`, read `research/AGENTS.md
 - Keep each chapter focused on its current learning goal. Next Steps should explain only the immediate next chapter, followed by a blank line and the `Next: [Chapter](./path.md)` link
 - Initialize `_mcp_port=$(./tools/port.sh mcp)` in every shell block that uses `${_mcp_port}`
 
-## Research Translations
-
-- English is the single source of truth. Every new research page needs an adjacent Japanese translation named `<same-stem>.ja.md`; older research does not need backfilling unless requested
-- Make and verify technical changes in English first, then synchronize Japanese. Keep commands, configuration values, identifiers, expected results, and verification status identical in meaning
-
 ## Tool Output
 
 - Inspect neighboring tools and reuse `tools/color.sh` helpers (`info`, `ok`, `warn`, `err`, and `fatal`) for progress, success, and failure messages instead of introducing another output format

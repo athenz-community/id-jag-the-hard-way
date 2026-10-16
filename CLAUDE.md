@@ -156,7 +156,6 @@ New or revised shell tools must follow neighboring tools' output style and reuse
 ### English Source and Translations
 
 - English is the source of truth for the README, tutorials, and research. Make changes to the content, procedures, and technical behavior in the English pages first, then update translations from the revised English source
-- Every new research page needs an adjacent Japanese translation with the same filename stem and a `.ja.md` suffix. Keep commands, configuration values, identifiers, expected results, and verification status aligned with English. Do not backfill older research pages unless requested
 - Do not introduce independent technical changes in a translation. If a translation reveals an error or missing explanation, fix the English source first and reflect that change in the translated pages
 - Preserve commands, configuration values, identifiers, and example output when translating. Translate the surrounding explanations and link labels, and adjust relative links and navigation for the translated directory
 - The Korean tutorial under `tutorials/korean/` covers the Codex path: translate chapters 01–08 from the shared English pages and chapters 09–15 from `tutorials/codex/`. Translate `tutorials/korean/00-README.md` from the root English README

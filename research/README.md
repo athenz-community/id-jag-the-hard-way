@@ -2,7 +2,7 @@
 
 The goal of this document is to define the structure and philosophy of the `research/` directory as the single source of truth (SSOT) for error outputs, troubleshooting guides, and operational procedures related to ID-JAG and its surrounding technologies, with the following steps:
 
-Authoring rules are in [AGENTS.md](./AGENTS.md), including independent command blocks, required result examples, and English-first Japanese translations.
+Authoring rules are in [AGENTS.md](./AGENTS.md), including independent command blocks and required result examples.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
@@ -39,7 +39,7 @@ Every document in this directory follows the same structure so that any reader c
 
 ## Document Template
 
-English source documents follow this structure. Japanese translations preserve the structure and translate the explanations and headings:
+Research documents follow this structure:
 
 ~~~markdown
 # Goal
@@ -104,7 +104,7 @@ Restore any temporary clients, aliases, metadata, or local state created only fo
 **Rules:**
 
 - `# Goal` is a standalone heading followed by one short paragraph stating the concrete purpose of the page, then the TOC
-- Keep language navigation above `# Goal`, verification and release notes in the verification block, and procedural explanations in the steps; do not add callouts, lists, or a step-by-step overview to the goal
+- Keep verification and release notes in the verification block, and procedural explanations in the steps; do not add callouts, lists, or a step-by-step overview to the goal
 - The TOC block is generated from the `##` headings. Do not treat TOC entries as the source of truth.
 - The TOC block must use `depthFrom:2 depthTo:2` so it captures only `##` headings.
 - Each `##` heading is the source of truth for the generated TOC.
@@ -138,10 +138,7 @@ Use lowercase kebab-case, prefixed with the date (`YYMMDD`):
 
 ```
 YYMMDD-<topic>.md
-YYMMDD-<topic>.ja.md
 ```
-
-English is the single source of truth. Add the adjacent `.ja.md` translation for each new research page and keep it synchronized after English changes. Older pages do not need backfilling unless requested.
 
 Examples:
 
@@ -187,7 +184,7 @@ Put the file under `athenz/certificate-san-dns-validation/`, `athenz/idjag/`, `a
 
 ## Step 2. Create the file with the date prefix
 
-Name the English source `YYMMDD-<topic>.md` and its Japanese translation `YYMMDD-<topic>.ja.md`. Complete the English procedure first, then translate it.
+Name the file `YYMMDD-<topic>.md`.
 
 ## Step 3. Fill in Goal, Steps, Verification, Reference
 

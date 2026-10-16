@@ -1,5 +1,3 @@
-[日本語](./261010-jwt-client-assertion-audience-validation.ja.md)
-
 # Goal
 
 Obtain an Athenz access token with an RFC 7523 assertion, then verify that Athenz v1.12.47 accepts replaying that API-audience token to obtain another access token.
