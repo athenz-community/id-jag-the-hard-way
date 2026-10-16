@@ -6,7 +6,10 @@ source "${TOOLS_DIR}/color.sh"
 
 usage() {
   printf '%s\n' \
-    "Usage: $0 --principal <domain.service> --private-key <path> --key-id <id> --audience <zts-issuer> --scope <athenz-scope> [--expires-in <seconds>]"
+    "Usage: $0 --principal <domain.service> --private-key <path> --key-id <id> [--audience <zts-issuer>] [--scope <athenz-scope>] [--expires-in <seconds>]" \
+    "Omit --audience to discover the issuer from the local ZTS OpenID configuration." \
+    "Signing uses your existing private key locally; an explicit audience skips discovery." \
+    "Omit --scope to leave the scope claim out of the assertion."
 }
 
 principal=""
@@ -36,6 +39,7 @@ while [ $# -gt 0 ]; do
     --audience)
       [ $# -ge 2 ] || fatal "Missing value for --audience"
       audience=$2
+      [ -n "${audience}" ] || fatal "--audience must not be empty"
       shift 2
       ;;
     --scope)
@@ -62,8 +66,6 @@ done
 [ -n "${principal}" ] || fatal "--principal is required"
 [ -n "${private_key}" ] || fatal "--private-key is required"
 [ -n "${key_id}" ] || fatal "--key-id is required"
-[ -n "${audience}" ] || fatal "--audience is required"
-[ -n "${scope}" ] || fatal "--scope is required"
 
 if [[ "${principal}" != *.* ]]; then
   fatal "The principal must be an Athenz service identity in <domain>.<service> form: ${principal}"
@@ -84,11 +86,47 @@ if ! openssl rsa -in "${private_key}" -check -noout >/dev/null 2>&1; then
   fatal "The private key must be a readable RSA key: ${private_key}"
 fi
 
+if [ -z "${audience}" ]; then
+  command -v curl >/dev/null 2>&1 || fatal "curl is required to discover the ZTS issuer"
+  zts_port=$("${TOOLS_DIR}/port.sh" zts)
+  [[ "${zts_port}" =~ ^[0-9]+$ ]] || fatal "The configured ZTS port must be numeric"
+  discovery_url="https://localhost:${zts_port}/zts/v1/.well-known/openid-configuration"
+
+  info "Discovering the ZTS issuer for the assertion audience..." >&2
+  info "Discovery endpoint: ${discovery_url}" >&2
+  if ! discovery=$(
+    curl -q -skS --noproxy '*' --connect-timeout 5 --max-time 30 \
+      "${discovery_url}" --write-out $'\n%{http_code}' </dev/null
+  ); then
+    fatal "Could not fetch the ZTS OpenID configuration; check the port forward or pass --audience explicitly"
+  fi
+
+  discovery_status=${discovery##*$'\n'}
+  discovery_body=${discovery%$'\n'*}
+  [[ "${discovery_status}" =~ ^[1-5][0-9][0-9]$ ]] || fatal "Missing HTTP status in the ZTS discovery response"
+  if ! printf '%s' "${discovery_body}" | jq -e 'type == "object"' >/dev/null 2>&1; then
+    fatal "ZTS discovery returned HTTP ${discovery_status} without a JSON object"
+  fi
+
+  info "ZTS discovery response (HTTP ${discovery_status}):" >&2
+  printf '%s' "${discovery_body}" | jq . >&2
+  [ "${discovery_status}" = "200" ] || fatal "ZTS discovery expected HTTP 200, received ${discovery_status}"
+  if ! audience=$(
+    printf '%s' "${discovery_body}" \
+      | jq -er '.issuer | select(type == "string" and length > 0 and (test("\\s") | not))'
+  ); then
+    fatal "ZTS discovery did not return a non-empty issuer without whitespace; pass --audience explicitly"
+  fi
+  ok "Assertion audience (ZTS issuer): ${audience}" >&2
+else
+  info "Assertion audience (explicit): ${audience}" >&2
+fi
+
 encode_base64url() {
   openssl base64 -A | tr '+/' '-_' | tr -d '='
 }
 
-info "Creating RFC 7523 JWT assertion for ${principal}..." >&2
+info "Signing RFC 7523 JWT assertion for ${principal}..." >&2
 
 issued_at=$(date +%s)
 expires_at=$((issued_at + expires_in))
@@ -104,7 +142,8 @@ claims_json=$(jq -nc \
   --arg scope "${scope}" \
   --argjson iat "${issued_at}" \
   --argjson exp "${expires_at}" \
-  '{iss:$iss, sub:$sub, aud:$aud, scope:$scope, iat:$iat, exp:$exp}')
+  '{iss:$iss, sub:$sub, aud:$aud, scope:$scope, iat:$iat, exp:$exp}
+   | if $scope == "" then del(.scope) else . end')
 
 encoded_header=$(printf '%s' "${header_json}" | encode_base64url)
 encoded_claims=$(printf '%s' "${claims_json}" | encode_base64url)
