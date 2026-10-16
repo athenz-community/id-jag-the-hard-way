@@ -21,7 +21,7 @@ athenz-vup:
 athenz-version athenz-verison: athenz-vup
 
 test-athenz-version:
-	python3 -m unittest discover -s tools/athenz/tests -p 'test_athenz_version*.py'
+	python3 -B -m unittest discover -s tools/athenz/tests -p 'test_athenz_version*.py'
 
 fix-zts-key-id:
 	@_zms_pod="$$(kubectl -n athenz get pod -l app.kubernetes.io/name=athenz-zms-server -o jsonpath='{.items[0].metadata.name}')" && \

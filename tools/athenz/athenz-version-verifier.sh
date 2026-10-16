@@ -14,7 +14,7 @@ usage() {
     "Defaults: zts, namespace athenz. Example: $0 1.12.48" \
     "Read the build VERSION from each ready server container and require version >= minimum." \
     "--less-or-equal requires version <= maximum (alias: --LESS-OR-EQUAL)." \
-    "--show displays both ZMS and ZTS versions, source commit SHAs, build suffixes and pods." \
+    "--show displays both ZMS and ZTS versions, source tags or commit SHAs, build suffixes and pods." \
     "Exit codes: 0 = success, 1 = outside the version limit, 2 = unable to read or verify build metadata."
 }
 
@@ -34,7 +34,7 @@ server_pods() {
 
 show_versions() {
   local namespace=${1:-athenz} context component component_name container pods
-  local pod deleting phase ready metadata version revision sha build_suffix
+  local pod deleting phase ready metadata version revision source_label source_value build_suffix
   local errors=0 active_pods complete
   local revision_pattern='^[0-9a-fA-F]{7,64}(-[0-9A-Za-z_.-]+)?$'
   command -v kubectl >/dev/null 2>&1 || error "kubectl is required"
@@ -71,8 +71,8 @@ show_versions() {
         continue
       fi
 
-      # Both values are build metadata embedded by the distribution. Keep the
-      # custom build suffix (including dirty markers) separate from the SHA.
+      # Release images record a source tag in VCS_REF; custom builds record a
+      # commit SHA, optionally followed by a build suffix (including dirty markers).
       if ! metadata=$(kubectl "${kubectl_options[@]}" --request-timeout=10s exec "${pod}" \
         -c "${container}" -- sh -c 'printf "%s|%s\n" "${VERSION-}" "${VCS_REF-}"'); then
         err "Could not read build metadata from ${pod}"
@@ -85,13 +85,17 @@ show_versions() {
         version=unknown
         complete=false
       fi
-      sha=unknown
+      source_label=SHA
+      source_value=unknown
       build_suffix=
       if [[ "${metadata}" != *$'\n'* ]] && [[ "${revision}" =~ ${revision_pattern} ]]; then
-        sha=${revision%%-*}
-        if [ "${sha}" != "${revision}" ]; then
+        source_value=${revision%%-*}
+        if [ "${source_value}" != "${revision}" ]; then
           build_suffix=${revision#*-}
         fi
+      elif [[ "${metadata}" != *$'\n'* ]] && [[ "${revision}" =~ ${version_pattern} ]]; then
+        source_label=Tag
+        source_value=${revision}
       else
         complete=false
       fi
@@ -101,7 +105,7 @@ show_versions() {
         warn "${component_name}  ${version} (missing or unsupported build metadata)"
         errors=$((errors + 1))
       fi
-      printf "     ${DIM}%-5s${RESET} %s\n" SHA "${sha}"
+      printf "     ${DIM}%-5s${RESET} %s\n" "${source_label}" "${source_value}"
       if [ -n "${build_suffix}" ]; then
         printf "     ${DIM}%-5s${RESET} %s\n" Build "${build_suffix}"
       fi

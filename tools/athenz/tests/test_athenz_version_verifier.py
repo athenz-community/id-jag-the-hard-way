@@ -36,7 +36,7 @@ elif "exec" in args:
     if command == ["printenv", "VERSION"]:
         print(pod["version"])
     elif command == ["sh", "-c", r'printf "%s|%s\n" "${VERSION-}" "${VCS_REF-}"']:
-        print(pod["version"] + "|e891a2a17c6ec8b0ce4bbb41c4a9c3e02a2ed516")
+        print(pod["version"] + "|" + pod.get("revision", "e891a2a17c6ec8b0ce4bbb41c4a9c3e02a2ed516"))
     else:
         raise AssertionError(command)
 else:
@@ -200,6 +200,38 @@ class VersionVerifierTests(unittest.TestCase):
         self.assertEqual(0, code, output)
         self.assertIn("ZMS  1.12.47", output)
         self.assertIn("ZTS  1.12.47", output)
+
+    def test_show_accepts_source_tags_from_release_images(self):
+        self.fixture = {"pods": [pod("1.12.48", revision="v1.12.48")]}
+        code, output, calls = self.verify("--show")
+        self.assertEqual(0, code, output)
+        self.assertIn("✔  ZMS  1.12.48", output)
+        self.assertIn("✔  ZTS  1.12.48", output)
+        self.assertIn("Tag   v1.12.48", output)
+        self.assertNotIn("SHA", output)
+        self.assertNotIn("unknown", output)
+        self.assertNotIn("⚠", output)
+        self.assertTrue(all("--context" in call for call in calls[1:]))
+
+    def test_show_preserves_custom_commit_and_build_suffix(self):
+        sha = "c20293b4ba47b8eeecf21b2b98f866d01f0afc43"
+        self.fixture = {"pods": [pod("1.12.47-SNAPSHOT", revision=sha + "-dirty-4a825bc609b8-build-0a3b867cbf54")]}
+        code, output, _ = self.verify("--show")
+        self.assertEqual(0, code, output)
+        self.assertIn("✔  ZMS  1.12.47-SNAPSHOT", output)
+        self.assertIn("SHA   " + sha, output)
+        self.assertIn("Build dirty-4a825bc609b8-build-0a3b867cbf54", output)
+        self.assertNotIn("Tag", output)
+
+    def test_show_still_rejects_missing_or_invalid_metadata(self):
+        for version, revision in (("", "v1.12.48"), ("latest", "v1.12.48"),
+                                  ("1.12.48", ""), ("1.12.48", "unknown"),
+                                  ("1.12.48", "v1.12.48\nunexpected")):
+            with self.subTest(version=version, revision=revision):
+                self.fixture = {"pods": [pod(version, revision=revision)]}
+                code, output, _ = self.verify("--show")
+                self.assertEqual(2, code, output)
+                self.assertIn("Athenz build information is incomplete", output)
 
 
 if __name__ == "__main__":

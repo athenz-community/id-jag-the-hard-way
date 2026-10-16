@@ -74,18 +74,16 @@ make athenzv
 # ▶ Athenz versions
 #   ·  Context: kind-kind  Namespace: athenz
 #
-#   ✔  ZMS  1.12.47-SNAPSHOT
-#      SHA   c20293b4ba47b8eeecf21b2b98f866d01f0afc43
-#      Build dirty-4a825bc609b8-build-0a3b867cbf54
-#      Pod   athenz-zms-server-7765cb5c8f-lkvrc
+#   ✔  ZMS  1.12.48
+#      Tag   v1.12.48
+#      Pod   athenz-zms-server-7479684c78-sxd6d
 #
-#   ✔  ZTS  1.12.47-SNAPSHOT
-#      SHA   7598e18c0bbab530d56ca34d98243898a5345220
-#      Build dirty-8004ecfdad8a
-#      Pod   athenz-zts-server-644c4f9dc6-j7cll
+#   ✔  ZTS  1.12.48
+#      Tag   v1.12.48
+#      Pod   athenz-zts-server-7f4885c9d7-l8hp8
 ```
 
-The command uses `athenz-version-verifier.sh --show [namespace]` to read only the named `VERSION` and `VCS_REF` build metadata from each ready server container. The SHA is the source commit recorded at build time, with any custom-build suffix shown separately, including `dirty` markers. It reports every active server pod, skips terminating pods, and returns exit code `2` if a component is missing, a pod is not ready, or build metadata is missing or unsupported. It does not change deployments or SQL.
+The command uses `athenz-version-verifier.sh --show [namespace]` to read only the named `VERSION` and `VCS_REF` build metadata from each ready server container. Release images record a source tag such as `v1.12.48`, displayed as `Tag`. Custom builds show the recorded source commit as `SHA`, with any build suffix shown separately, including `dirty` markers. Both formats are valid and return success. It reports every active server pod, skips terminating pods, and returns exit code `2` if a component is missing, a pod is not ready, or build metadata is missing or unsupported. It does not change deployments or SQL.
 
 ### Switching the local Athenz version
 
