@@ -30,19 +30,11 @@ data = sys.stdin.read()
 with (root / "calls.jsonl").open("a") as log:
     log.write(json.dumps({"args": args, "stdin": data}) + "\n")
 fixture = json.loads((root / "response.json").read_text())
-if any(arg.endswith("/api/docs") for arg in args):
-    status = fixture.get("api_status", 200)
-    if status >= 400:
-        print(f"\nHTTP {status}")
-        sys.exit(22)
-    print('{"docs":[]}')
-    print(f"HTTP {status}")
-else:
-    if fixture.get("curl_exit"):
-        sys.exit(fixture["curl_exit"])
-    body = fixture["body"]
-    print(body if isinstance(body, str) else json.dumps(body))
-    print(fixture["status"], end="")
+if fixture.get("curl_exit"):
+    sys.exit(fixture["curl_exit"])
+body = fixture["body"]
+print(body if isinstance(body, str) else json.dumps(body))
+print(fixture["status"], end="")
 '''
 MOCK_OPENSSL = r'''
 import base64
@@ -76,11 +68,11 @@ class AssertionToolsTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.tools = self.root / "tools"
         (self.tools / "athenz").mkdir(parents=True)
-        for name in ("sign-rfc7523-assertion.sh", "fetch-access-token-with-rfc7523.sh", "replay-api-token-as-assertion.sh"):
+        for name in ("sign-rfc7523-assertion.sh", "fetch-access-token-with-rfc7523.sh"):
             shutil.copy2(TOOLS / "athenz" / name, self.tools / "athenz" / name)
         shutil.copy2(TOOLS / "color.sh", self.tools / "color.sh")
         port = self.tools / "port.sh"
-        port.write_text('#!/bin/sh\ncase "$1" in zts) echo 8443 ;; api-server) echo 14443 ;; *) exit 1 ;; esac\n')
+        port.write_text('#!/bin/sh\ncase "$1" in zts) echo 8443 ;; *) exit 1 ;; esac\n')
         port.chmod(0o755)
         curl = self.root / "curl"
         curl.write_text(f"#!{sys.executable}\n" + MOCK_CURL)
@@ -373,47 +365,8 @@ class AssertionToolsTests(unittest.TestCase):
                 self.assertEqual([], calls)
                 self.assertEqual("", (self.root / "openssl-calls.jsonl").read_text())
 
-    def test_replay_uses_the_same_token_for_the_api_and_both_assertion_paths(self):
-        for expected in ((), ("200",)):
-            with self.subTest(expected=expected):
-                result, calls = self.run_tool("replay-api-token-as-assertion.sh", "api:role.docs-getter", *expected)
-                self.assertEqual(0, result.returncode, result.stderr)
-                self.assertEqual(3, len(calls))
-                self.assertIn("http://localhost:14443/api/docs", calls[0]["args"])
-                self.assertEqual(f"Authorization: Bearer {INPUT}\n", calls[0]["stdin"])
-                self.assertEqual([INPUT, INPUT], [call["stdin"] for call in calls[1:]])
-                self.assertIn("client_assertion@-", calls[1]["args"])
-                self.assertIn("assertion@-", calls[2]["args"])
-                self.assertEqual(2, result.stdout.count(ISSUED))
-
-    def test_replay_checks_both_rejections_on_the_fixed_release(self):
-        self.response = {"status": 400, "body": {"code": 400, "message": ERROR}}
-        result, calls = self.run_tool("replay-api-token-as-assertion.sh", "api:role.docs-getter", "400",
-                                      "does not identify the token endpoint")
-        self.assertEqual(0, result.returncode, result.stderr)
-        self.assertEqual(3, len(calls))
-        self.assertEqual(2, result.stderr.count("matched the expected result"))
-
-    def test_replay_stops_on_api_failure_or_an_unexpected_assertion_result(self):
-        self.response["api_status"] = 403
-        result, calls = self.run_tool("replay-api-token-as-assertion.sh", "api:role.docs-getter")
-        self.assertNotEqual(0, result.returncode)
-        self.assertEqual(1, len(calls))
-        self.response["api_status"] = 200
-        result, calls = self.run_tool("replay-api-token-as-assertion.sh", "api:role.docs-getter", "400",
-                                      "does not identify the token endpoint")
-        self.assertNotEqual(0, result.returncode)
-        self.assertEqual(2, len(calls))
-
-    def test_replay_rejects_invalid_expectations_before_using_the_api(self):
-        for args in ((), ("",), ("scope", "400"), ("scope", "200", "error"), ("scope", "500")):
-            with self.subTest(args=args):
-                result, calls = self.run_tool("replay-api-token-as-assertion.sh", *args)
-                self.assertNotEqual(0, result.returncode)
-                self.assertEqual([], calls)
-
     def test_help_does_not_send_requests(self):
-        for name in ("sign-rfc7523-assertion.sh", "fetch-access-token-with-rfc7523.sh", "replay-api-token-as-assertion.sh"):
+        for name in ("sign-rfc7523-assertion.sh", "fetch-access-token-with-rfc7523.sh"):
             with self.subTest(name=name):
                 result, calls = self.run_tool(name, "--help", input="")
                 self.assertEqual(0, result.returncode, result.stderr)

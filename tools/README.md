@@ -193,7 +193,6 @@ Use these from tutorials and research setup steps instead of repeating low-level
 ./tools/athenz/athenz-version-verifier.sh --less-or-equal <maximum-version> [zts|zms] [namespace]
 ./tools/athenz/sign-rfc7523-assertion.sh --principal <domain.service> --private-key <path> --key-id <id> [--audience <zts-issuer>] [--scope <athenz-scope>] [--expires-in <seconds>]
 ./tools/athenz/fetch-access-token-with-rfc7523.sh <jwt_assertion|-> [scope] [--mode <jwt-bearer|client-assertion>] [--expect <200|400> [expected-error-text]]
-./tools/athenz/replay-api-token-as-assertion.sh <scope> [200|400 [expected-error-text]]
 ./tools/athenz/fetch-access-token.sh <cert_path> <key_path> <scope> [output_file] [--actor <actor>] [--output <output_file>]
 ./tools/athenz/fetch-access-token-with-id-jag.sh <cert_path> <key_path> <id_jag_token> <scope> [output_file] [--actor <actor>] [--output <output_file>]
 ./tools/athenz/fetch-id-jag.sh <cert_path> <key_path> <id_token> <scope>
@@ -252,9 +251,7 @@ The fetch helper prints the endpoint, grant type, scope source, HTTP status, all
 
 For research checks, add `--expect 200` or `--expect 400 'expected error text'` to the same fetch command. Expected `200` requires a Bearer access token; expected `400` requires error code `400`, no access token, and the supplied error-message fragment. A matching rejection exits successfully with empty stdout; a mismatch exits nonzero. These options only check the response and do not change the HTTP request.
 
-`replay-api-token-as-assertion.sh` is a research helper: it reads one API access token from stdin, uses it at the local `/api/docs`, then passes that same token through both assertion paths using `fetch-access-token-with-rfc7523.sh`. Its optional expected status and error text apply to both assertion requests. It prints the API response and any newly issued access tokens to stdout, with fetch diagnostics on stderr. An API request failure or unexpected assertion result stops the replay.
-
-Both the [v1.12.47 comparison](../research/athenz/rfc7523-jwt-bearer/261010-jwt-client-assertion-audience-validation.md) and [v1.12.48 validation](../research/athenz/rfc7523-jwt-bearer/261011-jwt-client-assertion-audience-validation.md) use these helpers. Expected-result arguments affect only response checking; they do not change the HTTP requests.
+Both the [v1.12.47 comparison](../research/athenz/rfc7523-jwt-bearer/261010-jwt-client-assertion-audience-validation.md) and [v1.12.48 validation](../research/athenz/rfc7523-jwt-bearer/261011-jwt-client-assertion-audience-validation.md) use the signing and fetch helpers directly.
 
 Run the helper tests with mocked HTTP responses:
 
@@ -264,7 +261,7 @@ python3 -m unittest discover -s tools/athenz/tests -p 'test_jwt_assertion.py'
 
 ```sh
 # Expected unittest summary
-# Ran 24 tests
+# Ran 20 tests
 # OK
 ```
 
