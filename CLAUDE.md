@@ -145,9 +145,17 @@ The provider Dockerfiles are export-only — they copy their built JARs into a m
 
 The `tutorials/` directory contains the canonical learning path (01–15, with alternative AI client paths). They are Markdown files intended to be read in order. The `tutorials/challenges/` subdirectory contains challenge exercises. Always keep tutorial content consistent with the code behavior when making changes.
 
+### Runnable Shell Examples
+
+Every runnable shell block in tutorials, research, and FAQs must work on its own from the documented working directory after the stated prerequisites. Define or fetch every variable and temporary input inside the block that uses it; keep fixed values inline when a variable adds no clarity. Do not rely on variables from an earlier block or require the same shell session. If several checks must reuse the same token, include its creation and those checks in one block.
+
+Immediately follow every runnable command block with a separate `sh` result block, with every output line prefixed by `#`, so readers can compare their output directly. Include intentional failure results too. Distinguish expected examples from captured output and do not invent successful verification.
+
+New or revised shell tools must follow neighboring tools' output style and reuse `tools/color.sh` (`info`, `ok`, `warn`, `err`, and `fatal`) for progress, success, and failure messages.
+
 ### English Source and Translations
 
-- English is the source of truth for the README and tutorials. Make changes to the content, procedures, and technical behavior in the English pages first, then update translations from the revised English source
+- English is the source of truth for the README, tutorials, and research. Make changes to the content, procedures, and technical behavior in the English pages first, then update translations from the revised English source
 - Do not introduce independent technical changes in a translation. If a translation reveals an error or missing explanation, fix the English source first and reflect that change in the translated pages
 - Preserve commands, configuration values, identifiers, and example output when translating. Translate the surrounding explanations and link labels, and adjust relative links and navigation for the translated directory
 - The Korean tutorial under `tutorials/korean/` covers the Codex path: translate chapters 01–08 from the shared English pages and chapters 09–15 from `tutorials/codex/`. Translate `tutorials/korean/00-README.md` from the root English README

@@ -22,13 +22,14 @@ An access-token exchange may keep or remove scopes from the ID-JAG, but it must 
 <!-- /TOC -->
 
 <details>
-<summary>Last verified on Sep 2, 2026 — ✅ Success</summary>
+<summary>Last verified on Oct 16, 2026 — ✅ Success</summary>
 
 | # | Date        | Confirmed Working                                                                                       |
 |---|-------------|---------------------------------------------------------------------------------------------------------|
 | 1 | Sep 2, 2026 | ✅ All six allowed combinations succeeded; 👍 all three scope-expansion attempts were rejected           |
 | 2 | Sep 2, 2026 | 👍 Missing and invalid audiences were rejected; ✅ both scope-domain audiences succeeded                 |
 | 3 | Sep 2, 2026 | ✅ An omitted request scope inherited the complete ID-JAG scope; multi-domain still required an audience |
+| 4 | Oct 16, 2026 | ✅ User confirmed testing the multi-domain ID-JAG procedure for the v1.12.48 release review |
 
 </details>
 
