@@ -92,10 +92,15 @@ export class Architecture {
     if (!tokenColors[kind]) throw new Error(`Unknown token kind: ${kind}`)
     this.labels.push(`<g data-token-kind="${kind}" aria-label="${kind === 'access' ? 'Access token' : 'Exchanged access token'}"><circle cx="${x}" cy="${y}" r="20" fill="#FDFEFF"/><use href="#access-token-key" transform="translate(${x - 19} ${y - 19}) scale(.86)" color="${tokenColors[kind]}"/></g>`)
   }
-  label(x, y, value, { tone = 'blue', size = 18, secondary, width = Math.max(value.length * size * .53, secondary ? secondary.length * (size - 2) * .6 : 0) + 24 } = {}) {
+  label(x, y, value, { tone = 'blue', size = 18, secondary, width } = {}) {
+    const error = tone === 'red'
+    const iconSpace = error ? 30 : 0
+    width = (width ?? Math.max(value.length * size * .53, secondary ? secondary.length * (size - 2) * .6 : 0) + 24) + iconSpace
     const height = secondary ? 52 : 32
+    const textX = x + iconSpace / 2
     const c = flows[tone]
-    this.labels.push(`<g><rect x="${x - width / 2}" y="${y - 23}" width="${width}" height="${height}" rx="9" fill="#FFFFFF" stroke="#E9EDF3" stroke-width=".9"/>${this.text(x, y - 1, value, { size, weight: 500, color: c, anchor: 'middle' })}${secondary ? this.text(x, y + 20, secondary, { size: size - 2, color: muted, mono: true, anchor: 'middle' }) : ''}</g>`)
+    const mark = error ? `<g data-error-mark="true" aria-hidden="true" transform="translate(${x - width / 2 + 17} ${y - 23 + height / 2})"><circle r="10" fill="#FCEDEC"/><path d="M-5 -5L5 5M5 -5L-5 5" fill="none" stroke="#C43D3D" stroke-width="2.8" stroke-linecap="round"/></g>` : ''
+    this.labels.push(`<g${error ? ' data-status="error"' : ''}><rect x="${x - width / 2}" y="${y - 23}" width="${width}" height="${height}" rx="9" fill="#FFFFFF" stroke="#E9EDF3" stroke-width=".9"/>${mark}${this.text(textX, y - 1, value, { size, weight: 500, color: c, anchor: 'middle' })}${secondary ? this.text(textX, y + 20, secondary, { size: size - 2, color: muted, mono: true, anchor: 'middle' }) : ''}</g>`)
   }
   svg() {
     const markers = Object.entries(flows).map(([key, color]) => `<marker id="arrow-${key}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="m2 1 6 4-6 4" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker>`).join('')
