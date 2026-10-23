@@ -33,7 +33,7 @@
 2. 토큰 서명을 검증할 수 있도록 플러그인에 Keycloak의 `jwks_uri` 제공
 3. ZTS 서버에 플러그인 설정 파일의 위치 지정
 
-![아직 Keycloak을 신뢰하지 않는 Athenz](../assets/14_athenz_not_trusting_keycloak_yet.svg)
+![아직 IdP를 신뢰하지 않는 IdP AS](../assets/core_12_idp_untrusted.svg)
 
 <a id="install-plugin-into-the-zts-server"></a>
 
@@ -76,7 +76,7 @@ kubectl -n athenz exec deployment/athenz-zts-server \
 
 이제 `KeycloakTokenExchangeProvider` 플러그인의 JAR 파일을 ZTS 서버에 마운트했습니다:
 
-![ZTS 서버에 마운트된 플러그인](../assets/14_place_plugin.svg)
+![IdP AS에 설치된 토큰 교환 프로바이더](../assets/core_13_provider_installed.svg)
 
 <a id="connect-keycloak-with-the-plugin"></a>
 
@@ -230,7 +230,7 @@ kubectl logs -n athenz deployment/athenz-zts-server -c athenz-zts-server | grep 
 
 `KeycloakTokenExchangeProvider` 플러그인을 설치했습니다. 이 플러그인은 Keycloak ID 토큰을 받아 Keycloak의 공개 키로 서명을 검증하고 토큰의 클레임을 확인한 뒤, 인증된 Athenz 주체를 반환합니다:
 
-![플러그인이 연결된 전체 아키텍처](../assets/14_arc_plugin_mounted_and_used.svg)
+![IdP 토큰을 검증하고 학습자 ID에 매핑하는 IdP AS](../assets/core_13_provider_trust.svg)
 
 <a id="whats-next"></a>
 

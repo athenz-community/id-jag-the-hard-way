@@ -136,7 +136,7 @@ kubectl exec deploy/api-server -n api \
 
 이제 API는 `401 Unauthorized`를 반환합니다. 토큰 검증을 켰지만 요청에 액세스 토큰이 없기 때문에 발생하는 의도된 실패입니다.
 
-![액세스 토큰이 없는 문서 요청을 거부하는 API](../assets/04_arc_get_docs_from_api_server_unauthorized.svg)
+![액세스 토큰이 없는 문서 요청을 거부하는 API](../assets/core_04_api_rejected.svg)
 
 토큰 검증은 켜 둔 상태로 진행합니다.
 

@@ -174,6 +174,8 @@ New or revised shell tools must follow neighboring tools' output style and reuse
 
 ## Architecture Diagrams
 
+- Unless the user identifies another reference, use the final complete architecture diagram for the relevant tutorial/client path as the visual source of truth. Earlier diagrams reuse its human and component icons, role colors, card dimensions, typography, spacing, and connector/token styles; simplify the flow for each stage without inventing a different visual style
+- Keep the shared drawing primitives in `tools/architecture-svg.mjs` and stage definitions in `tools/core-architecture-diagrams.mjs` synchronized with the rendered SVGs. Update all maintained language and client-path references together, regenerate with `node tools/render-architecture-diagrams.mjs --core`, check with `--core --check`, and visually compare the results with the final diagram
 - Use editable, self-contained SVGs for architecture and flow diagrams.
 - Preserve the technical meaning: components, identities, boundaries, permissions, protocols, and arrow directions.
 - Show the architecture with short labels. Keep explanations in the surrounding Markdown; omit explanatory headings, paragraphs, and summary panels inside diagrams.

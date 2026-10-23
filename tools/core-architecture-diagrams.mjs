@@ -1,10 +1,39 @@
 import { Architecture, COMPONENT_SIZE } from './architecture-svg.mjs'
 
+// The completed chapter 15 architecture defines the visual vocabulary for every stage.
+const auth = (d, x, y, product = true) => d.card('as', x, y, ['Authorization', 'Server (AS)'], { kind: 'zts', sub: product ? ['Athenz'] : [] })
+const provider = (d, x, y) => d.card('idp', x, y, 'IdP', { sub: ['Keycloak'] })
+const identityAS = (d, x, y, product = true) => d.card('idp-as', x, y, 'IdP AS', { kind: 'plugin', sub: product ? ['Athenz'] : [] })
+const agent = (d, x, y, options = {}) => d.card('client', x, y, 'AI Agent', { ...options, sub: ['Codex, Claude Code, etc.', ...(options.sub ?? [])] })
+const resource = (d, x, y, options = {}) => d.card('api', x, y, 'Resource Server', { ...options, sub: ['api.idthw-api'] })
+const runtime = (d, x, y, options = {}) => d.card('proxy', x, y, ['MCP Runtime', 'Proxy'], { sub: ['mcp.idthw-api-mcp'], ...options })
+const mcpServer = (d, x, y, options = {}) => d.card('mcp', x, y, 'MCP server', { sub: ['idthw-demo-api-mcp'], ...options })
+const column = index => 48 + index * (COMPONENT_SIZE.width + 120)
+const viaY = (from, to, y) => [from, [from[0], y], [to[0], y], to]
+const docs = (d, api, client, y) => d.edge(viaY(api.bottom(), client.bottom(), y), { tone: 'green', dash: true, label: 'Documents', at: [(client.bottom()[0] + api.bottom()[0]) / 2, y - 19] })
+
+export function createApiRequestDiagram({ enforced = false } = {}) {
+  const d = new Architecture(1160, 392, enforced
+    ? 'The Resource Server rejects a document request without an access token'
+    : 'Document access with token enforcement disabled')
+  const human = d.card('human', 64, 96, 'Human')
+  const api = resource(d, 816, 96)
+  d.edge([human.right(.3), api.left(.3)], {
+    label: 'GET /api/docs', secondary: enforced ? 'No access token' : undefined,
+    at: [580, enforced ? 112 : 128]
+  })
+  d.edge([api.left(.7), human.right(.7)], {
+    tone: enforced ? 'red' : 'green', dash: true,
+    label: enforced ? '401 Unauthorized' : 'Documents', at: [580, 276]
+  })
+  return d
+}
+
 export function createMcpSuccessDiagram() {
   const d = new Architecture(1432, 392,
     'The AI agent retrieves documents through MCP using an API access token',
     'Claude Code, Codex, or Open WebUI calls get_k8s_docs with the learner\'s API access token in the Authorization bearer header. The MCP server forwards the same token with GET /api/docs. The Resource Server validates the token\'s API audience and document-read permission, then returns 200 OK and documents. MCP returns the document tool result to the AI agent.')
-  const client = d.card('client', 48, 96, 'AI Agent', { sub: ['Claude Code, Codex,', 'Open WebUI'] })
+  const client = agent(d, 48, 96)
   const mcp = d.card('mcp', 576, 96, 'MCP server', { sub: ['idthw-demo-api-mcp'] })
   const api = d.card('api', 1104, 96, 'Resource Server', { sub: ['api.idthw-api'], tag: 'api' })
 
@@ -29,8 +58,8 @@ export function createMcpRejectedDiagram() {
   const d = new Architecture(1840, 424,
     'Runtime Proxy rejects a tool call before it reaches MCP or the API',
     'The AI agent calls get_k8s_docs without a valid access token for MCP. MCP Runtime Proxy returns 401 Unauthorized for a missing or invalid token, including a token issued for the API audience. The proxy and MCP server run in the same pod. The MCP server and Resource Server are shown for context but are not called; their downstream connections are gray and dashed.')
-  const client = d.card('client', 48, 112, 'AI Agent', { sub: ['Claude Code, Codex,', 'Open WebUI'] })
-  const proxy = d.card('proxy', 536, 112, ['MCP Runtime', 'Proxy'], { tag: 'mcp' })
+  const client = agent(d, 48, 112)
+  const proxy = runtime(d, 536, 112, { tag: 'mcp' })
   const mcp = d.card('mcp', 1024, 112, 'MCP server', { sub: ['idthw-demo-api-mcp'], inactive: true })
   const api = d.card('api', 1512, 112, 'Resource Server', { sub: ['api.idthw-api'], tag: 'api', inactive: true })
   d.group([proxy, mcp], 'MCP POD')
@@ -78,23 +107,9 @@ export function createMcpSharedTokenDirectoryDiagram() {
 // Diagram labels describe the current core tutorial; prose remains in Markdown.
 export function addCoreDiagrams(add) {
   const save = (name, diagram) => add(`tutorials/assets/core_${name}.svg`, diagram)
-  const auth = (d, x, y, product = true) => d.card('as', x, y, ['Authorization', 'Server (AS)'], { kind: 'zts', sub: product ? ['Athenz'] : [] })
-  const provider = (d, x, y) => d.card('idp', x, y, 'IdP', { sub: ['Keycloak'] })
-  const identityAS = (d, x, y, product = true) => d.card('idp-as', x, y, 'IdP AS', { kind: 'plugin', sub: product ? ['Athenz'] : [] })
-  const agent = (d, x, y, options = {}) => d.card('client', x, y, 'AI Agent', { ...options, sub: ['Codex, Claude Code, etc.', ...(options.sub ?? [])] })
-  const resource = (d, x, y, options = {}) => d.card('api', x, y, 'Resource Server', { ...options, sub: ['api.idthw-api'] })
-  const column = index => 48 + index * (COMPONENT_SIZE.width + 120)
-  const viaY = (from, to, y) => [from, [from[0], y], [to[0], y], to]
-  const docs = (d, api, client, y) => d.edge(viaY(api.bottom(), client.bottom(), y), { tone: 'green', dash: true, label: 'Documents', at: [(client.bottom()[0] + api.bottom()[0]) / 2, y - 19] })
 
-  {
-    const d = new Architecture(1160, 392, 'Document access with token enforcement disabled')
-    const human = d.card('human', 64, 96, 'Human')
-    const api = resource(d, 816, 96)
-    d.edge([human.right(.3), api.left(.3)], { label: 'GET /api/docs', at: [580, 128] })
-    d.edge([api.left(.7), human.right(.7)], { tone: 'green', dash: true, label: 'Documents', at: [580, 276] })
-    save('04_open_api', d)
-  }
+  save('04_open_api', createApiRequestDiagram())
+  save('04_api_rejected', createApiRequestDiagram({ enforced: true }))
 
   {
     const d = new Architecture(1000, 744, 'Learner identity and protected API in separate Athenz domains', 'Athenz is the Authorization Server. The human domain contains the new learner identity human.idjag-learner. The api domain contains the protected Resource Server api.idthw-api. The learner has not yet been granted the document-reading role.')
@@ -119,17 +134,52 @@ export function addCoreDiagrams(add) {
   }
 
   {
-    const d = new Architecture(1160, 392, 'MCP adapter and protected API')
-    const mcp = d.card('mcp', 64, 96, 'MCP server', { sub: ['mcp.idthw-api-mcp'] })
-    const api = resource(d, 816, 96, { tag: 'api' })
-    d.edge([mcp.right(.3), api.left(.3)], { label: 'GET /api/docs', secondary: 'Exchanged AT', at: [580, 122], token: 'exchanged', tokenAt: [580, 188] })
-    d.edge([api.left(.74), mcp.right(.74)], { tone: 'green', dash: true, label: 'Documents', at: [580, 278] })
+    const d = new Architecture(1160, 392, 'MCP initialization and tool discovery succeed without an access token')
+    const client = d.card('client', 64, 96, 'MCP client', { sub: ['curl'] })
+    const mcp = mcpServer(d, 816, 96)
+    d.edge([client.right(.3), mcp.left(.3)], { label: 'initialize · tools/list', at: [580, 122] })
+    d.edge([mcp.left(.74), client.right(.74)], { tone: 'green', dash: true, label: 'Server info · tools', at: [580, 278] })
     save('08_mcp_api', d)
   }
 
   save('09_mcp_success', createMcpSuccessDiagram())
   save('10_mcp_rejected', createMcpRejectedDiagram())
   save('10_shared_api_token_directory', createMcpSharedTokenDirectoryDiagram())
+
+  for (const allowed of [false, true]) {
+    const d = new Architecture(1576, 848, allowed
+      ? 'Runtime Proxy exchanges the MCP token and MCP retrieves documents'
+      : 'Athenz denies Runtime Proxy downstream token exchange')
+    const as = auth(d, column(1), 70)
+    const client = agent(d, column(0), 440)
+    const proxy = runtime(d, column(1), 440, { tag: 'mcp' })
+    const mcp = mcpServer(d, column(2), 440, { inactive: !allowed })
+    const api = resource(d, column(3), 440, { tag: 'api', inactive: !allowed })
+    d.group([proxy, mcp], 'MCP DEPLOYMENT')
+    d.edge([proxy.top(.65), as.bottom(.65)], { label: 'Exchange AT', at: [550, 350], token: 'access', tokenAt: [630, 396] })
+    d.edge([as.bottom(.9), proxy.top(.9)], {
+      tone: allowed ? 'green' : 'red', dash: true,
+      label: allowed ? 'API AT' : 'Denied', at: [770, 350],
+      token: allowed ? 'exchanged' : undefined, tokenAt: [700, 396]
+    })
+    d.edge([client.right(.46), proxy.left(.46)], { label: 'mcp AT', at: [388, 504], size: 17, token: 'access', tokenAt: [388, 566] })
+    d.edge([proxy.right(.46), mcp.left(.46)], {
+      tone: allowed ? 'blue' : 'gray', dash: !allowed,
+      label: allowed ? 'Tool + file' : 'Not called', at: [788, 504], size: 16,
+      token: allowed ? 'exchanged' : undefined, tokenAt: [788, 566]
+    })
+    d.edge([mcp.right(.46), api.left(.46)], {
+      tone: allowed ? 'blue' : 'gray', dash: !allowed,
+      label: allowed ? 'api AT' : 'Not called', at: [1188, 504], size: 17,
+      token: allowed ? 'exchanged' : undefined, tokenAt: [1188, 566]
+    })
+    if (allowed) {
+      d.edge(viaY(api.bottom(), client.bottom(), 760), { tone: 'green', dash: true, label: 'Documents · 200 OK', at: [788, 738] })
+    } else {
+      d.edge([proxy.left(.84), client.right(.84)], { tone: 'red', dash: true, label: '403', at: [388, 650] })
+    }
+    save(allowed ? '11_exchange_allowed' : '10_exchange_denied', d)
+  }
 
   for (const allowed of [false, true]) {
     const d = new Architecture(1440, 746, 'MCP tool call and downstream token exchange')
@@ -182,6 +232,19 @@ export function addCoreDiagrams(add) {
   }
 
   {
+    const d = new Architecture(1160, 744, 'The IdP signs the human into Open WebUI',
+      'The human signs in with Keycloak. The OIDC redirect completes sign-in to Open WebUI, where the human can submit a prompt. This stage does not yet establish Athenz trust or ID-JAG delegation.')
+    const human = d.card('human', 64, 448, 'Human', { sub: ['human.idjag-learner'] })
+    const idp = provider(d, 816, 64)
+    const client = d.card('client', 816, 448, 'AI Agent', { sub: ['Open WebUI'] })
+    d.edge([human.top(.4), [176, 164], idp.left()], { label: 'Login', at: [480, 136] })
+    d.edge([idp.bottom(), client.top()], { tone: 'green', dash: true, label: 'OIDC redirect', at: [956, 360] })
+    d.edge([client.left(.75), human.right(.75)], { tone: 'green', dash: true, label: 'Signed in', at: [580, 638] })
+    d.edge([human.right(.32), client.left(.32)], { label: 'Prompt', at: [580, 484] })
+    add('tutorials/open_webui/assets/core_12_sign_in.svg', d)
+  }
+
+  {
     const d = new Architecture(600, 424, 'Token exchange provider installed in the IdP AS')
     const plugin = d.card('plugin', 160, 112, ['Token exchange', 'provider'], { sub: ['keycloak-token-provider.jar'] })
     d.group([plugin], 'IdP AS', { product: 'Athenz' })
@@ -199,54 +262,70 @@ export function addCoreDiagrams(add) {
     save('13_provider_trust', d)
   }
 
-  {
+  for (const webUi of [false, true]) {
     const d = new Architecture(1624, 808, 'Configured AI client gateway and protected MCP route')
     const idp = provider(d, column(1), 80)
     const idpAs = identityAS(d, column(2), 80, false)
     const as = auth(d, column(3), 80, false)
     d.group([idpAs, as], 'Athenz')
-    const client = agent(d, column(0), 528)
-    const gateway = d.card('gateway', column(1), 528, ['AI Client', 'Gateway'], { sub: ['human.idjag-learner.claude'] })
-    const proxy = d.card('proxy', column(2), 528, ['MCP Runtime', 'Proxy'])
-    const mcp = d.card('mcp', column(3), 528, 'MCP server', { sub: ['mcp.idthw-api-mcp'] })
-    d.edge([gateway.top(), idp.bottom()], { tone: 'gray', dash: true, label: 'OIDC', at: [516, 418] })
+    const client = webUi ? d.card('client', column(0), 528, 'AI Agent', { sub: ['Open WebUI'] }) : agent(d, column(0), 528)
+    const gateway = d.card('gateway', column(1), 528, ['AI Client', 'Gateway'], { sub: [webUi ? 'ai.open-webui' : 'human.idjag-learner.claude'] })
+    const proxy = runtime(d, column(2), 528)
+    const mcp = mcpServer(d, column(3), 528)
+    d.group([proxy, mcp], 'MCP DEPLOYMENT')
+    if (webUi) {
+      d.edge([client.top(), [188, 180], idp.left()], { tone: 'gray', dash: true, label: 'OIDC', at: [188, 418] })
+    } else {
+      d.edge([gateway.top(), idp.bottom()], { tone: 'gray', dash: true, label: 'OIDC', at: [516, 418] })
+    }
     d.edge(viaY(gateway.top(.7), idpAs.bottom(.25), 380), { tone: 'gray', dash: true, label: 'ID token → ID-JAG', at: [781, 360] })
     d.edge(viaY(gateway.top(.9), as.bottom(.25), 440), { tone: 'gray', dash: true, label: 'ID-JAG → AT', at: [1060, 420] })
-    d.edge([client.right(.43), gateway.left(.43)], { label: 'MCP', at: [388, 586], size: 17 })
+    d.edge([client.right(.43), gateway.left(.43)], { label: webUi ? 'HTTP' : 'MCP', at: [388, 586], size: 17 })
     d.edge([gateway.right(.43), proxy.left(.43)], { label: 'Upstream', at: [788, 586], size: 17 })
     d.edge([proxy.right(.43), mcp.left(.43)], { label: 'MCP', at: [1188, 586], size: 17 })
-    save('14_gateway_route', d)
+    if (webUi) add('tutorials/open_webui/assets/core_14_gateway_route.svg', d)
+    else save('14_gateway_route', d)
   }
 
-  {
+  for (const webUi of [false, true]) {
     const d = new Architecture(1432, 728, 'Sign-in succeeds before ID-JAG delegation is denied')
     const human = d.card('human', 64, 64, 'Human')
     const idp = provider(d, 480, 64)
     const zts = identityAS(d, 1088, 64)
-    const client = agent(d, 64, 440)
-    const gateway = d.card('gateway', 480, 440, ['AI Client', 'Gateway'], { sub: ['human.idjag-learner.claude'] })
+    const client = webUi ? d.card('client', 64, 440, 'AI Agent', { sub: ['Open WebUI'] }) : agent(d, 64, 440)
+    const gateway = d.card('gateway', 480, 440, ['AI Client', 'Gateway'], { sub: [webUi ? 'ai.open-webui' : 'human.idjag-learner.claude'] })
     d.edge([human.right(.44), idp.left(.44)], { label: 'Login', at: [412, 124] })
     d.edge([human.bottom(), client.top()], { label: 'Prompt', at: [204, 360] })
-    d.edge([idp.bottom(), gateway.top()], { tone: 'green', dash: true, label: 'ID token', at: [700, 356] })
-    d.edge([client.right(.4), gateway.left(.4)], { label: 'MCP', at: [412, 488] })
+    if (webUi) {
+      d.edge(viaY(idp.bottom(.1), client.top(.85), 350), { tone: 'green', dash: true, label: 'ID token', at: [405, 326] })
+    } else {
+      d.edge([idp.bottom(), gateway.top()], { tone: 'green', dash: true, label: 'ID token', at: [700, 356] })
+    }
+    d.edge([client.right(.4), gateway.left(.4)], { label: webUi ? 'HTTP' : 'MCP', secondary: webUi ? 'ID token' : undefined, at: [412, 488] })
     d.edge([gateway.right(.4), [1158, 520], zts.bottom(.25)], { label: 'ID token → ID-JAG', at: [924, 488] })
     d.edge([zts.bottom(.75), [1298, 588], gateway.right(.74)], { tone: 'red', dash: true, label: 'Permission denied', secondary: 'zts.jag_exchange', at: [924, 630] })
-    save('14_idjag_denied', d)
+    if (webUi) add('tutorials/open_webui/assets/core_14_idjag_denied.svg', d)
+    else save('14_idjag_denied', d)
   }
 
-  {
-    const d = new Architecture(1976, 1008, 'Core tutorial: an AI agent retrieves API documents for a signed-in user', 'The IdP authenticates the human. AI Client Gateway obtains ID-JAG from the IdP AS, then exchanges it for an MCP-audience access token at the Authorization Server. Keycloak implements the IdP; one Athenz deployment implements both authorization-server roles. MCP Runtime Proxy validates MCP access. The MCP adapter exchanges the token at the AS for an API-audience token. The API returns documents.')
+  for (const [directory, identity, protocol] of [
+    ['', 'human.idjag-learner.claude', 'MCP'],
+    ['codex/', 'human.idjag-learner.codex', 'MCP'],
+    ['open_webui/', 'ai.open-webui', 'HTTP']
+  ]) {
+    const d = new Architecture(1976, 1008, 'Core tutorial: an AI agent retrieves API documents for a signed-in user', 'The IdP authenticates the human and returns the ID token to AI Client Gateway. The gateway obtains ID-JAG and an MCP access token from Athenz. Athenz ZTS mounts the Keycloak token exchange provider used by its IdP AS role. Runtime Proxy validates and exchanges that token, supplying a request-specific API token file to the MCP server. The API validates the API token and returns documents.')
     const human = d.card('human', column(0), 80, 'Human', { sub: ['human.idjag-learner'] })
     const idp = provider(d, column(1), 80)
     const idpAs = identityAS(d, column(2), 80, false)
     const as = auth(d, column(3), 80, false)
     d.group([idpAs, as], 'Athenz')
     const client = agent(d, column(0), 640)
-    const gateway = d.card('gateway', column(1), 640, ['AI Client', 'Gateway'], { sub: ['human.idjag-learner.claude'] })
-    const proxy = d.card('proxy', column(2), 640, ['MCP Runtime', 'Proxy'], { tag: 'mcp' })
-    const mcp = d.card('mcp', column(3), 640, 'MCP server', { sub: ['mcp.idthw-api-mcp'] })
+    const gateway = d.card('gateway', column(1), 640, ['AI Client', 'Gateway'], { sub: [identity] })
+    const proxy = runtime(d, column(2), 640, { tag: 'mcp' })
+    const mcp = mcpServer(d, column(3), 640)
     const api = resource(d, column(4), 640, { tag: 'api' })
     d.group([proxy, mcp], 'MCP DEPLOYMENT')
+    d.edge([as.left(.42), idpAs.right(.42)], { tone: 'gray', dash: true, label: 'Mount plugin', at: [1188, 136], size: 16, labelWidth: 114 })
     d.edge([human.right(.42), idp.left(.42)], { label: 'Login', at: [388, 136], size: 17 })
     d.edge([human.bottom(), client.top()], { label: 'Prompt', at: [188, 460] })
     d.edge([idp.bottom(.1), gateway.top(.1)], { tone: 'green', dash: true, label: 'ID token', at: [476, 585] })
@@ -255,14 +334,14 @@ export function addCoreDiagrams(add) {
     d.edge(viaY(idpAs.bottom(.4), gateway.top(.5), 410), { tone: 'green', dash: true, label: 'ID-JAG', at: [774, 390] })
     d.edge(viaY(gateway.top(.7), as.bottom(.1), 470), { label: 'ID-JAG', at: [1072, 450] })
     d.edge(viaY(as.bottom(.25), gateway.top(.9), 530), { tone: 'green', dash: true, label: 'AT · aud=mcp', at: [1112, 510], token: 'access', tokenAt: [1208, 530] })
-    d.edge([mcp.top(.55), as.bottom(.55)], { label: 'Exchange AT', at: [1402, 340], token: 'access', tokenAt: [1402, 550] })
-    d.edge([as.bottom(.85), mcp.top(.85)], { tone: 'green', dash: true, label: 'AT · aud=api', at: [1486, 470], token: 'exchanged', tokenAt: [1486, 396] })
-    d.edge([client.right(.46), gateway.left(.46)], { label: 'MCP', at: [388, 704], size: 17 })
+    d.edge(viaY([1030, proxy.y], as.bottom(.55), 564), { label: 'Exchange AT', at: [1402, 340], token: 'access', tokenAt: [1402, 550] })
+    d.edge(viaY(as.bottom(.85), [1090, proxy.y], 584), { tone: 'green', dash: true, label: 'AT · aud=api', at: [1486, 470], token: 'exchanged', tokenAt: [1486, 396] })
+    d.edge([client.right(.46), gateway.left(.46)], { label: protocol, at: [388, 704], size: 17 })
     d.edge([gateway.right(.46), proxy.left(.46)], { label: 'mcp AT', at: [788, 704], size: 17, token: 'access', tokenAt: [788, 766] })
-    d.edge([proxy.right(.46), mcp.left(.46)], { label: 'tools/call', at: [1188, 704], size: 16, token: 'access', tokenAt: [1188, 766] })
+    d.edge([proxy.right(.46), mcp.left(.46)], { label: 'Tool + file', at: [1188, 704], size: 16, token: 'exchanged', tokenAt: [1188, 766] })
     d.edge([mcp.right(.46), api.left(.46)], { label: 'api AT', at: [1588, 704], size: 17, token: 'exchanged', tokenAt: [1588, 766] })
     docs(d, api, client, 948)
-    save('15_idjag_flow', d)
+    add(`tutorials/${directory}assets/core_15_idjag_flow.svg`, d)
   }
 
   {

@@ -2,6 +2,32 @@
 
 This directory contains list of helper scripts for running the ID-JAG The Hard Way tutorial locally.
 
+## Architecture Diagrams
+
+From the repository root, use Node.js to regenerate the current tutorial diagrams. `architecture-svg.mjs` supplies the shared icons, cards, and colors; `core-architecture-diagrams.mjs` defines each stage and client variant. The final chapter 15 architecture is the visual reference for earlier stages.
+
+```sh
+node tools/render-architecture-diagrams.mjs --core
+```
+
+```sh
+# Expected final line, after any per-file updates
+# Rendered 27 core architecture SVGs.
+```
+
+Check that the SVGs match their drawing source without writing files. This exits nonzero and lists each stale or missing file when regeneration is needed:
+
+```sh
+node tools/render-architecture-diagrams.mjs --core --check
+```
+
+```sh
+# Expected when all generated files are current
+# Checked 27 core architecture SVGs; 0 out of date.
+```
+
+Without `--core`, the renderer also includes the archived architecture diagrams. Render previews locally and visually inspect changed diagrams before updating tutorial references. Keep shared references aligned across English, Japanese, Korean, and the alternative client paths.
+
 ## Scripts
 
 ### `keep-k8s-port-forward.sh`
