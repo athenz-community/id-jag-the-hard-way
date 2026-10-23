@@ -90,9 +90,6 @@ curl -skS --fail-with-body \
 This tutorial requires the following to be completed:
 
 1. Complete the main [ID-JAG The Hard Way tutorial](https://github.com/mlajkim/id-jag-the-hard-way/tree/main/tutorials), including the `api` domain and local administrator setup
-1. Complete [Create a learner identity](../../../tutorials/07-granular-permission.md#create-a-learner-identity), with a valid `./keys/idjag-learner.crt` and its existing `./keys/idjag-learner.key`
-1. Run ZMS and Athenz UI v1.12.48, with the UI session signed in as `user.athenz_admin`
-1. Keep `./tools/keep-k8s-port-forward.sh` running in another terminal
 
 Run all commands from the ID-JAG The Hard Way repository root (`idthw/`). This procedure uses two existing principals:
 
