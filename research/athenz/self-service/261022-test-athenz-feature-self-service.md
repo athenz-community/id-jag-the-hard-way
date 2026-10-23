@@ -361,6 +361,8 @@ _self_service_ui_port=$(./tools/port.sh athenz-ui) &&
 #   ✔  Opened: http://localhost:3000/self-service
 ```
 
+![Self-service role membership request awaiting approval in Athenz](assets/v1.12.48-self-service-pending-request.png)
+
 The example uses the default UI port, 3000. Refresh **My Roles & Groups** and look under **Pending requests** for `api.test-self-service` / `self-service-flow-test`. A pending request can appear while the membership count is still 0; the count covers approved memberships.
 
 ## Step 6. Try to self-approve as the UI user
@@ -440,6 +442,10 @@ curl -skS --fail-with-body \
 `approved=true` confirms approval. Omitted `active` defaults to `true`, and `pendingState="ADD"` is gone. The expected progression is rejection → pending request → approved, active membership. Access to protected resources still depends on policies referencing this role.
 
 Refresh **Self Service → My Roles & Groups** while still signed in as `user.athenz_admin`. The test role should now appear under **Roles** and disappear from **Pending requests**. If this is the account's only self-service membership, the UI shows 1 membership and 0 requests awaiting approval.
+
+Finally, check your membership in the [Self Service UI](http://localhost:3000/self-service):
+
+![Approved self-service role membership in Athenz](assets/v1.12.48-self-service-approved-membership.png)
 
 ## Step 8. Discover self-service roles and check membership
 
