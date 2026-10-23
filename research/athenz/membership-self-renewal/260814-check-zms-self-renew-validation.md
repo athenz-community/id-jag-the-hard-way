@@ -2,6 +2,9 @@
 
 The goal of this document is to verify that Athenz ZMS rejects role and group self-renew settings without a positive renewal duration and accepts valid settings, with the following steps:
 
+> [!NOTE]
+> Note that the Athenz's feature `Self Renewal` and `Self Service` are different things
+
 <!-- TOC depthFrom:2 depthTo:2 -->
 
 - [Step 1. Reject a role with no self-renew duration](#step-1-reject-a-role-with-no-self-renew-duration)

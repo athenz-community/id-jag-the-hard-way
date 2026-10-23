@@ -7,7 +7,7 @@ _zms_port=$("$TOOLS_DIR/port.sh" zms)
 
 usage() {
   printf '%s\n' \
-    "Usage: $0 <domain> <group> [--self-renew] [--self-renew-mins <minutes>]"
+    "Usage: $0 <domain> <group> [--self-serve] [--self-renew] [--self-renew-mins <minutes>]"
 }
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
@@ -24,11 +24,16 @@ domain=$1
 group=$2
 shift 2
 
+self_serve_json=null
 self_renew_json=null
 self_renew_mins_json=null
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --self-serve)
+      self_serve_json=true
+      shift
+      ;;
     --self-renew)
       self_renew_json=true
       shift
@@ -54,9 +59,11 @@ done
 
 request_body=$(jq -nc \
   --arg name "${domain}:group.${group}" \
+  --argjson self_serve "${self_serve_json}" \
   --argjson self_renew "${self_renew_json}" \
   --argjson self_renew_mins "${self_renew_mins_json}" \
   '{name: $name}
+    + (if $self_serve == null then {} else {selfServe: $self_serve} end)
     + (if $self_renew == null then {} else {selfRenew: $self_renew} end)
     + (if $self_renew_mins == null then {} else {selfRenewMins: $self_renew_mins} end)')
 
