@@ -1,0 +1,142 @@
+{
+  "repository": "https://github.com/AthenZ/athenz",
+  "version": "v1.12.46",
+  "revision": "519ffffb0210a5b524e9708455292f26cbd7a2a4",
+  "files": [
+    {
+      "path": "LICENSE",
+      "destination": "LICENSE",
+      "sha": "d645695673349e3947e8e5ae42332d0ac3164cd7"
+    },
+    {
+      "path": "clients/nodejs/zpe/config/config.js",
+      "destination": "zpe/config/config.js",
+      "sha": "002612bbf634d6d7c968ce1d22b57c7e8ae9148b"
+    },
+    {
+      "path": "clients/nodejs/zpe/config/default-config.js",
+      "destination": "zpe/config/default-config.js",
+      "sha": "b44c37639ce123bab7db91eb002c4ce5327b56b1"
+    },
+    {
+      "path": "clients/nodejs/zpe/index.js",
+      "destination": "zpe/index.js",
+      "sha": "e0734c77c856e0793d2f7f68ea6d18d113606be8"
+    },
+    {
+      "path": "clients/nodejs/zpe/logger.js",
+      "destination": "zpe/logger.js",
+      "sha": "cb2fc8be4ebd5be10d41a33245a0fa17454e8409"
+    },
+    {
+      "path": "clients/nodejs/zpe/package.json",
+      "destination": "zpe/package.json",
+      "sha": "bb876ec417a05bc98c694fbe7e12b22ffe209e2b"
+    },
+    {
+      "path": "clients/nodejs/zpe/src/AccessCheckStatus.js",
+      "destination": "zpe/src/AccessCheckStatus.js",
+      "sha": "607c6a9d5b031661e70cb2c9540654e7285a073a"
+    },
+    {
+      "path": "clients/nodejs/zpe/src/AuthZPEClient.js",
+      "destination": "zpe/src/AuthZPEClient.js",
+      "sha": "b48a580904cb2e26e43ab92b600a3d2d35a24d9e"
+    },
+    {
+      "path": "clients/nodejs/zpe/src/PublicKeyStore.js",
+      "destination": "zpe/src/PublicKeyStore.js",
+      "sha": "2c7fca7392f562613436f4e3281d40e57c334a5c"
+    },
+    {
+      "path": "clients/nodejs/zpe/src/ZPEMatch.js",
+      "destination": "zpe/src/ZPEMatch.js",
+      "sha": "44ce5d4fe702009128412e841afac8c1b24d3ee1"
+    },
+    {
+      "path": "clients/nodejs/zpe/src/ZPEUpdater.js",
+      "destination": "zpe/src/ZPEUpdater.js",
+      "sha": "450e87019bea5df997dab191db71c5b1ea7b0dcb"
+    },
+    {
+      "path": "libs/nodejs/auth_core/config/config.js",
+      "destination": "auth-core/config/config.js",
+      "sha": "93d8bbab8200a8ecfb68b3011866f9987247fa9e"
+    },
+    {
+      "path": "libs/nodejs/auth_core/config/default-config.js",
+      "destination": "auth-core/config/default-config.js",
+      "sha": "72b30e36a3ac74789ea939059f47b2de9659d099"
+    },
+    {
+      "path": "libs/nodejs/auth_core/index.js",
+      "destination": "auth-core/index.js",
+      "sha": "fbd0570bde0d70c64e90c8b879d1835563e3f7a6"
+    },
+    {
+      "path": "libs/nodejs/auth_core/logger.js",
+      "destination": "auth-core/logger.js",
+      "sha": "cb2fc8be4ebd5be10d41a33245a0fa17454e8409"
+    },
+    {
+      "path": "libs/nodejs/auth_core/package.json",
+      "destination": "auth-core/package.json",
+      "sha": "dae68c4061938a74f7900e756e3f4065650ed87d"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/impl/KeyStore.js",
+      "destination": "auth-core/src/impl/KeyStore.js",
+      "sha": "7abf3783e9177ff1ca3abd80ee906bbaf31ec58d"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/impl/PrincipalAuthority.js",
+      "destination": "auth-core/src/impl/PrincipalAuthority.js",
+      "sha": "997632ac9155f948e13ad7e24a0e3e2fc475648c"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/impl/RoleAuthority.js",
+      "destination": "auth-core/src/impl/RoleAuthority.js",
+      "sha": "98e6a0ca8d2aab658032dbda206289577a32aa8b"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/impl/SimplePrincipal.js",
+      "destination": "auth-core/src/impl/SimplePrincipal.js",
+      "sha": "f330adcf8317548a8ff3e7ada4a89dadfef6fdb2"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/impl/SimpleServiceIdentityProvider.js",
+      "destination": "auth-core/src/impl/SimpleServiceIdentityProvider.js",
+      "sha": "640dacafb580e6a9ff75eccfbb21e6e689a5317d"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/token/PrincipalToken.js",
+      "destination": "auth-core/src/token/PrincipalToken.js",
+      "sha": "f29860b9a0d1ea2074da4ed29e41e09203d5da56"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/token/RoleToken.js",
+      "destination": "auth-core/src/token/RoleToken.js",
+      "sha": "350f995a7107a0bc328506079e44ef843dbe8604"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/token/Token.js",
+      "destination": "auth-core/src/token/Token.js",
+      "sha": "586e18a1e2b755b1f5abc3fb6f8128d81e05b594"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/util/Crypto.js",
+      "destination": "auth-core/src/util/Crypto.js",
+      "sha": "e57d78b829bb631c3f1db1471a928c7d8bf51a8a"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/util/Validate.js",
+      "destination": "auth-core/src/util/Validate.js",
+      "sha": "29530280fbbef557d7806f448bf4fb4a8cf1ab8a"
+    },
+    {
+      "path": "libs/nodejs/auth_core/src/util/YBase64.js",
+      "destination": "auth-core/src/util/YBase64.js",
+      "sha": "35106932b2c324e53bebdc4a9fff7e3073388733"
+    }
+  ]
+}

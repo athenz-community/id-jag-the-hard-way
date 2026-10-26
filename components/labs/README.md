@@ -4,6 +4,6 @@ Local experiments that accompany the research guides live here. Each lab is buil
 
 The normal component workflows use explicit component paths. They do not select `components/labs/`.
 
-| Lab | Purpose | Guide |
+| Lab | Purpose | Guides |
 |---|---|---|
-| [Athenz Node.js provider](./athenz-nodejs-provider/) | Role-token authorization using Athenz `v1.12.50` ZPE | [Setup](../../research/athenz/nodejs-client/261026-setup-nodejs-provider.md) |
+| [Athenz Node.js provider](./athenz-nodejs-provider/) | Role-token authorization and PR #3480 regression tests | [v1.12.46 bug reproduction](../../research/athenz/nodejs-client/261025-reproduce-nodejs-token-parsing-v1.12.46.md) · [v1.12.50 setup and fix verification](../../research/athenz/nodejs-client/261026-verify-nodejs-token-parsing-v1.12.50.md) |

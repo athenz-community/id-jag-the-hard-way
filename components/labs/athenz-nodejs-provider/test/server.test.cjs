@@ -40,7 +40,7 @@ test('real ZPE HTTP authorization with isolated fixtures', async (t) => {
   const policyDir = path.join(temporary, 'policies');
   fs.mkdirSync(policyDir);
   const confFileName = path.join(temporary, 'athenz.conf');
-  const policyFile = path.join(policyDir, 'nodejs-provider.pol');
+  const policyFile = path.join(policyDir, 'api.pol');
   const publicEntry = pair => [{
     id: '0',
     key: YBase64.ybase64Encode(pair.publicKey.export({ type: 'spki', format: 'pem' })),
@@ -50,11 +50,14 @@ test('real ZPE HTTP authorization with isolated fixtures', async (t) => {
   }));
 
   const policies = [{
-    name: 'nodejs-provider:policy.hello-reader',
-    assertions: [{ role: 'nodejs-provider:role.hello-reader', action: 'read', resource: 'nodejs-provider:hello', effect: 'ALLOW' }],
+    name: 'api:policy.docs-getter_get_docs',
+    assertions: [{ role: 'api:role.docs-getter', action: 'get', resource: 'api:docs', effect: 'ALLOW' }],
+  }, {
+    name: 'api:policy.docs-poster_post_docs',
+    assertions: [{ role: 'api:role.docs-poster', action: 'post', resource: 'api:docs', effect: 'ALLOW' }],
   }];
   function snapshot(expires = new Date(Date.now() + 3_600_000).toISOString(), assertions = policies) {
-    const policyData = { domain: 'nodejs-provider', policies: assertions };
+    const policyData = { domain: 'api', policies: assertions };
     const signedPolicyData = {
       policyData, zmsSignature: Crypto.sign(canonical(policyData), zms.privateKey, 'SHA256'),
       zmsKeyId: '0', modified: new Date().toISOString(), expires,
@@ -70,8 +73,8 @@ test('real ZPE HTTP authorization with isolated fixtures', async (t) => {
   const fixtureTokens = [];
   function token(options = {}) {
     const value = new RoleToken({
-      version: 'Z1', domain: 'nodejs-provider', roles: ['hello-reader'],
-      principal: 'test.caller', expirationWindow: 60, ...options,
+      version: 'Z1', domain: 'api', roles: ['docs-getter'],
+      principal: 'human.idjag-learner', expirationWindow: 60, ...options,
     });
     value.sign(zts.privateKey);
     const signed = value.getSignedToken();
@@ -104,52 +107,60 @@ test('real ZPE HTTP authorization with isolated fixtures', async (t) => {
   });
   await t.test('readiness verifies both signed policy layers', async () => {
     assert.deepEqual(await request('/readyz'), {
-      status: 200, body: { status: 'ready', domain: 'nodejs-provider' },
+      status: 200, body: { status: 'ready', domain: 'api' },
     });
   });
   await t.test('missing role token is rejected', async () => {
-    const result = await request('/hello');
+    const result = await request('/api/docs');
     assert.equal(result.status, 401);
     assert.equal(result.body.error, 'missing_role_token');
   });
-  await t.test('read is allowed by the real library', async () => {
-    assert.deepEqual(await request('/hello', validToken), {
+  await t.test('docs-getter can get api:docs through the real library', async () => {
+    assert.deepEqual(await request('/api/docs', validToken), {
       status: 200,
-      body: { message: 'Hello from the Athenz Node.js provider', action: 'read', resource: 'nodejs-provider:hello', decision: 'ALLOW' },
+      body: { message: 'Documents from the Athenz Node.js provider', action: 'get', resource: 'api:docs', decision: 'ALLOW' },
     });
   });
-  await t.test('the same valid token cannot write', async () => {
-    const result = await request('/hello', validToken, 'POST');
+  await t.test('docs-getter cannot use another role\'s post permission', async () => {
+    const result = await request('/api/docs', validToken, 'POST');
     assert.equal(result.status, 403);
     assert.equal(result.body.decision, 'DENY_NO_MATCH');
   });
+  await t.test('docs-poster can post api:docs only with its own role token', async () => {
+    const posterToken = token({ roles: ['docs-poster'] });
+    const result = await request('/api/docs', posterToken, 'POST');
+    assert.equal(result.status, 200);
+    assert.equal(result.body.action, 'post');
+    assert.equal(result.body.resource, 'api:docs');
+    assert.equal((await request('/api/docs', posterToken)).status, 403);
+  });
   await t.test('malformed role tokens return 401 without crashing', async () => {
     for (const invalid of ['not-a-role-token', `${validToken};r=administrator`, validToken.replace(/;e=\d+/, ';e=NaN')]) {
-      const result = await request('/hello', invalid);
+      const result = await request('/api/docs', invalid);
       assert.equal(result.status, 401);
       assert.equal(result.body.decision, 'DENY_ROLETOKEN_INVALID');
     }
     assert.equal((await request('/healthz')).status, 200);
   });
   await t.test('a token with an invalid signature is rejected', async () => {
-    const result = await request('/hello', validToken.replace('r=hello-reader', 'r=administrator'));
+    const result = await request('/api/docs', validToken.replace('r=docs-getter', 'r=administrator'));
     assert.equal(result.status, 401);
     assert.equal(result.body.decision, 'DENY_ROLETOKEN_INVALID');
   });
   await t.test('a valid token for another domain is denied', async () => {
-    const result = await request('/hello', token({ domain: 'other-domain' }));
+    const result = await request('/api/docs', token({ domain: 'other-domain' }));
     assert.equal(result.status, 403);
     assert.equal(result.body.decision, 'DENY_DOMAIN_MISMATCH');
   });
   await t.test('a future token outside the clock offset is rejected', async () => {
-    assert.equal((await request('/hello', token({ issueTime: Math.floor(Date.now() / 1000) + 600 }))).status, 401);
+    assert.equal((await request('/api/docs', token({ issueTime: Math.floor(Date.now() / 1000) + 600 }))).status, 401);
   });
   await t.test('a previously accepted token is rejected after expiry', async () => {
-    assert.equal((await request('/hello', validToken)).status, 200);
+    assert.equal((await request('/api/docs', validToken)).status, 200);
     const originalNow = Date.now;
     try {
       Date.now = () => originalNow() + 120_000;
-      const result = await request('/hello', validToken);
+      const result = await request('/api/docs', validToken);
       assert.equal(result.status, 401);
       assert.equal(result.body.decision, 'DENY_ROLETOKEN_EXPIRED');
     } finally {
@@ -158,10 +169,10 @@ test('real ZPE HTTP authorization with isolated fixtures', async (t) => {
   });
   await t.test('explicit deny takes precedence over allow', async () => {
     const withDeny = structuredClone(policies);
-    withDeny[0].assertions.push({ role: 'nodejs-provider:role.hello-reader', action: 'read', resource: 'nodejs-provider:hello', effect: 'DENY' });
+    withDeny[0].assertions.push({ role: 'api:role.docs-getter', action: 'get', resource: 'api:docs', effect: 'DENY' });
     writeSnapshot(snapshot(undefined, withDeny));
     try {
-      const result = await request('/hello', validToken);
+      const result = await request('/api/docs', validToken);
       assert.equal(result.status, 403);
       assert.equal(result.body.decision, 'DENY');
     } finally {
@@ -170,22 +181,22 @@ test('real ZPE HTTP authorization with isolated fixtures', async (t) => {
   });
   await t.test('a changed policy with an invalid ZTS signature is unavailable', async () => {
     const changed = structuredClone(validSnapshot);
-    changed.signedPolicyData.policyData.policies[0].name = 'nodejs-provider:policy.changed';
+    changed.signedPolicyData.policyData.policies[0].name = 'api:policy.changed';
     writeSnapshot(changed);
     try {
       assert.equal((await request('/readyz')).status, 503);
-      assert.equal((await request('/hello', validToken)).status, 503);
+      assert.equal((await request('/api/docs', validToken)).status, 503);
     } finally {
       writeSnapshot(validSnapshot);
     }
   });
   await t.test('a valid ZTS signature cannot hide an invalid ZMS signature', async () => {
     const changed = structuredClone(validSnapshot);
-    changed.signedPolicyData.policyData.policies[0].name = 'nodejs-provider:policy.changed';
+    changed.signedPolicyData.policyData.policies[0].name = 'api:policy.changed';
     changed.signature = Crypto.sign(canonical(changed.signedPolicyData), zts.privateKey, 'SHA256');
     writeSnapshot(changed);
     try {
-      assert.equal((await request('/hello', validToken)).status, 503);
+      assert.equal((await request('/api/docs', validToken)).status, 503);
     } finally {
       writeSnapshot(validSnapshot);
     }
@@ -193,7 +204,7 @@ test('real ZPE HTTP authorization with isolated fixtures', async (t) => {
   await t.test('expired and missing policy snapshots fail closed', async () => {
     writeSnapshot(snapshot(new Date(Date.now() - 1000).toISOString()));
     try {
-      assert.equal((await request('/hello', validToken)).status, 503);
+      assert.equal((await request('/api/docs', validToken)).status, 503);
       fs.renameSync(policyFile, `${policyFile}.unavailable`);
       assert.equal((await request('/readyz')).status, 503);
     } finally {

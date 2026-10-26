@@ -13,13 +13,13 @@ const statuses = AuthZPEClient.AccessCheckStatus;
 const statusNames = new Map(Object.entries(statuses).map(([name, value]) => [value, name]));
 
 function createProvider({
-  domain = 'nodejs-provider',
+  domain = 'api',
   confFileName = process.env.ATHENZ_CONF || path.join(localStateDir, 'athenz.conf'),
   policyDir = process.env.ATHENZ_POLICY_DIR || path.join(localStateDir, 'policies'),
   logger = configureLogging(),
 } = {}) {
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(domain)) throw new Error('Invalid Athenz domain');
-  const resource = `${domain}:hello`;
+  const resource = `${domain}:docs`;
 
   AuthZPEClient.setConfig({
     zpeClient: { confFileName, policyDir, disableWatch: true, allowedOffset: 300 },
@@ -66,7 +66,7 @@ function createProvider({
         return send(response, 503, { error: 'policy_unavailable' });
       }
     }
-    if (pathname !== '/hello') return send(response, 404, { error: 'not_found' });
+    if (pathname !== '/api/docs') return send(response, 404, { error: 'not_found' });
     if (!['GET', 'POST'].includes(request.method)) {
       response.setHeader('Allow', 'GET, POST');
       return send(response, 405, { error: 'method_not_allowed' });
@@ -86,16 +86,16 @@ function createProvider({
       return send(response, 503, { error: 'policy_unavailable' });
     }
 
-    const action = request.method === 'GET' ? 'read' : 'write';
+    const action = request.method.toLowerCase();
     try {
       AuthZPEClient.allowAccess({ roleToken, action, resource }, (error, status) => {
         // Remove both the credential and policy caches after this decision.
         ZPEUpdater.close();
         const decision = statusNames.get(status) || 'DENY';
-        logger.info(`${request.method} /hello action=${action} resource=${resource} decision=${decision}`);
+        logger.info(`${request.method} /api/docs action=${action} resource=${resource} decision=${decision}`);
         if (!error && status === statuses.ALLOW) {
           return send(response, 200, {
-            message: 'Hello from the Athenz Node.js provider', action, resource, decision,
+            message: 'Documents from the Athenz Node.js provider', action, resource, decision,
           });
         }
         const invalid = [statuses.DENY_ROLETOKEN_INVALID, statuses.DENY_ROLETOKEN_EXPIRED].includes(status);
@@ -119,10 +119,11 @@ if (require.main === module) {
   const logger = configureLogging();
   try {
     const port = Number(process.env.PORT || 18080);
+    const host = process.env.HOST || '127.0.0.1';
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid port');
     const server = createProvider({ logger });
-    server.listen(port, '127.0.0.1', () => {
-      logger.info(`Node.js provider listening on http://127.0.0.1:${port}; Athenz ${version} (${revision})`);
+    server.listen(port, host, () => {
+      logger.info(`Node.js provider listening on http://${host}:${port}; Athenz ${version} (${revision})`);
     });
     const shutdown = () => server.close(() => process.exit(0));
     process.once('SIGTERM', shutdown);
