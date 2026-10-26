@@ -1,0 +1,19 @@
+{
+  "name": "idthw-nodejs-provider",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A small HTTP provider using the upstream Athenz Node.js ZPE client",
+  "scripts": {
+    "fetch-library": "node scripts/fetch-library.mjs",
+    "start": "node src/server.cjs",
+    "check": "node --check src/server.cjs && node --check src/logging.cjs && node --check scripts/fetch-library.mjs && node --check test/server.test.cjs",
+    "test": "node --test test/*.test.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@athenz/auth-core": "file:vendor/auth-core",
+    "@athenz/zpe-client": "file:vendor/zpe"
+  }
+}
