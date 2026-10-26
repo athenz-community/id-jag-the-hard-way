@@ -122,7 +122,7 @@ kubectl exec deploy/api-server -n api \
 
 The API now returns `401 Unauthorized`. This failure is intentional: token enforcement is enabled, but the request has no access token.
 
-![The API rejects a document request without an access token](./assets/04_arc_get_docs_from_api_server_unauthorized.svg)
+![The API rejects a document request without an access token](./assets/core_04_api_rejected.svg)
 
 Keep token enforcement enabled.
 

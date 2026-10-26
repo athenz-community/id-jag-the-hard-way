@@ -33,7 +33,7 @@
 2. トークンの署名を検証できるよう、Keycloak の `jwks_uri` をプラグインに渡す
 3. ZTS サーバーにプラグイン設定ファイルの場所を指定する
 
-![まだ Keycloak を信頼していない Athenz](../assets/14_athenz_not_trusting_keycloak_yet.svg)
+![まだ IdP を信頼していない IdP AS](../assets/core_12_idp_untrusted.svg)
 
 <a id="install-plugin-into-the-zts-server"></a>
 
@@ -76,7 +76,7 @@ kubectl -n athenz exec deployment/athenz-zts-server \
 
 これで `KeycloakTokenExchangeProvider` プラグインの JAR が ZTS サーバーにマウントされました：
 
-![ZTS サーバーにマウントしたプラグイン](../assets/14_place_plugin.svg)
+![IdP AS にインストールしたトークン交換プロバイダー](../assets/core_13_provider_installed.svg)
 
 <a id="connect-keycloak-with-the-plugin"></a>
 
@@ -230,7 +230,7 @@ kubectl logs -n athenz deployment/athenz-zts-server -c athenz-zts-server | grep 
 
 `KeycloakTokenExchangeProvider` プラグインをインストールしました。このプラグインは Keycloak の ID トークンを受け取り、Keycloak の公開鍵で署名とクレームを検証して、認証された Athenz プリンシパルを返します：
 
-![プラグインを接続した全体アーキテクチャ](../assets/14_arc_plugin_mounted_and_used.svg)
+![IdP トークンを検証し、学習者の ID にマッピングする IdP AS](../assets/core_13_provider_trust.svg)
 
 <a id="whats-next"></a>
 

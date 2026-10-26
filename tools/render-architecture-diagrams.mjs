@@ -1,10 +1,12 @@
-// Run from any directory: node tools/render-architecture-diagrams.mjs
-// Source diagrams keep their original technical meaning, including legacy flows.
-import { writeFile } from 'node:fs/promises'
+// From the repository root: node tools/render-architecture-diagrams.mjs --core
+// Without --core, also render archived diagrams with their original technical meaning.
+import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { parseArgs } from 'node:util'
 import { addCoreDiagrams } from './core-architecture-diagrams.mjs'
 
+const { values: options } = parseArgs({ options: { core: { type: 'boolean' }, check: { type: 'boolean' } } })
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const palette = { blue: '#1a73e8', green: '#188038', red: '#c5221f', gray: '#5f6368', purple: '#7b4cc0' }
 const escape = (value) => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
@@ -302,7 +304,32 @@ add('assets/id-jag-the-hard-way-current-full-architecture.png', overview({ curre
   add('components/ai_client_gateway/assets/arc_ai_client_gateway.png', d)
 }
 
-addCoreDiagrams(add)
+const corePaths = new Set()
+addCoreDiagrams((path, diagram) => {
+  corePaths.add(path)
+  add(path, diagram)
+})
 
-for (const [path, svg] of outputs) await writeFile(resolve(root, path), svg)
-console.log(`Rendered ${outputs.size} SVGs. The approved API rejection diagram is maintained separately.`)
+const selected = [...outputs].filter(([path]) => !options.core || corePaths.has(path))
+let stale = 0
+for (const [path, svg] of selected) {
+  const existing = await readFile(resolve(root, path), 'utf8').catch(error => {
+    if (error.code === 'ENOENT') return null
+    throw error
+  })
+  if (existing === svg) continue
+  if (options.check) {
+    console.error(`Out of date: ${path}`)
+    stale++
+  } else {
+    await writeFile(resolve(root, path), svg)
+    console.log(`Updated: ${path}`)
+  }
+}
+const scope = options.core ? 'core architecture ' : ''
+if (options.check) {
+  console.log(`Checked ${selected.length} ${scope}SVGs; ${stale} out of date.`)
+  if (stale) process.exitCode = 1
+} else {
+  console.log(`Rendered ${selected.length} ${scope}SVGs.`)
+}

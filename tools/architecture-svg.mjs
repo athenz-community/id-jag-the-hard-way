@@ -78,11 +78,11 @@ export class Architecture {
     const h = Math.max(...cards.map(card => card.y + card.h)) - y + padding
     this.groups.push(`<rect data-group="${esc(title)}" x="${x}" y="${y}" width="${w}" height="${h}" rx="24" fill="#F1F3FA" fill-opacity=".8" stroke="#E1E5F0" stroke-width="1"/>${this.text(x + 22, y + 31, title, { size: 14, weight: 600, color: '#7A85A0', spacing: '1.3' })}${product ? this.text(x + w - 22, y + 31, product, { size: 14, color: muted, anchor: 'end' }) : ''}`)
   }
-  edge(points, { tone = 'blue', dash = false, label, at, size = 18, secondary, token, tokenAt } = {}) {
+  edge(points, { tone = 'blue', dash = false, label, at, size = 18, secondary, labelWidth, token, tokenAt } = {}) {
     const color = flows[tone]
     const [sx, sy] = points[0]
     this.wires.push(`<path d="${connector(points)}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"${dash ? ' stroke-dasharray="4 7"' : ''} marker-end="url(#arrow-${tone})"/><circle cx="${sx}" cy="${sy}" r="3" fill="white" stroke="${color}" stroke-width="1.5"/>`)
-    if (label) this.label(...at, label, { tone, size, secondary })
+    if (label) this.label(...at, label, { tone, size, secondary, width: labelWidth })
     if (token) {
       const [x, y] = tokenAt ?? [(points[0][0] + points.at(-1)[0]) / 2, (points[0][1] + points.at(-1)[1]) / 2]
       this.token(token, x, y)
@@ -92,11 +92,15 @@ export class Architecture {
     if (!tokenColors[kind]) throw new Error(`Unknown token kind: ${kind}`)
     this.labels.push(`<g data-token-kind="${kind}" aria-label="${kind === 'access' ? 'Access token' : 'Exchanged access token'}"><circle cx="${x}" cy="${y}" r="20" fill="#FDFEFF"/><use href="#access-token-key" transform="translate(${x - 19} ${y - 19}) scale(.86)" color="${tokenColors[kind]}"/></g>`)
   }
-  label(x, y, value, { tone = 'blue', size = 18, secondary } = {}) {
-    const width = Math.max(value.length * size * .53, secondary ? secondary.length * (size - 2) * .6 : 0) + 24
+  label(x, y, value, { tone = 'blue', size = 18, secondary, width } = {}) {
+    const error = tone === 'red'
+    const iconSpace = error ? 30 : 0
+    width = (width ?? Math.max(value.length * size * .53, secondary ? secondary.length * (size - 2) * .6 : 0) + 24) + iconSpace
     const height = secondary ? 52 : 32
+    const textX = x + iconSpace / 2
     const c = flows[tone]
-    this.labels.push(`<g><rect x="${x - width / 2}" y="${y - 23}" width="${width}" height="${height}" rx="9" fill="#FFFFFF" stroke="#E9EDF3" stroke-width=".9"/>${this.text(x, y - 1, value, { size, weight: 500, color: c, anchor: 'middle' })}${secondary ? this.text(x, y + 20, secondary, { size: size - 2, color: muted, mono: true, anchor: 'middle' }) : ''}</g>`)
+    const mark = error ? `<g data-error-mark="true" aria-hidden="true" transform="translate(${x - width / 2 + 17} ${y - 23 + height / 2})"><circle r="10" fill="#FCEDEC"/><path d="M-5 -5L5 5M5 -5L-5 5" fill="none" stroke="#C43D3D" stroke-width="2.8" stroke-linecap="round"/></g>` : ''
+    this.labels.push(`<g${error ? ' data-status="error"' : ''}><rect x="${x - width / 2}" y="${y - 23}" width="${width}" height="${height}" rx="9" fill="#FFFFFF" stroke="#E9EDF3" stroke-width=".9"/>${mark}${this.text(textX, y - 1, value, { size, weight: 500, color: c, anchor: 'middle' })}${secondary ? this.text(textX, y + 20, secondary, { size: size - 2, color: muted, mono: true, anchor: 'middle' }) : ''}</g>`)
   }
   svg() {
     const markers = Object.entries(flows).map(([key, color]) => `<marker id="arrow-${key}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="m2 1 6 4-6 4" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker>`).join('')

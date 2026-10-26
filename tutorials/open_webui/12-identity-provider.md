@@ -361,7 +361,7 @@ You should now be successfully logged into the interface.
 
 Keycloak now authenticates the learner account for Open WebUI:
 
-![13_arc_signed_into_ui_with_keycloak](./assets/13_arc_signed_into_ui_with_keycloak.svg)
+![The IdP signs the human into Open WebUI](./assets/core_12_sign_in.svg)
 
 <a id="whats-next"></a>
 

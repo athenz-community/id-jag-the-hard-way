@@ -136,7 +136,7 @@ kubectl exec deploy/api-server -n api \
 
 API は `401 Unauthorized` を返します。トークンの検証を有効にした一方で、リクエストにアクセストークンがないためです。この失敗は意図した結果です。
 
-![アクセストークンのない文書リクエストを拒否する API](../assets/04_arc_get_docs_from_api_server_unauthorized.svg)
+![アクセストークンのない文書リクエストを拒否する API](../assets/core_04_api_rejected.svg)
 
 以降もトークンの検証を有効にしたまま進めます。
 

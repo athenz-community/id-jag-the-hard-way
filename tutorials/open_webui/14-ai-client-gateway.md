@@ -263,7 +263,7 @@ kubectl logs deploy/ai-client-gateway -n ai -c ai-client-gateway
 
 AI Client Gateway is now deployed. Next, configure Open WebUI to send tool requests through it:
 
-![15_ai_client_agent_installed_and_used](./assets/15_ai_client_agent_installed_and_used.svg)
+![Open WebUI sends requests through AI Client Gateway to the protected MCP route](./assets/core_14_gateway_route.svg)
 
 ## Modify the Tool Target
 
@@ -314,7 +314,7 @@ The request should fail because the gateway does not yet have ID-JAG exchange pe
 
 The user is signed in, and the gateway authenticates to ZTS as `ai.open-webui`. ZTS rejects the exchange because that service lacks `zts.jag_exchange` permission for the requested MCP and API roles.
 
-![15_arc_not_enough_permission_into_idjag](./assets/15_arc_not_enough_permission_into_idjag.svg)
+![Sign-in succeeds before ID-JAG delegation is denied](./assets/core_14_idjag_denied.svg)
 
 In another terminal, inspect the last 8 lines of the AI Client Gateway log to see where the exchange failed:
 

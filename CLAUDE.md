@@ -174,6 +174,8 @@ New or revised shell tools must follow neighboring tools' output style and reuse
 
 ## Architecture Diagrams
 
+- Unless the user identifies another reference, use the final complete architecture diagram for the relevant tutorial/client path as the visual source of truth. Earlier diagrams reuse its human and component icons, role colors, card dimensions, typography, spacing, and connector/token styles; simplify the flow for each stage without inventing a different visual style
+- Keep the shared drawing primitives in `tools/architecture-svg.mjs` and stage definitions in `tools/core-architecture-diagrams.mjs` synchronized with the rendered SVGs. Update all maintained language and client-path references together, regenerate with `node tools/render-architecture-diagrams.mjs --core`, check with `--core --check`, and visually compare the results with the final diagram
 - Use editable, self-contained SVGs for architecture and flow diagrams.
 - Preserve the technical meaning: components, identities, boundaries, permissions, protocols, and arrow directions.
 - Show the architecture with short labels. Keep explanations in the surrounding Markdown; omit explanatory headings, paragraphs, and summary panels inside diagrams.
@@ -183,6 +185,7 @@ New or revised shell tools must follow neighboring tools' output style and reuse
 - Use a consistent visual style: restrained colors, distinct component icons, readable type, intentional spacing, and clean arrow routing. Human icons have a connected head and body, without facial detail.
 - Use one shared 280 × 200 component card across core diagrams, with the same icon size, typography, padding, and proportions. Align cards on a grid and adjust the layout around them. Center each group's contents with equal 48 px padding on all sides; calculate the group rectangle from its components.
 - Prefer straight horizontal or vertical connectors. Use diagonals only when needed, always at the same 45° angle; avoid arbitrary slopes and curved routes.
+- Mark every error or rejection label with the same red X icon, including `401 Unauthorized`, `403`, denied exchanges, and missing trust. Keep the status/reason text and arrow direction visible, and reserve space so the icon does not overlap text or cards. Apply this through the shared renderer across every language and client path
 - Reuse the token key drawing: gold for access tokens, blue for exchanged access tokens.
 - Match each diagram to its tutorial stage and client path; use the current core component names in the core tutorial.
 - Keep screenshots and recorded demos in their original formats. Render and visually inspect SVGs before replacing image references.
