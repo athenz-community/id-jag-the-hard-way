@@ -217,6 +217,7 @@ Use these from tutorials and research setup steps instead of repeating low-level
 ./tools/athenz/athenz-version-verifier.sh --less-or-equal <maximum-version> [zts|zms] [namespace]
 ./tools/athenz/sign-rfc7523-assertion.sh --principal <domain.service> --private-key <path> --key-id <id> [--audience <zts-issuer>] [--scope <athenz-scope>] [--expires-in <seconds>]
 ./tools/athenz/fetch-access-token-with-rfc7523.sh <jwt_assertion|-> [scope] [--mode <jwt-bearer|client-assertion>] [--expect <200|400> [expected-error-text]]
+./tools/athenz/fetch-role-token.sh <cert_path> <key_path> <domain> <role_name> [output_file] [--output <output_file>]
 ./tools/athenz/fetch-access-token.sh <cert_path> <key_path> <scope> [output_file] [--actor <actor>] [--output <output_file>]
 ./tools/athenz/fetch-access-token-with-id-jag.sh <cert_path> <key_path> <id_jag_token> <scope> [output_file] [--actor <actor>] [--output <output_file>]
 ./tools/athenz/fetch-id-jag.sh <cert_path> <key_path> <id_token> <scope>
@@ -304,6 +305,8 @@ python3 -m unittest discover -s tools/athenz/tests -p 'test_jwt_assertion.py'
 - `KEYCLOAK_OPEN_UI=false` skips opening the Keycloak admin UI after create/update.
 
 `fetch-access-token.sh` keeps its original positional output-file argument. The named `--output` form is available for readability when combined with `--actor`.
+
+`athenz/fetch-role-token.sh` requests a 600-second Athenz role token using the supplied certificate and key, restricted to one role. Like the access-token helper, it writes progress and response metadata to stderr and only the token to stdout for command substitution. It uses the local `port.sh zts` endpoint by default; `ZTS_URL` selects another full `/zts/v1` API base URL, and `ATHENZ_CA_CERT` overrides the IDTHW CA. The optional positional output file or `--output` saves the token with mode `600`; failed requests preserve any existing file. The [Node.js provider guide](../research/athenz/nodejs-client/261026-verify-nodejs-token-parsing-v1.12.50.md#step-6-verify-an-allowed-read-and-a-denied-write) shows the learner's `api` / `docs-getter` request.
 
 ## Configuration
 
