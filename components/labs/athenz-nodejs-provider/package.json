@@ -6,7 +6,7 @@
   "scripts": {
     "fetch-library": "node scripts/fetch-library.mjs",
     "start": "node src/server.cjs",
-    "check": "node --check src/server.cjs && node --check src/logging.cjs && node --check scripts/fetch-library.mjs && node --check scripts/releases.cjs && node --check scripts/endpoints.cjs && bash -n scripts/sync-policies.sh && node --check test/server.test.cjs && node --check test/endpoints.test.cjs",
+    "check": "node --check src/server.cjs && node --check src/logging.cjs && node --check scripts/fetch-library.mjs && node --check scripts/releases.cjs && node --check scripts/endpoints.cjs && bash -n scripts/sync-policies.sh && bash -n scripts/run-provider.sh && node --check test/server.test.cjs && node --check test/endpoints.test.cjs && node --check test/run.test.cjs",
     "test": "node --test test/*.test.cjs"
   },
   "engines": {

@@ -28,7 +28,7 @@ Only `v1.12.46` and `v1.12.50` are supported. Their manifests pin repository com
 | Target | Purpose |
 |---|---|
 | `make build VERSION=<version>` | Build the provider image for that release |
-| `make run VERSION=<version>` | Run that image with the public-key and signed-policy files mounted read-only |
+| `make run VERSION=<version>` | Replace existing lab containers and run the selected image with public files mounted read-only |
 | `make configure` | Save ZMS/ZTS endpoint choices without building |
 | `make endpoints` | Display the effective endpoint URLs |
 | `make sync` | Fetch the public keys and signed `api` policies with the saved endpoints |
@@ -39,7 +39,7 @@ The first build resolves local endpoints through IDTHW's `tools/port.sh`, includ
 
 After the policies exist on the selected server, `make sync` writes `.local/athenz.conf` and `.local/policies/api.pol`. It defaults to the tutorial CA and learner identity at `athenz_dist/certs/ca.cert.pem`, `keys/idjag-learner.crt`, and `keys/idjag-learner.key` relative to the repository root. `ATHENZ_CA_CERT`, `ATHENZ_CLIENT_CERT`, and `ATHENZ_CLIENT_KEY` select other paths. The guides use [fetch-role-token.sh](../../../tools/athenz/fetch-role-token.sh) with the same identity settings and selected ZTS endpoint.
 
-`make run` mounts only `.local/athenz.conf` and `.local/policies` into the container and publishes `http://127.0.0.1:18080`. The Docker build context is an allowlist of application source, scripts, package metadata, and pinned manifests. Images are built manually; this lab has no CI pipeline.
+`make run` checks that the selected image and synchronized public files exist, stops and removes existing `idthw-nodejs-provider-v1.12.46` and `idthw-nodejs-provider-v1.12.50` containers, then starts a fresh container in the foreground. Repeat the command to restart or switch versions; keep its terminal open until the tests finish. It mounts `.local/athenz.conf` and `.local/policies` read-only and publishes `http://127.0.0.1:18080`. The Docker build context is an allowlist of application source, scripts, package metadata, and pinned manifests. Images are built manually; this lab has no CI pipeline.
 
 | Request | Behavior |
 |---|---|
