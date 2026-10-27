@@ -14,13 +14,16 @@ Build and run the Node.js provider image with the real Athenz v1.12.50 libraries
 <!-- /TOC -->
 
 <details>
-<summary>Last verified on Oct 26, 2026 — 🟡 Image verification in progress; live ZTS checks pending</summary>
+<summary>Last verified on Oct 27, 2026 — 🟡 Image and fixture HTTP checks verified; live ZTS checks pending</summary>
 
 | # | Date | Confirmed Working |
 |---|------|-------------------|
 | 1 | Oct 26, 2026 | ✅ — v1.12.50 is pinned to commit `8fb407836b73c8b487bd373ab3a60663c698b2ce`; its 27 runtime/license files are verified against Git blob hashes |
-| 2 | Oct 26, 2026 | 🟡 — version-selected image build and runtime checks pending |
-| 3 | Oct 26, 2026 | 🟡 — live ZMS setup, policy sync, and ZTS-issued role-token requests have not been executed by this CLI; [LY AI Policy](https://github.com/secdev-whc/ai-cli-hardening) prohibits access to the required certificates and private keys |
+| 2 | Oct 26, 2026 | ✅ — built `idthw-athenz-nodejs-provider:v1.12.50` with `make build VERSION=v1.12.50`; the image label and running `/healthz` report the selected release and commit, and all 27 image source/license hashes match |
+| 3 | Oct 26, 2026 | ✅ — seven HTTP authorization checks passed against the running image using temporary signing fixtures; the unsigned poster-role request returned HTTP 401 / `DENY_ROLETOKEN_INVALID`; `/healthz` and `/readyz` both returned 200 |
+| 4 | Oct 26, 2026 | ✅ — all 25 native tests passed, including version selection, source integrity, endpoint configuration, signed policy validation, authorization, and log redaction |
+| 5 | Oct 26, 2026 | 🟡 — live ZMS setup, policy sync, and ZTS-issued role-token requests have not been executed by this CLI; [LY AI Policy](https://github.com/secdev-whc/ai-cli-hardening) prohibits access to the required certificates and private keys |
+| 6 | Oct 27, 2026 | 🟡 — ordered JSON/status formatting checked with static responses; the new poster-membership removal procedure remains for the operator to run |
 
 The expected output in the credential-dependent steps is an operator example, not a captured live result. PR #3480 is absent from `v1.12.46` and included in `v1.12.47` through `v1.12.50`. This procedure tests the role-token/ZPE path; it does not exercise `PrincipalToken`.
 
@@ -45,7 +48,7 @@ Here is the procedure to get to the goals.
 
 Select the Athenz library release with `VERSION`. The image contains the actual HTTP provider and unchanged upstream ZPE/auth-core code from that release. The npm packages retain their own `1.0.0` versions; `VERSION` selects the Athenz repository release. The build verifies the source hashes, installs locked dependencies, and checks the app syntax.
 
-Build the image and inspect its version label. The expected result omits routine Docker build output:
+Build the image and inspect its version label. The captured result omits routine Docker build output:
 
 ```sh
 make -C components/labs/athenz-nodejs-provider build VERSION=v1.12.50 &&
@@ -54,7 +57,7 @@ docker image inspect idthw-athenz-nodejs-provider:v1.12.50 \
 ```
 
 ```sh
-# Expected final result
+# Captured final result; routine build output omitted
 # v1.12.50
 ```
 
@@ -82,6 +85,18 @@ The shared management scripts use the administrator identity against local ZMS. 
 #   ✔  Policy created: api:policy.docs-getter_get_docs
 #   ·  Creating Policy: api:policy.docs-poster_post_docs...
 #   ✔  Policy created: api:policy.docs-poster_post_docs
+```
+
+Remove any existing `human.idjag-learner` membership from `api:role.docs-poster` so the learner starts the test with getter access. The helper also succeeds when that membership is already absent:
+
+```sh
+./tools/athenz/delete-role-member.sh api docs-poster human.idjag-learner
+```
+
+```sh
+# Expected result
+#   ·  Deleting member human.idjag-learner from role api:role.docs-poster...
+#   ✔  Role member deleted or already absent: human.idjag-learner  →  api:role.docs-poster
 ```
 
 The app maps GET `/api/docs` to `get` and POST `/api/docs` to `post`, both on `api:docs`. The main tutorial API checks OAuth scopes; this app evaluates Athenz action/resource policies through ZPE and accepts ZTS role tokens in `Athenz-Role-Auth`.
@@ -151,38 +166,47 @@ curl -fsS http://127.0.0.1:18080/readyz | jq
 
 ## Step 5. Check missing and malformed tokens
 
-Check the two rejection paths. Curl writes the HTTP status to stderr so `jq` receives only JSON; the status can appear before or after the formatted body:
+Check the missing-token response first. Curl sends the response body and HTTP status through one output stream; `jq -Rr 'fromjson? // .'` formats each JSON line and prints the status line after it:
 
 ```sh
-curl -sS -w '%{stderr}HTTP %{http_code}\n' \
-  http://127.0.0.1:18080/api/docs | jq &&
-curl -sS -w '%{stderr}HTTP %{http_code}\n' \
-  -H 'Athenz-Role-Auth: not-a-role-token' \
-  http://127.0.0.1:18080/api/docs | jq
+curl -sS -w 'HTTP %{http_code}\n' \
+  http://127.0.0.1:18080/api/docs | jq -Rr 'fromjson? // .'
 ```
 
 ```sh
-# Expected result — these rejections are intentional
-# HTTP 401
+# Expected result — missing token is intentionally rejected
 # {
 #   "error": "missing_role_token",
 #   "message": "Send an Athenz role token in Athenz-Role-Auth."
 # }
 # HTTP 401
+```
+
+Check the malformed-token response separately:
+
+```sh
+curl -sS -w 'HTTP %{http_code}\n' \
+  -H 'Athenz-Role-Auth: not-a-role-token' \
+  http://127.0.0.1:18080/api/docs | jq -Rr 'fromjson? // .'
+```
+
+```sh
+# Expected result — malformed token is intentionally rejected
 # {
 #   "error": "invalid_role_token",
 #   "decision": "DENY_ROLETOKEN_INVALID",
 #   "message": "Access denied due to invalid RoleToken"
 # }
+# HTTP 401
 ```
 
 The fixed ZPE client converts malformed-token parsing errors into `DENY_ROLETOKEN_INVALID`, which the app returns as HTTP 401.
 
 ## Step 6. Test the getter token and unsigned role override
 
-Use [fetch-role-token.sh](../../../tools/athenz/fetch-role-token.sh) to obtain a 600-second role token as `human.idjag-learner`, restricted to `docs-getter`. Send it for GET, then POST. Finally append `;r=docs-poster` after its signature and repeat POST with that modified token, without signing it again.
+Use [fetch-role-token.sh](../../../tools/athenz/fetch-role-token.sh) to obtain a 600-second role token as `human.idjag-learner`, restricted to `docs-getter`. Send it for GET, then POST. Finally append `;r=docs-poster` after its signature and repeat POST with that modified token, without signing it again. The original trusted ZTS signature is still required; the flaw is accepting unsigned claims appended after it.
 
-The helper prints progress and response metadata to stderr. The subshell keeps the token local, and curl receives the header through stdin. The expected output omits the changing `expiryTime` metadata, which the helper prints in full:
+The helper prints progress and response metadata to stderr. The subshell keeps the token local, and curl receives the header through stdin. Each JSON body is followed by its HTTP status on the same output stream. The expected output omits the changing `expiryTime` metadata, which the helper prints in full:
 
 ```sh
 (
@@ -196,14 +220,14 @@ The helper prints progress and response metadata to stderr. The subshell keeps t
       api docs-getter
   ) &&
   printf 'Athenz-Role-Auth: %s\n' "${_nodejs_role_token}" \
-    | curl -sS --header @- -w '%{stderr}HTTP %{http_code}\n' \
-        http://127.0.0.1:18080/api/docs | jq &&
+    | curl -sS --header @- -w 'HTTP %{http_code}\n' \
+        http://127.0.0.1:18080/api/docs | jq -Rr 'fromjson? // .' &&
   printf 'Athenz-Role-Auth: %s\n' "${_nodejs_role_token}" \
-    | curl -sS --header @- -X POST -w '%{stderr}HTTP %{http_code}\n' \
-        http://127.0.0.1:18080/api/docs | jq &&
+    | curl -sS --header @- -X POST -w 'HTTP %{http_code}\n' \
+        http://127.0.0.1:18080/api/docs | jq -Rr 'fromjson? // .' &&
   printf 'Athenz-Role-Auth: %s;r=docs-poster\n' "${_nodejs_role_token}" \
-    | curl -sS --header @- -X POST -w '%{stderr}HTTP %{http_code}\n' \
-        http://127.0.0.1:18080/api/docs | jq
+    | curl -sS --header @- -X POST -w 'HTTP %{http_code}\n' \
+        http://127.0.0.1:18080/api/docs | jq -Rr 'fromjson? // .'
 )
 ```
 
@@ -212,25 +236,25 @@ The helper prints progress and response metadata to stderr. The subshell keeps t
 #   ·  Fetching Role Token for role: api:role.docs-getter...
 #   ·  ZTS endpoint: https://localhost:8443/zts/v1/domain/api/token
 #   ✔  Role token issued for role: api:role.docs-getter
-# HTTP 200
 # {
 #   "message": "Documents from the Athenz Node.js provider",
 #   "action": "get",
 #   "resource": "api:docs",
 #   "decision": "ALLOW"
 # }
-# HTTP 403
+# HTTP 200
 # {
 #   "error": "forbidden",
 #   "decision": "DENY_NO_MATCH",
 #   "message": "Access denied due to no match to any of the assertions defined in domain policy file"
 # }
-# HTTP 401
+# HTTP 403
 # {
 #   "error": "invalid_role_token",
 #   "decision": "DENY_ROLETOKEN_INVALID",
 #   "message": "Access denied due to invalid RoleToken"
 # }
+# HTTP 401
 ```
 
 The final HTTP 401 verifies the fix: the parser rejects the extra data after the signature, and the unsigned poster role never reaches policy evaluation. The original getter token still allows GET and denies POST.
