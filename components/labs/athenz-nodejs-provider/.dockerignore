@@ -1,0 +1,13 @@
+**
+!Dockerfile
+!.dockerignore
+!package.json
+!package-lock.json
+!upstream.json
+!upstream-v1.12.46.json
+!scripts/
+!scripts/fetch-library.mjs
+!scripts/releases.cjs
+!src/
+!src/server.cjs
+!src/logging.cjs
