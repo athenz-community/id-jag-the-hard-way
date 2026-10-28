@@ -110,14 +110,25 @@ ID-JAG The Hard Way の基礎となった ID-JAG の記事は [Okta の xaa.dev 
 ## コミュニティでの紹介
 
 > [!NOTE]
-> このチュートリアルを紹介したら、イシューまたはプルリクエストでお知らせください。届いた順にここへ追加します。
+> このチュートリアルや関連する LY Tech Blog の記事を紹介したら、イシューまたはプルリクエストでお知らせください。日付の新しい順に掲載します。
 
 | # |     日付     | コミュニティ                                                                                                 |
 |:-:|:------------:|:----------------------------------------------------------------------------------------------------------|
-| 3 | 2026-08-29 | [dorsha/awesome-cross-app-access][260829-community] - Github                                              |
-| 2 | 2026-07-28 | [Authorization Challenges in the AI Agent Era: What Is ID-JAG and Why?][260728-community] — DEV Community |
-| 1 | 2026-07-23 | [[學習心得][Golang] AI Agent 時代的授權難題：ID-JAG 是什麼？為什麼我用 Go 重新實作了一次][260723-community] |
+| 8 | 2026-08-29 | [dorsha/awesome-cross-app-access][260829-community] - Github |
+| 7 | 2026-07-28 | [Authorization Challenges in the AI Agent Era: What Is ID-JAG and Why?][260728-community] — DEV Community |
+| 6 | 2026-07-23 | [[學習心得][Golang] AI Agent 時代的授權難題：ID-JAG 是什麼？為什麼我用 Go 重新實作了一次][260723-community] — [Go で再実装した MCP サーバー][evan-go-mcp] |
+| 5 | 2026-07-15 | [ID-JAG The Hard Way：失敗から学ぶAIエージェントのセキュリティハンズオン][bloomtech-coverage] — BLOOMTECH CAREER Media の AI ニュースまとめ |
+| 4 | 2026-06-21 | [AI 에이전트, 개발과 운영 전반을 혁신하다][tech-news-weekly-coverage] — tech-news-weekly |
+| 3 | 2026-06-17 | [ID-JAG The Hard Way: 실패로 배우는 AI 에이전트 보안 핸즈온][velopers-tutorial] — Velopers |
+| 2 | 2026-04-30 | [AI 시대에 인증 과제를 해결할 차세대 표준 후보, ID-JAG][velopers-introduction] — Velopers |
+| 1 | 2026-04-01 | [AIエージェントの光と影：ソースコード流出と次世代認証「ID-JAG」が問う未来🛡️（2026年4月1日ニュース）][linux3-coverage] — Third Generation Linux |
 
+[bloomtech-coverage]: https://bloomtechcareer.com/media/contents/july-15-ai-news-roundup-a-remarkable-productivity-revolution-achieving-141-person-months-of-development-per-person-through-voice-commands-and-ai-and-more/
+[tech-news-weekly-coverage]: https://tech-news-weekly.kr/weekly/ai-agent-innovation-devops-frontend
+[velopers-introduction]: https://www.velopers.kr/post/6765
+[velopers-tutorial]: https://www.velopers.kr/post/7078
+[linux3-coverage]: https://linux3.net/archives/2560
+[evan-go-mcp]: https://github.com/kkdai/id-jag-mcp
 [260829-community]: https://github.com/dorsha/awesome-cross-app-access
 [260723-community]: https://www.evanlin.com/id-jag-mcp-go/
 [260728-community]: https://dev.to/gde/learning-notesgolang-authorization-challenges-in-the-ai-agent-era-what-is-id-jag-and-why-i-jfb

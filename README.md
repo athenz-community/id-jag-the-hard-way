@@ -93,14 +93,25 @@ Want to try XAA without building everything from scratch? Visit **XAA.dev** at <
 ## Community Mentions
 
 > [!NOTE]
-> If you reference this tutorial, let us know by opening an issue or pull request. We’ll add it here in the order submissions are received.
+> If you reference this tutorial or its related LY Tech Blog articles, let us know by opening an issue or pull request. Entries are ordered by date, newest first.
 
 | # |     Date     | Community                                                                                                 |
 |:-:|:------------:|:----------------------------------------------------------------------------------------------------------|
-| 3 | Aug 29, 2026 | [dorsha/awesome-cross-app-access][260829-community] - Github                                              |
-| 2 | Jul 28, 2026 | [Authorization Challenges in the AI Agent Era: What Is ID-JAG and Why?][260728-community] — DEV Community |
-| 1 | Jul 23, 2026 | [[學習心得][Golang] AI Agent 時代的授權難題：ID-JAG 是什麼？為什麼我用 Go 重新實作了一次][260723-community] |
+| 8 | Aug 29, 2026 | [dorsha/awesome-cross-app-access][260829-community] - Github |
+| 7 | Jul 28, 2026 | [Authorization Challenges in the AI Agent Era: What Is ID-JAG and Why?][260728-community] — DEV Community |
+| 6 | Jul 23, 2026 | [[學習心得][Golang] AI Agent 時代的授權難題：ID-JAG 是什麼？為什麼我用 Go 重新實作了一次][260723-community] — [Go MCP reimplementation][evan-go-mcp] |
+| 5 | Jul 15, 2026 | [ID-JAG The Hard Way：失敗から学ぶAIエージェントのセキュリティハンズオン][bloomtech-coverage] — BLOOMTECH CAREER Media's AI news roundup |
+| 4 | Jun 21, 2026 | [AI 에이전트, 개발과 운영 전반을 혁신하다][tech-news-weekly-coverage] — tech-news-weekly |
+| 3 | Jun 17, 2026 | [ID-JAG The Hard Way: 실패로 배우는 AI 에이전트 보안 핸즈온][velopers-tutorial] — Velopers |
+| 2 | Apr 30, 2026 | [AI 시대에 인증 과제를 해결할 차세대 표준 후보, ID-JAG][velopers-introduction] — Velopers |
+| 1 | Apr 1, 2026 | [AIエージェントの光と影：ソースコード流出と次世代認証「ID-JAG」が問う未来🛡️（2026年4月1日ニュース）][linux3-coverage] — Third Generation Linux |
 
+[bloomtech-coverage]: https://bloomtechcareer.com/media/contents/july-15-ai-news-roundup-a-remarkable-productivity-revolution-achieving-141-person-months-of-development-per-person-through-voice-commands-and-ai-and-more/
+[tech-news-weekly-coverage]: https://tech-news-weekly.kr/weekly/ai-agent-innovation-devops-frontend
+[velopers-introduction]: https://www.velopers.kr/post/6765
+[velopers-tutorial]: https://www.velopers.kr/post/7078
+[linux3-coverage]: https://linux3.net/archives/2560
+[evan-go-mcp]: https://github.com/kkdai/id-jag-mcp
 [260829-community]: https://github.com/dorsha/awesome-cross-app-access
 [260723-community]: https://www.evanlin.com/id-jag-mcp-go/
 [260728-community]: https://dev.to/gde/learning-notesgolang-authorization-challenges-in-the-ai-agent-era-what-is-id-jag-and-why-i-jfb
