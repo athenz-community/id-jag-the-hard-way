@@ -90,6 +90,10 @@ The foundational ID-JAG article behind ID-JAG The Hard Way is listed under [Exte
 
 Want to try XAA without building everything from scratch? Visit **XAA.dev** at <https://xaa.dev/> or [launch the live demo](https://app.xaa.dev?auto_connect=todo0) to run a preconfigured ID-JAG flow in seconds—no account or local setup required.
 
+Also, ID-JAG The Hard Way was selected for inclusion in the [XERJ Corpus Hub](https://hub.xerj.org/corpus/mlajkim--id-jag-the-hard-way), a public index of open-source implementations for AI coding agents.
+
+![ID-JAG The Hard Way listed in the XERJ Corpus Hub](image.png)
+
 ## Community Mentions
 
 > [!NOTE]
