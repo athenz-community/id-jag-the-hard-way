@@ -105,6 +105,10 @@ ID-JAG The Hard Way의 바탕이 된 ID-JAG 소개 글은 [Okta xaa.dev의 Exter
 
 모든 구성 요소를 직접 만들기 전에 XAA를 체험하고 싶다면 <https://xaa.dev/>의 **XAA.dev**를 방문하거나 [라이브 데모](https://app.xaa.dev?auto_connect=todo0)를 실행해 보세요. 계정이나 로컬 환경 설정 없이 미리 구성된 ID-JAG 흐름을 바로 실행할 수 있습니다.
 
+또한 ID-JAG The Hard Way는 AI 코딩 에이전트를 위한 오픈소스 구현 사례를 모은 공개 인덱스 [XERJ Corpus Hub](https://hub.xerj.org/corpus/mlajkim--id-jag-the-hard-way)에 선정되어 등재되었습니다.
+
+![XERJ Corpus Hub에 등재된 ID-JAG The Hard Way](../../image.png)
+
 <a id="community-mentions"></a>
 
 ## 커뮤니티 소개 글
