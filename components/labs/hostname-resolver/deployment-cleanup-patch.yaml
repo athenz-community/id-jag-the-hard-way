@@ -1,0 +1,14 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: athenz-zts-server
+          env:
+            - name: JDK_JAVA_OPTIONS
+              $patch: delete
+          volumeMounts:
+            - mountPath: /athenz/plugins/idthw-hostname-resolver.jar
+              $patch: delete
+      volumes:
+        - name: idthw-hostname-resolver
+          $patch: delete

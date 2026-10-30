@@ -1,0 +1,17 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: athenz-zts-server
+          env:
+            - name: JDK_JAVA_OPTIONS
+              value: -Dathenz.zts.hostname_resolver_factory_class=io.github.mlajkim.idthw.cert.DnsHostnameResolverFactory
+          volumeMounts:
+            - name: idthw-hostname-resolver
+              mountPath: /athenz/plugins/idthw-hostname-resolver.jar
+              subPath: idthw-hostname-resolver.jar
+              readOnly: true
+      volumes:
+        - name: idthw-hostname-resolver
+          configMap:
+            name: idthw-hostname-resolver
