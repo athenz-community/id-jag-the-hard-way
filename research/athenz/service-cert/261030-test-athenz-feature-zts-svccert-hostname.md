@@ -1,6 +1,6 @@
 # Goal
 
-Use `zts-svccert` inside the `athenz` namespace's `athenz-cli` deployment to compare hostname SANs in CSRs, get rejected when a certificate request omits its provider, then obtain a service certificate from ZTS and inspect its hostname URI.
+Use `zts-svccert` inside the `athenz` namespace's `athenz-cli` deployment to compare hostname SANs in CSRs, get rejected when a certificate request omits its provider, then compare service certificates issued without and with a hostname.
 
 <!-- TOC depthFrom:2 depthTo:2 -->
 
@@ -15,27 +15,28 @@ Use `zts-svccert` inside the `athenz` namespace's `athenz-cli` deployment to com
 - [Step 4. Check the hostname SAN](#step-4-check-the-hostname-san)
 - [Step 5. Preserve SPIFFE and instance-ID URIs](#step-5-preserve-spiffe-and-instance-id-uris)
 - [Step 6. Get rejected without a provider](#step-6-get-rejected-without-a-provider)
-- [Step 7. Get a service certificate and inspect it](#step-7-get-a-service-certificate-and-inspect-it)
+- [Step 7. Get a service certificate without a hostname](#step-7-get-a-service-certificate-without-a-hostname)
+- [Step 8. Get a service certificate with a hostname](#step-8-get-a-service-certificate-with-a-hostname)
 - [Clean-up 1. Remove the test files](#clean-up-1-remove-the-test-files)
 
 <!-- /TOC -->
 
 <details>
-<summary>Last verified on Oct 30, 2026 — 🟡 Certificate issuance pending</summary>
+<summary>Last verified on Oct 30, 2026 — Certificate comparison passed (operator log)</summary>
 
 | # | Date | Confirmed Working |
 |---|---|---|
-| 1 | Oct 30, 2026 | ✅ Container CLI interface — `athenz/deploy/athenz-cli` accepts `-hostname worker-1.example.test -version` with exit status `0`; help lists `-hostname` |
-| 2 | Oct 30, 2026 | ✅ Resolver preparation — compiled against the running ZTS APIs; missing/unresolvable hostname tests passed, and ZTS resolved the CLI pod hostname to its IP; deployment patch accepted in server dry-run |
-| 3 | Oct 30, 2026 | 🟡 Permission setup, resolver activation, CSR checks, certificate issuance/inspection, and cleanup await operator verification |
+| 1 | Oct 30, 2026 | ✅ Both certificate requests succeeded through `sys.auth.zts`; only the request with `-hostname` added the hostname URI, while service CN, DNS, IP, and SPIFFE identity stayed the same |
 
 The deployment uses `ghcr.io/ctyano/athenz-cli:v1.12.48`. Its CLI prints `zts-svccert (development version)` even though the image has a release tag. OpenSSL 3.5.8 was also confirmed inside the container. The CLI check verifies flag parsing only.
 
-Setup 1 and the build/DNS test in Setup 3 contain captured output. The remaining result blocks are expected examples awaiting operator verification. The ConfigMap and deployment changes were checked with dry-run commands; they have not been applied.
+Setups 1, 3, 4, and 5 and Steps 7 and 8 contain captured operator output. Setup 2 records an existing-directory error that stopped key creation; later issuance reused the existing key. The standalone CSR checks, missing-provider rejection, and cleanup still show expected results.
 
-Private-key and certificate reads are prohibited by LY AI Policy rule 1 in the authoring session, so credential-dependent setup, issuance, and certificate inspection below are for the operator to run. The [policy documentation](https://github.com/secdev-whc/ai-cli-hardening) describes the managed settings and the user-run removal procedure.
+The initial template-based Setup 4 command failed twice with `404` / `validateSolutionTemplates: Template not found: zts_instance_launch_provider`. The explicit grants in the revised Setup 4 then succeeded. The operator issued the hostname certificate first and the baseline afterward; the guide presents the baseline first for comparison.
 
-Step 7 uses `sys.auth.zts` and checks the issued certificate, covering the registration path added by #3490. The Secure Boot fallback in #3494 is a separate provider flow. Keep the release review's #3490 status pending until the issuance result is confirmed.
+Private-key and certificate reads are prohibited by LY AI Policy rule 1 in the authoring session. Credential-dependent operations were run by the operator; the records in Steps 7 and 8 use the decoded metadata they supplied, with public key and signature value omitted. The [policy documentation](https://github.com/secdev-whc/ai-cli-hardening) describes the managed settings and the user-run removal procedure.
+
+Steps 7 and 8 verify the issued-certificate comparison for #3490: both requests succeed through `sys.auth.zts`, and only the request with `-hostname` produces a hostname URI SAN. The Secure Boot fallback in #3494 is a separate provider flow and is not verified here.
 
 </details>
 
@@ -43,11 +44,7 @@ Step 7 uses `sys.auth.zts` and checks the issued certificate, covering the regis
 
 This tutorial requires the following to be completed:
 
-1. Complete the main [ID-JAG The Hard Way lab](https://github.com/mlajkim/id-jag-the-hard-way) through the `human.idjag-learner` service setup, and keep the Athenz deployments running
-1. Select the lab's Kubernetes context and have permission to run `kubectl exec` in the CLI pod
-1. Keep the tutorial's ZMS port-forward and administrator identity available for the shared management helpers; the CLI pod also needs its administrator identity mounted at `/var/run/athenz`
-
-Run the blocks from the IDTHW repository root. Setup 2 creates a test directory and key inside the CLI pod; subsequent steps reuse those files. Keep the deployment's single CLI pod running throughout the procedure. If it is replaced, repeat Setup 2 and the CSR generation steps. Setups 3–5 prepare the IPv4 Kubernetes lab for live issuance in Step 7; enabling the resolver restarts ZTS.
+1. Complete the main [ID-JAG The Hard Way lab](https://github.com/mlajkim/id-jag-the-hard-way)
 
 # Steps
 
@@ -55,7 +52,7 @@ Here is the procedure to get to the goals.
 
 ## Setup 1. Check the CLI in the deployment
 
-Inspect the deployment's image and confirm its existing CLI accepts `-hostname`. The version check exits before loading a key:
+Run the blocks from the IDTHW repository root. Inspect the deployment's image and confirm its existing CLI accepts `-hostname`. The version check exits before loading a key:
 
 ```sh
 kubectl -n athenz get deployment athenz-cli \
@@ -65,7 +62,7 @@ kubectl -n athenz exec deploy/athenz-cli -- \
 ```
 
 ```sh
-# Captured — Oct 30, 2026
+# Captured operator output — Oct 30, 2026
 # ghcr.io/ctyano/athenz-cli:v1.12.48
 # zts-svccert (development version)
 ```
@@ -84,11 +81,12 @@ SH
 ```
 
 ```sh
-# Expected result
-# Test key created: /tmp/idthw-svccert-hostname/service.key
+# Captured operator output — Oct 30, 2026; rerun with an existing directory
+# mkdir: can't create directory '/tmp/idthw-svccert-hostname': File exists
+# command terminated with exit code 1
 ```
 
-For a fresh run, remove an existing test directory using the first block under Clean-up 1.
+The directory already existed in this run, so `&&` stopped execution before `openssl genrsa`; the existing key was preserved and used for the later certificate requests. For a fresh run, remove an existing test directory using the first block under Clean-up 1 before repeating this setup.
 
 ## Setup 3. Build the DNS resolver for ZTS
 
@@ -99,35 +97,79 @@ bash components/labs/hostname-resolver/build.sh
 ```
 
 ```sh
-# Captured — Oct 30, 2026; final build path shown relative to the repository root
+# Captured operator output — Oct 30, 2026
 #   ·  Reading the CLI pod IP for the resolver test...
 #   ·  Compiling and testing the resolver with the ZTS container's JDK and Athenz APIs...
 # PASS: missing hostnames are rejected
 # PASS: unresolved hostname is rejected
 # PASS: 10-244-0-22.athenz.pod.cluster.local resolves to 10.244.0.22 from ZTS
-#   ✔  Built components/labs/hostname-resolver/target/idthw-hostname-resolver.jar
+#   ✔  Built /Users/jekim/jekim_workspace/jekim_ly_internal_context/idthw/components/labs/hostname-resolver/target/idthw-hostname-resolver.jar
 ```
 
 The pod IP and corresponding DNS name change when the CLI pod is replaced. This resolver uses cluster DNS; provider authorization and caller-IP validation remain enforced by ZTS.
 
-## Setup 4. Authorize the provider and hostname suffix
+<details>
+<summary>Recorded working-directory error</summary>
 
-Enable the tutorial's provider grant for `human.idjag-learner`, then give `sys.auth.zts` permission to use hostnames under `.athenz.pod.cluster.local` through a research role and policy:
+The first build attempt ran from the parent `jekim_ly_internal_context` directory:
 
 ```sh
-./tools/athenz/enable-cert-provider.sh human idjag-learner &&
+# Captured operator log — Oct 30, 2026
+# $ bash components/labs/hostname-resolver/build.sh
+# bash: components/labs/hostname-resolver/build.sh: No such file or directory
+```
+
+The operator ran `cd idthw` and repeated the build successfully, as recorded above.
+
+</details>
+
+## Setup 4. Authorize the provider and hostname suffix
+
+Grant `sys.auth.zts` permission to launch instances of the existing `human.idjag-learner` service and use hostnames under `.athenz.pod.cluster.local`. Create a research role and policy in each domain. These explicit grants work without the `zts_instance_launch_provider` solution template required by `enable-cert-provider.sh`:
+
+```sh
+./tools/athenz/create-role.sh human svccert-hostname-test &&
+./tools/athenz/add-role-member.sh human svccert-hostname-test sys.auth.zts &&
+./tools/athenz/add-policy.sh human svccert-hostname-test launch service.idjag-learner &&
 ./tools/athenz/create-role.sh sys.auth svccert-hostname-test &&
 ./tools/athenz/add-role-member.sh sys.auth svccert-hostname-test sys.auth.zts &&
 ./tools/athenz/add-policy.sh sys.auth svccert-hostname-test launch hostname.athenz.pod.cluster.local
 ```
 
 ```sh
-# Expected success excerpts; the helpers print their progress and CLI responses too
-#   ✔  ZTS Certificate Provider enabled for human.idjag-learner
+# Captured operator output — Oct 30, 2026
+#   ·  Creating Role: human:role.svccert-hostname-test...
+#   ✔  Role created: human:role.svccert-hostname-test
+#   ·  Adding Member sys.auth.zts to Role: human:role.svccert-hostname-test...
+#   ✔  sys.auth.zts  →  human:role.svccert-hostname-test
+#   ·  Creating Policy: human:policy.svccert-hostname-test_launch_service_idjag-learner...
+#   ✔  Policy created: human:policy.svccert-hostname-test_launch_service_idjag-learner
+#   ·  Creating Role: sys.auth:role.svccert-hostname-test...
 #   ✔  Role created: sys.auth:role.svccert-hostname-test
+#   ·  Adding Member sys.auth.zts to Role: sys.auth:role.svccert-hostname-test...
 #   ✔  sys.auth.zts  →  sys.auth:role.svccert-hostname-test
+#   ·  Creating Policy: sys.auth:policy.svccert-hostname-test_launch_hostname_athenz_pod_cluster_local...
 #   ✔  Policy created: sys.auth:policy.svccert-hostname-test_launch_hostname_athenz_pod_cluster_local
 ```
+
+<details>
+<summary>Recorded template error — two attempts</summary>
+
+The earlier command chain began with `enable-cert-provider.sh`. Both attempts stopped at the missing template before reaching the remaining commands:
+
+```sh
+# Captured operator log — Oct 30, 2026; identical failure recorded twice
+# $ ./tools/athenz/enable-cert-provider.sh human idjag-learner
+#   ·  Enabling ZTS Certificate Provider for human.idjag-learner...
+# code: 404
+# message: 'validateSolutionTemplates: Template not found: zts_instance_launch_provider'
+#
+# command terminated with exit code 1
+```
+
+The explicit role and policy commands above supplied the required grants without that template.
+
+</details>
 
 ## Setup 5. Enable the DNS resolver in ZTS
 
@@ -139,7 +181,7 @@ kubectl -n athenz create configmap idthw-hostname-resolver \
 ```
 
 ```sh
-# Expected result
+# Captured operator output — Oct 30, 2026
 # configmap/idthw-hostname-resolver created
 ```
 
@@ -159,10 +201,16 @@ fi
 ```
 
 ```sh
-# Expected final result; rollout progress varies
+# Captured operator output — Oct 30, 2026
 # deployment.apps/athenz-zts-server patched
+# Waiting for deployment spec update to be observed...
+# Waiting for deployment "athenz-zts-server" rollout to finish: 0 out of 1 new replicas have been updated...
+# Waiting for deployment "athenz-zts-server" rollout to finish: 0 of 1 updated replicas are available...
+# Waiting for deployment "athenz-zts-server" rollout to finish: 0 of 1 updated replicas are available...
 # deployment "athenz-zts-server" successfully rolled out
 ```
+
+The [deployment patch](../../../components/labs/hostname-resolver/deployment-patch.yaml) sets `-Dathenz.zts.hostname_resolver_factory_class=io.github.mlajkim.idthw.cert.DnsHostnameResolverFactory` through `JDK_JAVA_OPTIONS`. At startup, [ZTS loads that factory and calls `create()`](https://github.com/AthenZ/athenz/blob/v1.12.48/servers/zts/src/main/java/com/yahoo/athenz/zts/ZTSImpl.java#L995) to obtain the resolver. This setting activates the resolver; Setup 4's policies authorize the certificate requests.
 
 ## Step 1. Generate a CSR without a hostname
 
@@ -342,9 +390,74 @@ SH
 
 This is a passing negative check only when that exact error appears with exit status `1`. A key-loading error, an unknown-flag error, or a missing-ZTS-URL error does not verify this condition.
 
-## Step 7. Get a service certificate and inspect it
+## Step 7. Get a service certificate without a hostname
 
-Request a service certificate from ZTS using `sys.auth.zts`. `-use-instance-register-token` authenticates with the mounted administrator identity and obtains attestation for the existing service, so the disposable key from Setup 2 can be used without registering its public key. For live issuance, use the CLI pod's resolvable hostname and IP in place of the CSR-only example `worker-1.example.test`:
+Request a baseline certificate from ZTS using `sys.auth.zts`, omitting `-hostname`. Keep the same disposable key, service, provider, and pod IP for Step 8. `-use-instance-register-token` authenticates with the mounted administrator identity and obtains attestation for the existing service, so the key from Setup 2 can be used without registering its public key:
+
+```sh
+kubectl -n athenz exec -i deploy/athenz-cli -- sh <<'SH'
+_svccert_ip=$(hostname -i | awk '{print $1}') &&
+zts-svccert \
+  -zts https://athenz-zts-server.athenz:4443/zts/v1 \
+  -use-instance-register-token \
+  -svc-key-file /var/run/athenz/athenz_admin.private.pem \
+  -svc-cert-file /var/run/athenz/athenz_admin.cert.pem \
+  -cacert /etc/ssl/certs/ca-certificates.crt \
+  -private-key /tmp/idthw-svccert-hostname/service.key \
+  -domain human -service idjag-learner \
+  -dns-domain zts.athenz.cloud \
+  -provider sys.auth.zts \
+  -instance "research-3490-baseline-$(date +%s)" \
+  -ip "${_svccert_ip}" \
+  -cert-file /tmp/idthw-svccert-hostname/without-hostname.cert.pem &&
+printf 'Certificate saved: /tmp/idthw-svccert-hostname/without-hostname.cert.pem\n'
+SH
+```
+
+```sh
+# Captured operator output — Oct 30, 2026
+# Certificate saved: /tmp/idthw-svccert-hostname/without-hostname.cert.pem
+```
+
+Read the baseline certificate with its public key and signature value omitted. Confirm that the service DNS, IP, SPIFFE, and instance-ID entries are present and there is no `athenz://hostname/` URI:
+
+```sh
+kubectl -n athenz exec deploy/athenz-cli -- \
+  openssl x509 -in /tmp/idthw-svccert-hostname/without-hostname.cert.pem \
+  -noout -text -certopt no_pubkey,no_sigdump
+```
+
+```sh
+# Captured operator output — Oct 30, 2026
+# Certificate:
+#     Data:
+#         Version: 3 (0x2)
+#         Serial Number:
+#             cf:78:b9:ed:13:7a:f9:f7:77:e9:46:7e:26:de:22:52:a8:1d:2a:4a
+#         Signature Algorithm: sha256WithRSAEncryption
+#         Issuer: CN=Test CA Certificate
+#         Validity
+#             Not Before: Oct 30 02:14:03 2026 GMT
+#             Not After : Nov 29 02:14:03 2026 GMT
+#         Subject: C=US, O=Oath Inc., OU=Athenz, CN=human.idjag-learner
+#         X509v3 extensions:
+#             X509v3 Basic Constraints:
+#                 CA:FALSE
+#             X509v3 Extended Key Usage:
+#                 TLS Web Client Authentication, TLS Web Server Authentication
+#             X509v3 Key Usage:
+#                 Digital Signature, Key Encipherment
+#             X509v3 Authority Key Identifier:
+#                 BA:81:BD:37:DD:AC:18:CB:0F:AC:4A:94:3D:D4:DC:5F:EC:F7:43:69
+#             X509v3 Subject Alternative Name:
+#                 DNS:idjag-learner.human.zts.athenz.cloud, IP Address:10.244.0.22, URI:spiffe://human/sa/idjag-learner, URI:athenz://instanceid/sys.auth.zts/research-3490-baseline-1793326443
+```
+
+The baseline contains the service DNS, IP, SPIFFE, and instance-ID SANs, with no hostname URI.
+
+## Step 8. Get a service certificate with a hostname
+
+Repeat the request with `-hostname`, using the CLI pod's resolvable hostname and IP in place of the CSR-only example `worker-1.example.test`. Each request uses a fresh instance ID and a separate certificate file:
 
 ```sh
 kubectl -n athenz exec -i deploy/athenz-cli -- sh <<'SH'
@@ -371,7 +484,7 @@ SH
 ```
 
 ```sh
-# Expected result; example uses CLI pod IP 10.244.0.22
+# Captured operator output — Oct 30, 2026
 # 10.244.0.22       10-244-0-22.athenz.pod.cluster.local  10-244-0-22.athenz.pod.cluster.local
 # Certificate saved: /tmp/idthw-svccert-hostname/service.cert.pem
 ```
@@ -385,17 +498,49 @@ kubectl -n athenz exec deploy/athenz-cli -- \
 ```
 
 ```sh
-# Expected SAN entries, shown separately; example uses CLI pod IP 10.244.0.22
-# DNS:idjag-learner.human.zts.athenz.cloud
-# IP Address:10.244.0.22
-# URI:athenz://hostname/10-244-0-22.athenz.pod.cluster.local
+# Captured operator output — Oct 30, 2026
+# Certificate:
+#     Data:
+#         Version: 3 (0x2)
+#         Serial Number:
+#             98:13:13:0e:f2:39:6b:28:08:b4:a6:08:1d:ff:56:99:1a:bf:cf:9d
+#         Signature Algorithm: sha256WithRSAEncryption
+#         Issuer: CN=Test CA Certificate
+#         Validity
+#             Not Before: Oct 30 02:08:50 2026 GMT
+#             Not After : Nov 29 02:08:50 2026 GMT
+#         Subject: C=US, O=Oath Inc., OU=Athenz, CN=human.idjag-learner
+#         X509v3 extensions:
+#             X509v3 Basic Constraints:
+#                 CA:FALSE
+#             X509v3 Extended Key Usage:
+#                 TLS Web Client Authentication, TLS Web Server Authentication
+#             X509v3 Key Usage:
+#                 Digital Signature, Key Encipherment
+#             X509v3 Authority Key Identifier:
+#                 BA:81:BD:37:DD:AC:18:CB:0F:AC:4A:94:3D:D4:DC:5F:EC:F7:43:69
+#             X509v3 Subject Alternative Name:
+#                 DNS:idjag-learner.human.zts.athenz.cloud, IP Address:10.244.0.22, URI:spiffe://human/sa/idjag-learner, URI:athenz://instanceid/sys.auth.zts/research-3490-1793326130, URI:athenz://hostname/10-244-0-22.athenz.pod.cluster.local
 ```
 
-The command prints the remaining certificate metadata too. Confirm that its Subject CN is `human.idjag-learner`, the service DNS SAN is preserved, and the hostname URI matches the value saved in `/tmp/idthw-svccert-hostname/hostname.txt`. Its IP SAN must match the CLI pod IP. The issuer, serial number, validity period, and instance ID depend on the actual issuance.
+Both value columns below come from the operator's actual certificate inspection output. The same service identity and CLI pod IP appear in both certificates.
+
+| Key | Value (without hostname) | Value (with hostname) | Explanation |
+|---|---|---|---|
+| Subject CN | `human.idjag-learner` | `human.idjag-learner` | Both certificates represent the same Athenz service |
+| DNS SAN | `idjag-learner.human.zts.athenz.cloud` | `idjag-learner.human.zts.athenz.cloud` | The service DNS identity is preserved |
+| IP SAN | `10.244.0.22` | `10.244.0.22` | Both requests use the CLI pod IP; the provider checks it against the caller IP |
+| SPIFFE URI SAN | `spiffe://human/sa/idjag-learner` | `spiffe://human/sa/idjag-learner` | The same service identity is expressed as a SPIFFE ID |
+| Instance-ID URI SAN | `athenz://instanceid/sys.auth.zts/research-3490-baseline-1793326443` | `athenz://instanceid/sys.auth.zts/research-3490-1793326130` | Each issuance uses a fresh instance ID under the same provider |
+| Hostname URI SAN | Absent | `athenz://hostname/10-244-0-22.athenz.pod.cluster.local` | `-hostname` adds the instance hostname URI; the main #3490 check |
+
+The recorded comparison passes: the hostname URI is added while the service CN, DNS, IP, and SPIFFE identity stay the same. On another run, compare the hostname URI with `/tmp/idthw-svccert-hostname/hostname.txt` and the IP SAN with the current CLI pod IP. The issuer, serial number, validity period, and instance ID depend on the actual issuance.
+
+Both requests select `sys.auth.zts`, but the hostname lookup is conditional. For this single-IP baseline, [`InstanceZTSProvider.validateHostname()`](https://github.com/AthenZ/athenz/blob/v1.12.48/libs/java/instance_provider/src/main/java/com/yahoo/athenz/instance/provider/impl/InstanceZTSProvider.java#L470) returns before calling the resolver when the hostname is empty. With `-hostname`, ZTS checks the provider's allowed hostname suffix and calls the resolver's `isValidHostname()`; the provider then calls `getAllByName(hostname)` to compare the resolved addresses with the CSR IP. Setup 5 makes the resolver available, and the supplied hostname causes these checks to use it.
 
 ## Clean-up 1. Remove the test files
 
-After finishing the checks, remove the test key, CSRs, and issued certificate from the CLI pod:
+After finishing the checks, remove the test key, CSRs, and both issued certificates from the CLI pod:
 
 ```sh
 kubectl -n athenz exec -i deploy/athenz-cli -- sh <<'SH'
@@ -409,15 +554,21 @@ SH
 # Test files removed: /tmp/idthw-svccert-hostname
 ```
 
-If you completed Setup 4, remove its research policy and role:
+If you completed Setup 4, remove its research policies and roles from both domains:
 
 ```sh
+./tools/athenz/delete-policy.sh human svccert-hostname-test_launch_service_idjag-learner &&
+./tools/athenz/delete-role.sh human svccert-hostname-test &&
 ./tools/athenz/delete-policy.sh sys.auth svccert-hostname-test_launch_hostname_athenz_pod_cluster_local &&
 ./tools/athenz/delete-role.sh sys.auth svccert-hostname-test
 ```
 
 ```sh
 # Expected result
+#   ·  Deleting policy human:policy.svccert-hostname-test_launch_service_idjag-learner...
+#   ✔  Policy deleted or already absent: human:policy.svccert-hostname-test_launch_service_idjag-learner
+#   ·  Deleting role human:role.svccert-hostname-test...
+#   ✔  Role deleted or already absent: human:role.svccert-hostname-test
 #   ·  Deleting policy sys.auth:policy.svccert-hostname-test_launch_hostname_athenz_pod_cluster_local...
 #   ✔  Policy deleted or already absent: sys.auth:policy.svccert-hostname-test_launch_hostname_athenz_pod_cluster_local
 #   ·  Deleting role sys.auth:role.svccert-hostname-test...
@@ -454,5 +605,7 @@ fi
 - [v1.12.48 CLI — registration request hostname](https://github.com/AthenZ/athenz/blob/v1.12.48/utils/zts-svccert/zts-svccert.go#L307)
 - [v1.12.48 InstanceZTSProvider — registration tokens and hostname/IP validation](https://github.com/AthenZ/athenz/blob/v1.12.48/libs/java/instance_provider/src/main/java/com/yahoo/athenz/instance/provider/impl/InstanceZTSProvider.java)
 - [v1.12.48 DataCache — provider hostname suffix authorization](https://github.com/AthenZ/athenz/blob/v1.12.48/servers/zts/src/main/java/com/yahoo/athenz/zts/cache/DataCache.java#L227)
+- [v1.12.48 ZTSImpl — load the configured hostname resolver factory](https://github.com/AthenZ/athenz/blob/v1.12.48/servers/zts/src/main/java/com/yahoo/athenz/zts/ZTSImpl.java#L995)
+- [v1.12.48 X509CertRequest — hostname authorization and resolver validation](https://github.com/AthenZ/athenz/blob/v1.12.48/servers/zts/src/main/java/com/yahoo/athenz/zts/cert/X509CertRequest.java#L228)
 - [v1.12.48 HostnameResolver interface](https://github.com/AthenZ/athenz/blob/v1.12.48/libs/java/server_common/src/main/java/com/yahoo/athenz/common/server/dns/HostnameResolver.java)
 - [Athenz PR #3494 — secure boot provider hostname fallback](https://github.com/AthenZ/athenz/pull/3494)
